@@ -575,7 +575,11 @@
             return 'non valido';
           }
         })();
-        id('authStatus').textContent = `Non autenticato. Cloud attivo: ${projectRef} (${supabaseConfig.source}).`;
+        const usingDefaultCloud = supabaseConfig.source === 'default';
+        const cloudNote = usingDefaultCloud
+          ? 'Stai usando il cloud predefinito: configura il tuo progetto Supabase per accedere con il tuo account.'
+          : `Cloud attivo: ${projectRef} (${supabaseConfig.source}).`;
+        id('authStatus').textContent = `Non autenticato. ${cloudNote}`;
       }
 
       async function register() {
@@ -627,7 +631,10 @@
         if (error) {
           const msg = (error.message || '').toLowerCase();
           if (msg.includes('invalid login credentials')) {
-            showAuthMsg('Login fallito: credenziali non valide. Controlla email/password e riprova.', 'err');
+            const extraHint = supabaseConfig.source === 'default'
+              ? ' Verifica anche di essere collegato al progetto Supabase corretto (non al cloud predefinito).'
+              : '';
+            showAuthMsg(`Login fallito: credenziali non valide. Controlla email/password e riprova.${extraHint}`, 'err');
             return;
           }
           showAuthMsg(`Login fallito: ${error.message}`, 'err');
@@ -1106,7 +1113,7 @@
         currentUser = data.user;
 
         if (!currentUser) {
-          id('authStatus').textContent = 'Non autenticato.';
+          showCloudTargetInfo();
           setLoggedInUI(false);
           showAuthMsg('');
           id('myRows').innerHTML = '';
