@@ -256,9 +256,37 @@
     </div>
 
     <script>
-      const SUPABASE_URL = window.SUPABASE_URL || 'https://xxgstjxgrhkrmeqosoak.supabase.co';
-      const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_Bjvs0ktNO_fwk9V2W3hW7w_hiln-vII';
+      const DEFAULT_SUPABASE_URL = 'https://xxgstjxgrhkrmeqosoak.supabase.co';
+      const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_Bjvs0ktNO_fwk9V2W3hW7w_hiln-vII';
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
+
+      function resolveSupabaseConfig() {
+        const params = new URLSearchParams(window.location.search);
+        const urlFromQuery = params.get('supabase_url') || '';
+        const keyFromQuery = params.get('supabase_key') || '';
+
+        if (urlFromQuery && keyFromQuery) {
+          localStorage.setItem('timbrature.supabase.url', urlFromQuery);
+          localStorage.setItem('timbrature.supabase.key', keyFromQuery);
+        }
+
+        const urlFromStorage = localStorage.getItem('timbrature.supabase.url') || '';
+        const keyFromStorage = localStorage.getItem('timbrature.supabase.key') || '';
+
+        return {
+          url: window.SUPABASE_URL || urlFromStorage || DEFAULT_SUPABASE_URL,
+          key: window.SUPABASE_ANON_KEY || keyFromStorage || DEFAULT_SUPABASE_ANON_KEY,
+          source: window.SUPABASE_URL && window.SUPABASE_ANON_KEY
+            ? 'window'
+            : urlFromStorage && keyFromStorage
+              ? 'localStorage'
+              : 'default'
+        };
+      }
+
+      const supabaseConfig = resolveSupabaseConfig();
+      const SUPABASE_URL = supabaseConfig.url;
+      const SUPABASE_ANON_KEY = supabaseConfig.key;
 
       const missingSupabaseConfig = [];
       if (!SUPABASE_URL || SUPABASE_URL.includes('INSERISCI_')) missingSupabaseConfig.push('SUPABASE_URL');
@@ -356,6 +384,17 @@
       function setProfileUI(user) {
         id('nome').value = user?.user_metadata?.full_name || '';
         id('email').value = user?.email || '';
+      }
+
+      function showCloudTargetInfo() {
+        const projectRef = (() => {
+          try {
+            return new URL(SUPABASE_URL).hostname.split('.')[0];
+          } catch (_) {
+            return 'non valido';
+          }
+        })();
+        id('authStatus').textContent = `Non autenticato. Cloud attivo: ${projectRef} (${supabaseConfig.source}).`;
       }
 
       async function register() {
@@ -512,7 +551,7 @@
           ].join('\n');
 
           return {
-            message: `${operationLabel}: la tabella cloud public.timbrature_records non esiste in questo progetto Supabase${projectLabel}. Apri il file supabase/setup.sql (o README.md, sezione 'Crea tabella e policy RLS') e incolla quelle query nel SQL Editor del progetto corretto.\nDettaglio tecnico: ${error.message}`,
+            message: `${operationLabel}: la tabella cloud public.timbrature_records non esiste in questo progetto Supabase${projectLabel}. Apri il file supabase/setup.sql (o README.md, sezione 'Crea tabella e policy RLS') e incolla quelle query nel SQL Editor del progetto corretto. Se vuoi cambiare cloud rapidamente senza toccare il codice, apri la pagina con ?supabase_url=https://TUO-PROGETTO.supabase.co&supabase_key=TUO_ANON_KEY.\nDettaglio tecnico: ${error.message}`,
             sqlHint
           };
         }
@@ -699,6 +738,7 @@
       async function init() {
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
+        showCloudTargetInfo();
 
         id('loginBtn').addEventListener('click', login);
         id('registerBtn').addEventListener('click', register);
