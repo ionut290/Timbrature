@@ -274,15 +274,16 @@
         <div class="main-content">
       <div class="card" id="authBox">
         <h2>Accesso cloud</h2>
+        <form id="authForm">
         <div class="grid" id="authInputs">
           <label>Nome (solo registrazione)
-            <input type="text" id="authName" placeholder="Mario Rossi" />
+            <input type="text" id="authName" placeholder="Mario Rossi" autocomplete="name" />
           </label>
           <label>Email
-            <input type="email" id="authEmail" placeholder="mario@azienda.it" />
+            <input type="email" id="authEmail" placeholder="mario@azienda.it" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" />
           </label>
           <label>Password
-            <input type="password" id="authPassword" placeholder="almeno 6 caratteri" />
+            <input type="password" id="authPassword" placeholder="almeno 6 caratteri" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" />
           </label>
         </div>
         <div class="auth-row" style="margin-top: 12px;" id="authRow">
@@ -292,6 +293,7 @@
           <span class="small" id="authStatus">Non autenticato.</span>
         </div>
         <p id="authEsito" class="msg"></p>
+        </form>
       </div>
 
       <div class="card" id="userBox">
@@ -619,12 +621,23 @@
           return;
         }
 
-        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        id('loginBtn').disabled = true;
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        id('loginBtn').disabled = false;
         if (error) {
+          const msg = (error.message || '').toLowerCase();
+          if (msg.includes('invalid login credentials')) {
+            showAuthMsg('Login fallito: credenziali non valide. Controlla email/password e riprova.', 'err');
+            return;
+          }
           showAuthMsg(`Login fallito: ${error.message}`, 'err');
           return;
         }
 
+        if (data?.user) {
+          currentUser = data.user;
+          await refreshSession();
+        }
         showAuthMsg('Accesso effettuato.', 'ok');
       }
 
@@ -1112,6 +1125,10 @@
         showCloudTargetInfo();
 
         id('loginBtn').addEventListener('click', login);
+        id('authForm').addEventListener('submit', async (event) => {
+          event.preventDefault();
+          await login();
+        });
         id('registerBtn').addEventListener('click', register);
         id('logoutBtn').addEventListener('click', logout);
         id('saveProfile').addEventListener('click', saveProfile);
