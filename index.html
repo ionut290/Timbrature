@@ -513,28 +513,15 @@
       const SUPABASE_KEY_STORAGE_KEY = 'timbrature.supabase.key';
 
       function resolveSupabaseConfig() {
-        const params = new URLSearchParams(window.location.search);
-        const urlFromQuery = params.get('supabase_url') || '';
-        const keyFromQuery = params.get('supabase_key') || '';
-
-        if (urlFromQuery && keyFromQuery) {
-          localStorage.setItem(SUPABASE_URL_STORAGE_KEY, urlFromQuery);
-          localStorage.setItem(SUPABASE_KEY_STORAGE_KEY, keyFromQuery);
-        }
-
-        const urlFromStorage = localStorage.getItem('timbrature.supabase.url') || '';
-        const keyFromStorage = localStorage.getItem('timbrature.supabase.key') || '';
         const urlFromWindow = window.SUPABASE_URL || '';
         const keyFromWindow = window.SUPABASE_ANON_KEY || '';
 
         return {
-          url: urlFromWindow || urlFromStorage || DEFAULT_SUPABASE_URL,
-          key: keyFromWindow || keyFromStorage || DEFAULT_SUPABASE_ANON_KEY,
+          url: urlFromWindow || DEFAULT_SUPABASE_URL,
+          key: keyFromWindow || DEFAULT_SUPABASE_ANON_KEY,
           source: urlFromWindow && keyFromWindow
             ? 'window'
-            : urlFromStorage && keyFromStorage
-              ? 'localStorage'
-              : 'default'
+            : 'default'
         };
       }
 
@@ -771,11 +758,7 @@
 
       function showCloudTargetInfo() {
         const projectRef = getProjectRefFromUrl(SUPABASE_URL);
-        const usingDefaultCloud = supabaseConfig.source === 'default';
-        const cloudNote = usingDefaultCloud
-          ? 'Stai usando il cloud predefinito: configura il tuo progetto Supabase per accedere con il tuo account.'
-          : `Cloud attivo: ${projectRef} (${supabaseConfig.source}).`;
-        id('authStatus').textContent = `Non autenticato. ${cloudNote}`;
+        id('authStatus').textContent = `Non autenticato. Cloud attivo: ${projectRef} (${supabaseConfig.source}).`;
       }
 
       function saveCloudConfig() {
