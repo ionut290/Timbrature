@@ -391,6 +391,30 @@
         showMsg('Profilo aggiornato nel cloud.', 'ok');
       }
 
+
+      function explainSupabaseError(error, operationLabel) {
+        if (!error) return '';
+
+        const msg = (error.message || '').toLowerCase();
+        const code = (error.code || '').toUpperCase();
+        const missingTable = msg.includes("could not find the table") && msg.includes('timbrature_records');
+
+        if (code === 'PGRST205' || code === 'PGRST204' || missingTable) {
+          const sqlHint = [
+            'create table if not exists public.timbrature_records (...);',
+            'alter table public.timbrature_records enable row level security;',
+            'create policy "read own records" on public.timbrature_records for select using (auth.uid() = user_id);',
+            'create policy "insert own records" on public.timbrature_records for insert with check (auth.uid() = user_id);',
+            'create policy "update own records" on public.timbrature_records for update using (auth.uid() = user_id) with check (auth.uid() = user_id);',
+            'create policy "delete own records" on public.timbrature_records for delete using (auth.uid() = user_id);'
+          ].join('\n');
+
+          return `${operationLabel}: la tabella cloud public.timbrature_records non esiste in questo progetto Supabase. Apri README.md (sezione 'Crea tabella e policy RLS') e incolla quelle query nel SQL Editor.\nDettaglio tecnico: ${error.message}\n\nSQL di riferimento:\n${sqlHint}`;
+        }
+
+        return `${operationLabel}: ${error.message}`;
+      }
+
       function collectPayload(stato) {
         return {
           data: id('data').value || nowDateISO(),
@@ -443,7 +467,7 @@
           .maybeSingle();
 
         if (readError) {
-          showMsg(`Errore lettura: ${readError.message}`, 'err');
+          showMsg(explainSupabaseError(readError, 'Errore lettura'), 'err');
           return;
         }
 
@@ -460,7 +484,7 @@
         }
 
         if (writeError) {
-          showMsg(`Errore salvataggio cloud: ${writeError.message}`, 'err');
+          showMsg(explainSupabaseError(writeError, 'Errore salvataggio cloud'), 'err');
           return;
         }
 
@@ -486,7 +510,7 @@
           .order('data', { ascending: true });
 
         if (error) {
-          showMsg(`Errore caricamento storico: ${error.message}`, 'err');
+          showMsg(explainSupabaseError(error, 'Errore caricamento storico'), 'err');
           return;
         }
 
@@ -517,7 +541,7 @@
           .order('data', { ascending: true });
 
         if (error) {
-          showMsg(`Errore export: ${error.message}`, 'err');
+          showMsg(explainSupabaseError(error, 'Errore export'), 'err');
           return;
         }
 
