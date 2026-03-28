@@ -182,9 +182,19 @@ where table_schema = 'public' and table_name = 'timbrature_records';
 ## 3) Avvio
 
 1. Apri `index.html` in locale o pubblica su Netlify.
-2. Registrati con email e password.
+2. Crea gli utenti in Supabase Auth (Dashboard > Authentication > Users).
 3. Fai login e inserisci le timbrature.
 4. Ogni utente vedrà solo i propri dati nello storico.
+
+## Accesso da più dispositivi contemporaneamente
+
+Per permettere allo stesso utente di restare connesso su più dispositivi nello stesso momento:
+
+1. Vai su **Supabase Dashboard** → **Authentication** → **Settings**.
+2. Nella sezione delle sessioni, disattiva l'opzione **Single session per user**.
+3. Salva le impostazioni.
+
+L'app esegue già il logout locale con `signOut({ scope: 'local' })`, quindi un logout manuale su un dispositivo non invalida le sessioni sugli altri.
 
 ## Nota
 

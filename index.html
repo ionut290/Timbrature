@@ -529,6 +529,7 @@
       let currentUser = null;
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
       let cachedPrograms = [];
+      let isManualLogoutInProgress = false;
       const menuPanelIds = ['timbratureCard', 'programCard', 'storicoCard', 'userBox', 'authBox'];
       let activeMenuPanel = 'timbratureCard';
       let menuOpen = false;
@@ -803,10 +804,15 @@
 
         // Esegue il logout solo su questo dispositivo/browser, senza invalidare
         // le altre sessioni attive dello stesso utente su altri dispositivi.
-        const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
-        if (error) {
-          showAuthMsg(`Logout fallito: ${error.message}`, 'err');
-          return;
+        isManualLogoutInProgress = true;
+        try {
+          const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
+          if (error) {
+            showAuthMsg(`Logout fallito: ${error.message}`, 'err');
+            return;
+          }
+        } finally {
+          isManualLogoutInProgress = false;
         }
 
         currentUser = null;
@@ -1523,7 +1529,10 @@
         });
 
         if (supabaseClient) {
-          supabaseClient.auth.onAuthStateChange(async () => {
+          supabaseClient.auth.onAuthStateChange(async (event) => {
+            if (event === 'SIGNED_OUT' && !isManualLogoutInProgress) {
+              showAuthMsg('Sessione chiusa da un altro dispositivo/progetto. In Supabase disattiva "Single session per user" per consentire accessi simultanei.', 'err');
+            }
             await refreshSession();
           });
         }
