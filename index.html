@@ -494,16 +494,60 @@
       const SUPABASE_URL_STORAGE_KEY = 'timbrature.supabase.url';
       const SUPABASE_KEY_STORAGE_KEY = 'timbrature.supabase.key';
 
+      function readStorageValue(key) {
+        try {
+          return (localStorage.getItem(key) || '').trim();
+        } catch (_) {
+          return '';
+        }
+      }
+
+      function writeStorageValue(key, value) {
+        try {
+          localStorage.setItem(key, value);
+        } catch (_) {
+          // Ignora errori storage (es. private mode); l'app usa comunque i valori runtime.
+        }
+      }
+
       function resolveSupabaseConfig() {
         const urlFromWindow = window.SUPABASE_URL || '';
         const keyFromWindow = window.SUPABASE_ANON_KEY || '';
         const hasWindowConfig = !!(urlFromWindow && keyFromWindow);
+        const params = new URLSearchParams(window.location.search || '');
+        const urlFromQuery = (params.get('supabase_url') || '').trim();
+        const keyFromQuery = (params.get('supabase_key') || '').trim();
+        const hasQueryConfig = !!(urlFromQuery && keyFromQuery);
+        const urlFromStorage = readStorageValue(SUPABASE_URL_STORAGE_KEY);
+        const keyFromStorage = readStorageValue(SUPABASE_KEY_STORAGE_KEY);
+        const hasStorageConfig = !!(urlFromStorage && keyFromStorage);
+
+        if (hasQueryConfig) {
+          writeStorageValue(SUPABASE_URL_STORAGE_KEY, urlFromQuery);
+          writeStorageValue(SUPABASE_KEY_STORAGE_KEY, keyFromQuery);
+        }
 
         return {
-          url: hasWindowConfig ? urlFromWindow : DEFAULT_SUPABASE_URL,
-          key: hasWindowConfig ? keyFromWindow : DEFAULT_SUPABASE_ANON_KEY,
+          url: hasWindowConfig
+            ? urlFromWindow
+            : hasQueryConfig
+              ? urlFromQuery
+              : hasStorageConfig
+                ? urlFromStorage
+                : DEFAULT_SUPABASE_URL,
+          key: hasWindowConfig
+            ? keyFromWindow
+            : hasQueryConfig
+              ? keyFromQuery
+              : hasStorageConfig
+                ? keyFromStorage
+                : DEFAULT_SUPABASE_ANON_KEY,
           source: hasWindowConfig
             ? 'window'
+            : hasQueryConfig
+              ? 'query'
+              : hasStorageConfig
+                ? 'localStorage'
             : 'default'
         };
       }
