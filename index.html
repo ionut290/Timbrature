@@ -187,6 +187,25 @@
         flex: 1;
         min-width: 0;
       }
+      .week-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .check-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .check-row input[type="checkbox"] {
+        min-height: auto;
+        width: 18px;
+        height: 18px;
+        margin: 0;
+        padding: 0;
+      }
       @media (max-width: 860px) {
         .app-shell {
           flex-direction: column;
@@ -267,6 +286,7 @@
           <div class="menu-links">
             <button type="button" class="menu-link active" data-menu-target="authBox">Accesso cloud</button>
             <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
+            <button type="button" class="menu-link" data-menu-target="programCard">Programma settimana</button>
             <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
           </div>
         </aside>
@@ -310,6 +330,60 @@
           <button class="secondary" id="saveProfile">Salva nome profilo</button>
           <p class="small">Ogni utente vede solo i propri dati grazie all'account personale.</p>
         </div>
+      </div>
+
+      <div class="card hidden" id="programCard">
+        <h2>Programma settimanale utente</h2>
+        <p class="small">Imposta la settimana di riferimento e le ore ordinarie per ogni giorno. Il sistema usa queste regole per calcolare ordinarie/straordinario.</p>
+        <div class="grid">
+          <label>Settimana (data inizio)
+            <input type="date" id="programWeekStart" />
+          </label>
+          <label>Pausa prevista?
+            <select id="programBreakEnabled">
+              <option value="true">Sì</option>
+              <option value="false">No</option>
+            </select>
+          </label>
+          <label>Minuti pausa standard
+            <input type="number" id="programBreakMinutes" min="0" value="0" />
+          </label>
+          <label>Ore recupero notturno (sabato)
+            <input type="number" id="programNightRecoveryHours" min="0" step="0.25" value="0" />
+          </label>
+        </div>
+        <div class="check-row" style="margin-top: 10px;">
+          <input type="checkbox" id="programSaturdayOrdinary" />
+          <label for="programSaturdayOrdinary" style="display:inline;font-size:14px;">Conta il sabato come ordinario (es. recupero notturno)</label>
+        </div>
+        <div class="week-grid">
+          <label>Lunedì (ore)
+            <input type="number" id="hoursMon" min="0" step="0.25" value="8" />
+          </label>
+          <label>Martedì (ore)
+            <input type="number" id="hoursTue" min="0" step="0.25" value="8" />
+          </label>
+          <label>Mercoledì (ore)
+            <input type="number" id="hoursWed" min="0" step="0.25" value="8" />
+          </label>
+          <label>Giovedì (ore)
+            <input type="number" id="hoursThu" min="0" step="0.25" value="8" />
+          </label>
+          <label>Venerdì (ore)
+            <input type="number" id="hoursFri" min="0" step="0.25" value="8" />
+          </label>
+          <label>Sabato (ore)
+            <input type="number" id="hoursSat" min="0" step="0.25" value="0" />
+          </label>
+          <label>Domenica (ore)
+            <input type="number" id="hoursSun" min="0" step="0.25" value="0" />
+          </label>
+        </div>
+        <div class="actions">
+          <button class="secondary" id="loadProgramBtn" type="button">Carica settimana</button>
+          <button id="saveProgramBtn" type="button">Salva programma</button>
+        </div>
+        <p id="programEsito" class="msg"></p>
       </div>
 
       <div class="card" id="timbratureCard">
@@ -457,7 +531,8 @@
 
       let currentUser = null;
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
-      const menuPanelIds = ['authBox', 'userBox', 'storicoCard'];
+      let cachedPrograms = [];
+      const menuPanelIds = ['authBox', 'userBox', 'programCard', 'storicoCard'];
       let activeMenuPanel = 'authBox';
 
       function id(x) { return document.getElementById(x); }
@@ -511,6 +586,40 @@
 
       function nowDateISO() {
         return new Date().toISOString().slice(0, 10);
+      }
+
+      function showProgramMsg(message, type = 'ok') {
+        id('programEsito').className = `msg ${type}`;
+        id('programEsito').textContent = message;
+      }
+
+      function isoWeekStart(dateValue) {
+        const date = new Date(`${dateValue}T00:00:00`);
+        if (Number.isNaN(date.getTime())) return nowDateISO();
+        const day = (date.getDay() + 6) % 7;
+        date.setDate(date.getDate() - day);
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      function weekDayIndex(dateValue) {
+        const date = new Date(`${dateValue}T00:00:00`);
+        return (date.getDay() + 6) % 7; // 0 lunedì ... 6 domenica
+      }
+
+      function getProgramHoursByDay(program, dayIndex) {
+        const byDay = [
+          Number(program.monday_hours || 0),
+          Number(program.tuesday_hours || 0),
+          Number(program.wednesday_hours || 0),
+          Number(program.thursday_hours || 0),
+          Number(program.friday_hours || 0),
+          Number(program.saturday_hours || 0),
+          Number(program.sunday_hours || 0)
+        ];
+        return byDay[dayIndex] || 0;
       }
 
       function currentMonthValueUTC() {
@@ -684,6 +793,159 @@
         showMsg('Profilo aggiornato nel cloud.', 'ok');
       }
 
+      function collectProgramPayload() {
+        return {
+          week_start: isoWeekStart(id('programWeekStart').value || nowDateISO()),
+          break_enabled: id('programBreakEnabled').value === 'true',
+          break_minutes: Number(id('programBreakMinutes').value || 0),
+          saturday_ordinary: id('programSaturdayOrdinary').checked,
+          night_recovery_hours: Number(id('programNightRecoveryHours').value || 0),
+          monday_hours: Number(id('hoursMon').value || 0),
+          tuesday_hours: Number(id('hoursTue').value || 0),
+          wednesday_hours: Number(id('hoursWed').value || 0),
+          thursday_hours: Number(id('hoursThu').value || 0),
+          friday_hours: Number(id('hoursFri').value || 0),
+          saturday_hours: Number(id('hoursSat').value || 0),
+          sunday_hours: Number(id('hoursSun').value || 0)
+        };
+      }
+
+      function fillProgramForm(program) {
+        if (!program) return;
+        id('programWeekStart').value = program.week_start;
+        id('programBreakEnabled').value = String(Boolean(program.break_enabled));
+        id('programBreakMinutes').value = Number(program.break_minutes || 0);
+        id('programSaturdayOrdinary').checked = Boolean(program.saturday_ordinary);
+        id('programNightRecoveryHours').value = Number(program.night_recovery_hours || 0);
+        id('hoursMon').value = Number(program.monday_hours || 0);
+        id('hoursTue').value = Number(program.tuesday_hours || 0);
+        id('hoursWed').value = Number(program.wednesday_hours || 0);
+        id('hoursThu').value = Number(program.thursday_hours || 0);
+        id('hoursFri').value = Number(program.friday_hours || 0);
+        id('hoursSat').value = Number(program.saturday_hours || 0);
+        id('hoursSun').value = Number(program.sunday_hours || 0);
+        applyBreakUI();
+      }
+
+      async function loadUserPrograms() {
+        if (!supabaseClient || !currentUser) {
+          cachedPrograms = [];
+          return [];
+        }
+        const { data, error } = await supabaseClient
+          .from('timbrature_week_programs')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('week_start', { ascending: false });
+        if (error) {
+          const explained = explainSupabaseError(error, 'Errore caricamento programmi');
+          showProgramMsg(explained.message, 'err');
+          setSqlHint(explained.sqlHint);
+          return [];
+        }
+        cachedPrograms = data || [];
+        return cachedPrograms;
+      }
+
+      async function loadProgramBySelectedWeek() {
+        if (!supabaseClient || !currentUser) return;
+        const weekStart = isoWeekStart(id('programWeekStart').value || nowDateISO());
+        id('programWeekStart').value = weekStart;
+        const { data, error } = await supabaseClient
+          .from('timbrature_week_programs')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .eq('week_start', weekStart)
+          .maybeSingle();
+        if (error) {
+          const explained = explainSupabaseError(error, 'Errore caricamento settimana');
+          showProgramMsg(explained.message, 'err');
+          setSqlHint(explained.sqlHint);
+          return;
+        }
+        if (!data) {
+          showProgramMsg('Nessun programma trovato per questa settimana. Puoi crearlo ora.', 'ok');
+          return;
+        }
+        fillProgramForm(data);
+        showProgramMsg(`Programma caricato per la settimana ${weekStart}.`, 'ok');
+      }
+
+      async function saveProgram() {
+        if (!supabaseClient || !currentUser) {
+          showProgramMsg('Devi essere autenticato per salvare il programma.', 'err');
+          return;
+        }
+        const payload = collectProgramPayload();
+        const row = {
+          user_id: currentUser.id,
+          week_start: payload.week_start,
+          break_enabled: payload.break_enabled,
+          break_minutes: payload.break_enabled ? payload.break_minutes : 0,
+          saturday_ordinary: payload.saturday_ordinary,
+          night_recovery_hours: payload.night_recovery_hours,
+          monday_hours: payload.monday_hours,
+          tuesday_hours: payload.tuesday_hours,
+          wednesday_hours: payload.wednesday_hours,
+          thursday_hours: payload.thursday_hours,
+          friday_hours: payload.friday_hours,
+          saturday_hours: payload.saturday_hours,
+          sunday_hours: payload.sunday_hours
+        };
+
+        const { error } = await supabaseClient
+          .from('timbrature_week_programs')
+          .upsert(row, { onConflict: 'user_id,week_start' });
+        if (error) {
+          const explained = explainSupabaseError(error, 'Errore salvataggio programma');
+          showProgramMsg(explained.message, 'err');
+          setSqlHint(explained.sqlHint);
+          return;
+        }
+
+        await loadUserPrograms();
+        showProgramMsg(`Programma settimana ${row.week_start} salvato.`, 'ok');
+        await loadTodayPunch();
+        await loadMyMonth();
+      }
+
+      function programForDate(dateValue) {
+        const dayISO = dateValue || nowDateISO();
+        const sorted = [...cachedPrograms].sort((a, b) => {
+          if (a.week_start === b.week_start) return 0;
+          return a.week_start > b.week_start ? -1 : 1;
+        });
+        const match = sorted.find((p) => p.week_start <= dayISO);
+        return match || null;
+      }
+
+      function resolveRulesForDate(dateValue) {
+        const program = programForDate(dateValue);
+        if (!program) {
+          return { rules: currentRules, defaultBreak: 0, breakEnabled: true };
+        }
+        const dayIdx = weekDayIndex(dateValue);
+        let ordinaryHours = getProgramHoursByDay(program, dayIdx);
+
+        if (dayIdx === 5 && program.saturday_ordinary) {
+          ordinaryHours = ordinaryHours + Number(program.night_recovery_hours || 0);
+        }
+
+        return {
+          rules: {
+            roundingMinutes: currentRules.roundingMinutes,
+            ordinaryHours
+          },
+          defaultBreak: program.break_enabled ? Number(program.break_minutes || 0) : 0,
+          breakEnabled: Boolean(program.break_enabled)
+        };
+      }
+
+      function applyBreakUI() {
+        const enabled = id('programBreakEnabled').value === 'true';
+        id('programBreakMinutes').disabled = !enabled;
+      }
+
 
       function setSqlHint(sql) {
         const hasSql = Boolean(sql);
@@ -711,7 +973,8 @@
 
         const msg = (error.message || '').toLowerCase();
         const code = (error.code || '').toUpperCase();
-        const missingTable = msg.includes("could not find the table") && msg.includes('timbrature_records');
+        const missingRecordsTable = msg.includes("could not find the table") && msg.includes('timbrature_records');
+        const missingProgramsTable = msg.includes("could not find the table") && msg.includes('timbrature_week_programs');
         const projectRef = (() => {
           try {
             return new URL(SUPABASE_URL).hostname.split('.')[0];
@@ -721,7 +984,7 @@
         })();
         const projectLabel = projectRef ? ` (project: ${projectRef})` : '';
 
-        if (code === 'PGRST205' || code === 'PGRST204' || missingTable) {
+        if (code === 'PGRST205' || code === 'PGRST204' || missingRecordsTable || missingProgramsTable) {
           const sqlHint = [
             'create extension if not exists pgcrypto;',
             '',
@@ -766,11 +1029,49 @@
             '',
             'drop policy if exists "delete own records" on public.timbrature_records;',
             'create policy "delete own records" on public.timbrature_records',
+            'for delete using (auth.uid() = user_id);',
+            '',
+            'create table if not exists public.timbrature_week_programs (',
+            '  id uuid primary key default gen_random_uuid(),',
+            '  user_id uuid not null references auth.users(id) on delete cascade,',
+            '  week_start date not null,',
+            '  monday_hours numeric default 8,',
+            '  tuesday_hours numeric default 8,',
+            '  wednesday_hours numeric default 8,',
+            '  thursday_hours numeric default 8,',
+            '  friday_hours numeric default 8,',
+            '  saturday_hours numeric default 0,',
+            '  sunday_hours numeric default 0,',
+            '  saturday_ordinary boolean default false,',
+            '  night_recovery_hours numeric default 0,',
+            '  break_enabled boolean default true,',
+            '  break_minutes integer default 0,',
+            '  created_at timestamptz not null default now(),',
+            '  updated_at timestamptz not null default now(),',
+            '  unique(user_id, week_start)',
+            ');',
+            '',
+            'alter table public.timbrature_week_programs enable row level security;',
+            '',
+            'drop policy if exists "read own week programs" on public.timbrature_week_programs;',
+            'create policy "read own week programs" on public.timbrature_week_programs',
+            'for select using (auth.uid() = user_id);',
+            '',
+            'drop policy if exists "insert own week programs" on public.timbrature_week_programs;',
+            'create policy "insert own week programs" on public.timbrature_week_programs',
+            'for insert with check (auth.uid() = user_id);',
+            '',
+            'drop policy if exists "update own week programs" on public.timbrature_week_programs;',
+            'create policy "update own week programs" on public.timbrature_week_programs',
+            'for update using (auth.uid() = user_id) with check (auth.uid() = user_id);',
+            '',
+            'drop policy if exists "delete own week programs" on public.timbrature_week_programs;',
+            'create policy "delete own week programs" on public.timbrature_week_programs',
             'for delete using (auth.uid() = user_id);'
           ].join('\n');
 
           return {
-            message: `${operationLabel}: la tabella cloud public.timbrature_records non esiste in questo progetto Supabase${projectLabel}. Apri il file supabase/setup.sql (o README.md, sezione 'Crea tabella e policy RLS') e incolla quelle query nel SQL Editor del progetto corretto. Se vuoi cambiare cloud rapidamente senza toccare il codice, apri la pagina con ?supabase_url=https://TUO-PROGETTO.supabase.co&supabase_key=TUO_ANON_KEY.\nDettaglio tecnico: ${error.message}`,
+            message: `${operationLabel}: una tabella cloud richiesta (timbrature_records o timbrature_week_programs) non esiste in questo progetto Supabase${projectLabel}. Apri il file supabase/setup.sql (o README.md, sezione 'Crea tabella e policy RLS') e incolla quelle query nel SQL Editor del progetto corretto. Se vuoi cambiare cloud rapidamente senza toccare il codice, apri la pagina con ?supabase_url=https://TUO-PROGETTO.supabase.co&supabase_key=TUO_ANON_KEY.\nDettaglio tecnico: ${error.message}`,
             sqlHint
           };
         }
@@ -779,11 +1080,12 @@
       }
 
       function collectPayload(stato) {
+        const pausaField = id('pausa');
         return {
           data: id('data').value || nowDateISO(),
           entrata: id('entrata').value,
           uscita: id('uscita').value,
-          pausaMinuti: Number(id('pausa').value || 0),
+          pausaMinuti: pausaField.disabled ? 0 : Number(pausaField.value || 0),
           causale: id('causale').value,
           note: id('note').value,
           cantiere: id('cantiere').value.trim(),
@@ -808,12 +1110,13 @@
           return null;
         }
 
+        const resolved = resolveRulesForDate(payload.data);
         const calc = computeHours(
           payload.entrata,
           payload.uscita,
           payload.pausaMinuti,
           payload.causale,
-          currentRules
+          resolved.rules
         );
 
         const row = {
@@ -953,6 +1256,8 @@
 
         const today = nowDateISO();
         id('data').value = today;
+        const todayProgram = resolveRulesForDate(today);
+        id('pausa').disabled = !todayProgram.breakEnabled;
 
         const { data, error } = await supabaseClient
           .from('timbrature_records')
@@ -969,7 +1274,7 @@
         if (!data) {
           id('entrata').value = '';
           id('uscita').value = '';
-          id('pausa').value = 0;
+          id('pausa').value = todayProgram.defaultBreak;
           id('causale').value = 'LAV';
           id('note').value = '';
           id('cantiere').value = '';
@@ -1117,6 +1422,7 @@
           setLoggedInUI(false);
           showAuthMsg('');
           id('myRows').innerHTML = '';
+          cachedPrograms = [];
           setPunchStatus('NONE');
           return;
         }
@@ -1124,6 +1430,9 @@
         setProfileUI(currentUser);
         id('authStatus').textContent = `Connesso come ${currentUser.email}`;
         setLoggedInUI(true);
+        id('programWeekStart').value = isoWeekStart(nowDateISO());
+        await loadUserPrograms();
+        await loadProgramBySelectedWeek();
         await loadTodayPunch();
         await loadMyMonth();
       }
@@ -1131,6 +1440,8 @@
       async function init() {
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
+        id('programWeekStart').value = isoWeekStart(nowDateISO());
+        applyBreakUI();
         showCloudTargetInfo();
 
         id('loginBtn').addEventListener('click', login);
@@ -1141,6 +1452,9 @@
         id('registerBtn').addEventListener('click', register);
         id('logoutBtn').addEventListener('click', logout);
         id('saveProfile').addEventListener('click', saveProfile);
+        id('programBreakEnabled').addEventListener('change', applyBreakUI);
+        id('saveProgramBtn').addEventListener('click', saveProgram);
+        id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
         id('copySqlBtn').addEventListener('click', copySqlHint);
         id('clockInBtn').addEventListener('click', clockInNow);
         id('clockOutBtn').addEventListener('click', clockOutNow);
