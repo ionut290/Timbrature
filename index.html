@@ -342,6 +342,7 @@
               <th>Ordinarie</th>
               <th>Straordinario</th>
               <th>Stato</th>
+              <th>Azioni</th>
             </tr>
           </thead>
           <tbody id="myRows"></tbody>
@@ -951,7 +952,42 @@
             <td>${r.ord || 0}</td>
             <td>${r.stra || 0}</td>
             <td>${r.stato || ''}</td>
+            <td>
+              <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${r.data}')">Elimina</button>
+            </td>
           </tr>`).join('');
+      }
+
+      async function deleteTimbraturaByDate(dataRecord) {
+        if (!supabaseClient || !currentUser) {
+          showMsg('Devi essere autenticato.', 'err');
+          return;
+        }
+
+        if (!dataRecord) {
+          showMsg('Data timbratura non valida.', 'err');
+          return;
+        }
+
+        const confirmed = window.confirm(`Confermi l'eliminazione della timbratura del ${dataRecord}?`);
+        if (!confirmed) return;
+
+        const { error } = await supabaseClient
+          .from('timbrature_records')
+          .delete()
+          .eq('user_id', currentUser.id)
+          .eq('data', dataRecord);
+
+        if (error) {
+          const explained = explainSupabaseError(error, 'Errore eliminazione timbratura');
+          showMsg(explained.message, 'err');
+          setSqlHint(explained.sqlHint);
+          return;
+        }
+
+        showMsg(`Timbratura del ${dataRecord} eliminata.`, 'ok');
+        await loadTodayPunch();
+        await loadMyMonth();
       }
 
       async function exportData() {
@@ -1039,6 +1075,7 @@
       }
 
       window.onload = init;
+      window.deleteTimbraturaByDate = deleteTimbraturaByDate;
     </script>
   </body>
 </html>
