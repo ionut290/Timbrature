@@ -23,7 +23,7 @@ const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_Bjvs0ktNO_
 
 ## 2) Crea tabella e policy RLS
 
-Nel SQL Editor di Supabase esegui:
+Nel SQL Editor di Supabase esegui lo script `supabase/setup.sql` (contenuto anche qui sotto):
 
 ```sql
 create table if not exists public.timbrature_records (
