@@ -1,3 +1,4 @@
+
 create extension if not exists pgcrypto;
 
 create table if not exists public.timbrature_records (
@@ -22,26 +23,17 @@ create table if not exists public.timbrature_records (
 alter table public.timbrature_records enable row level security;
 
 drop policy if exists "read own records" on public.timbrature_records;
-create policy "read own records"
-on public.timbrature_records
-for select
-using (auth.uid() = user_id);
+create policy "read own records" on public.timbrature_records
+for select using (auth.uid() = user_id);
 
 drop policy if exists "insert own records" on public.timbrature_records;
-create policy "insert own records"
-on public.timbrature_records
-for insert
-with check (auth.uid() = user_id);
+create policy "insert own records" on public.timbrature_records
+for insert with check (auth.uid() = user_id);
 
 drop policy if exists "update own records" on public.timbrature_records;
-create policy "update own records"
-on public.timbrature_records
-for update
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+create policy "update own records" on public.timbrature_records
+for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "delete own records" on public.timbrature_records;
-create policy "delete own records"
-on public.timbrature_records
-for delete
-using (auth.uid() = user_id);
+create policy "delete own records" on public.timbrature_records
+for delete using (auth.uid() = user_id);
