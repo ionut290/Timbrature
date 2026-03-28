@@ -133,6 +133,23 @@
         font-weight: 600;
       }
       .hidden { display: none; }
+      .btn-green { background: #16a34a; }
+      .status-line {
+        margin: 8px 0 0;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .status-neutral { color: #334155; }
+      .status-ok { color: #047857; }
+      .auth-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .auth-row.compact {
+        justify-content: space-between;
+      }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
@@ -143,7 +160,7 @@
 
       <div class="card" id="authBox">
         <h2>Accesso cloud</h2>
-        <div class="grid">
+        <div class="grid" id="authInputs">
           <label>Nome (solo registrazione)
             <input type="text" id="authName" placeholder="Mario Rossi" />
           </label>
@@ -154,9 +171,9 @@
             <input type="password" id="authPassword" placeholder="almeno 6 caratteri" />
           </label>
         </div>
-        <div class="inline-actions" style="margin-top: 12px;">
-          <button id="loginBtn">Accedi</button>
-          <button class="secondary" id="registerBtn">Registrati</button>
+        <div class="auth-row" style="margin-top: 12px;" id="authRow">
+          <button id="loginBtn" type="button">Accedi</button>
+          <button class="secondary" id="registerBtn" type="button">Registrati</button>
           <button class="secondary" id="logoutBtn">Logout</button>
           <span class="small" id="authStatus">Non autenticato.</span>
         </div>
@@ -181,6 +198,16 @@
 
       <div class="card" id="timbratureCard">
         <h2>Nuova timbratura / giornata</h2>
+        <div class="inline-actions">
+          <button id="clockInBtn" class="btn-green" type="button">Timbra entrata</button>
+          <button id="clockOutBtn" class="secondary hidden" type="button">Timbra uscita</button>
+          <button id="editPunchBtn" class="secondary hidden" type="button">Correggi timbratura</button>
+        </div>
+        <p id="serviceStatus" class="status-line status-neutral">Non in servizio.</p>
+        <p id="dayCompletedText" class="status-line status-ok hidden">Giornata completata, buon riposo.</p>
+
+        <div id="manualEditBox" class="hidden">
+          <p class="small">Puoi correggere data/orari e salvare la timbratura aggiornata.</p>
         <div class="grid">
           <label>Data
             <input type="date" id="data">
@@ -217,8 +244,9 @@
         </div>
 
         <div class="actions">
-          <button class="secondary" onclick="saveRecord('BOZZA')">Salva bozza</button>
-          <button onclick="saveRecord('INVIATO')">Conferma giornata</button>
+          <button class="secondary" id="saveDraftBtn" type="button">Salva bozza</button>
+          <button id="saveDayBtn" type="button">Conferma giornata</button>
+        </div>
         </div>
 
         <p id="esito" class="msg"></p>
@@ -376,9 +404,12 @@
         id('timbratureCard').classList.toggle('hidden', !isLoggedIn);
         id('storicoCard').classList.toggle('hidden', !isLoggedIn);
         id('userBox').classList.toggle('hidden', !isLoggedIn);
+        id('authInputs').classList.toggle('hidden', isLoggedIn);
+        id('loginBtn').classList.toggle('hidden', isLoggedIn);
+        id('registerBtn').classList.toggle('hidden', isLoggedIn);
+        id('authRow').classList.toggle('compact', isLoggedIn);
         id('logoutBtn').disabled = !isLoggedIn;
-        id('loginBtn').disabled = isLoggedIn;
-        id('registerBtn').disabled = isLoggedIn;
+        id('logoutBtn').classList.toggle('hidden', !isLoggedIn);
       }
 
       function setProfileUI(user) {
@@ -571,13 +602,22 @@
         };
       }
 
-      async function saveRecord(stato) {
+      async function saveRecord(stato, customMessage = '') {
         if (!supabaseClient || !currentUser) {
           showMsg('Devi essere autenticato.', 'err');
-          return;
+          return null;
         }
 
         const payload = collectPayload(stato);
+        return await upsertRecord(payload, customMessage);
+      }
+
+      async function upsertRecord(payload, customMessage = '') {
+        if (!supabaseClient || !currentUser) {
+          showMsg('Devi essere autenticato.', 'err');
+          return null;
+        }
+
         const calc = computeHours(
           payload.entrata,
           payload.uscita,
@@ -614,7 +654,7 @@
           const explained = explainSupabaseError(readError, 'Errore lettura');
           showMsg(explained.message, 'err');
           setSqlHint(explained.sqlHint);
-          return;
+          return null;
         }
 
         let writeError;
@@ -633,12 +673,130 @@
           const explained = explainSupabaseError(writeError, 'Errore salvataggio cloud');
           showMsg(explained.message, 'err');
           setSqlHint(explained.sqlHint);
-          return;
+          return null;
         }
 
         setSqlHint('');
-        showMsg(`Salvato nel cloud. Ore: ${calc.worked}, Ordinarie: ${calc.ord}, Straordinario: ${calc.stra}`, 'ok');
+        showMsg(customMessage || `Salvato nel cloud. Ore: ${calc.worked}, Ordinarie: ${calc.ord}, Straordinario: ${calc.stra}`, 'ok');
         await loadMyMonth();
+        return row;
+      }
+
+      function nowLocalDateAndTime() {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${min}` };
+      }
+
+      function setPunchStatus(status, entryTime = '', exitTime = '') {
+        if (status === 'IN_SERVIZIO') {
+          id('clockInBtn').classList.add('hidden');
+          id('clockOutBtn').classList.remove('hidden');
+          id('editPunchBtn').classList.remove('hidden');
+          id('dayCompletedText').classList.add('hidden');
+          id('serviceStatus').className = 'status-line status-ok';
+          id('serviceStatus').textContent = `In servizio dalle ${entryTime || id('entrata').value || '--:--'}.`;
+          return;
+        }
+
+        if (status === 'COMPLETATA') {
+          id('clockInBtn').classList.add('hidden');
+          id('clockOutBtn').classList.add('hidden');
+          id('editPunchBtn').classList.remove('hidden');
+          id('serviceStatus').className = 'status-line status-ok';
+          id('serviceStatus').textContent = `Entrata ${entryTime || id('entrata').value || '--:--'} - Uscita ${exitTime || id('uscita').value || '--:--'}.`;
+          id('dayCompletedText').classList.remove('hidden');
+          return;
+        }
+
+        id('clockInBtn').classList.remove('hidden');
+        id('clockOutBtn').classList.add('hidden');
+        id('editPunchBtn').classList.add('hidden');
+        id('dayCompletedText').classList.add('hidden');
+        id('serviceStatus').className = 'status-line status-neutral';
+        id('serviceStatus').textContent = 'Non in servizio.';
+      }
+
+      async function clockInNow() {
+        const now = nowLocalDateAndTime();
+        id('data').value = now.date;
+        id('entrata').value = now.time;
+        id('uscita').value = '';
+        id('causale').value = 'LAV';
+
+        const payload = collectPayload('IN_SERVIZIO');
+        const result = await upsertRecord(payload, `Entrata registrata alle ${now.time}. In servizio.`);
+        if (!result) return;
+        setPunchStatus('IN_SERVIZIO', now.time);
+      }
+
+      async function clockOutNow() {
+        if (!id('entrata').value) {
+          showMsg('Prima devi timbrare l’entrata.', 'err');
+          return;
+        }
+
+        const now = nowLocalDateAndTime();
+        id('data').value = id('data').value || now.date;
+        id('uscita').value = now.time;
+        const payload = collectPayload('COMPLETATA');
+        const result = await upsertRecord(payload, `Uscita registrata alle ${now.time}. Giornata completata, buon riposo.`);
+        if (!result) return;
+        setPunchStatus('COMPLETATA', id('entrata').value, now.time);
+      }
+
+      function toggleManualCorrection() {
+        id('manualEditBox').classList.toggle('hidden');
+      }
+
+      async function loadTodayPunch() {
+        if (!supabaseClient || !currentUser) {
+          setPunchStatus('NONE');
+          return;
+        }
+
+        const today = nowDateISO();
+        id('data').value = today;
+
+        const { data, error } = await supabaseClient
+          .from('timbrature_records')
+          .select('data, entrata, uscita, pausa, causale, note, stato')
+          .eq('user_id', currentUser.id)
+          .eq('data', today)
+          .maybeSingle();
+
+        if (error) {
+          setPunchStatus('NONE');
+          return;
+        }
+
+        if (!data) {
+          id('entrata').value = '';
+          id('uscita').value = '';
+          id('pausa').value = 0;
+          id('causale').value = 'LAV';
+          id('note').value = '';
+          setPunchStatus('NONE');
+          return;
+        }
+
+        id('entrata').value = data.entrata || '';
+        id('uscita').value = data.uscita || '';
+        id('pausa').value = data.pausa || 0;
+        id('causale').value = data.causale || 'LAV';
+        id('note').value = data.note || '';
+
+        if (data.stato === 'COMPLETATA') {
+          setPunchStatus('COMPLETATA', data.entrata, data.uscita);
+        } else if (data.entrata) {
+          setPunchStatus('IN_SERVIZIO', data.entrata);
+        } else {
+          setPunchStatus('NONE');
+        }
       }
 
       async function loadMyMonth() {
@@ -726,12 +884,14 @@
           setLoggedInUI(false);
           showAuthMsg('');
           id('myRows').innerHTML = '';
+          setPunchStatus('NONE');
           return;
         }
 
         setProfileUI(currentUser);
         id('authStatus').textContent = `Connesso come ${currentUser.email}`;
         setLoggedInUI(true);
+        await loadTodayPunch();
         await loadMyMonth();
       }
 
@@ -745,6 +905,11 @@
         id('logoutBtn').addEventListener('click', logout);
         id('saveProfile').addEventListener('click', saveProfile);
         id('copySqlBtn').addEventListener('click', copySqlHint);
+        id('clockInBtn').addEventListener('click', clockInNow);
+        id('clockOutBtn').addEventListener('click', clockOutNow);
+        id('editPunchBtn').addEventListener('click', toggleManualCorrection);
+        id('saveDraftBtn').addEventListener('click', () => saveRecord('BOZZA', 'Timbratura corretta e salvata in bozza.'));
+        id('saveDayBtn').addEventListener('click', () => saveRecord('COMPLETATA', 'Timbratura corretta e giornata confermata.'));
 
         if (supabaseClient) {
           supabaseClient.auth.onAuthStateChange(async () => {
