@@ -147,6 +147,7 @@
           <button class="secondary" id="logoutBtn">Logout</button>
           <span class="small" id="authStatus">Non autenticato.</span>
         </div>
+        <p id="authEsito" class="msg"></p>
       </div>
 
       <div class="card" id="userBox">
@@ -259,6 +260,11 @@
         id('esito').textContent = message;
       }
 
+      function showAuthMsg(message, type = 'ok') {
+        id('authEsito').className = `msg ${type}`;
+        id('authEsito').textContent = message;
+      }
+
       function parseTimeToMinutes(hhmm) {
         if (!hhmm) return null;
         const [h, m] = String(hhmm).split(':').map(Number);
@@ -323,7 +329,7 @@
 
       async function register() {
         if (!supabaseClient) {
-          showMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
+          showAuthMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
           return;
         }
 
@@ -338,16 +344,16 @@
         });
 
         if (error) {
-          showMsg(`Registrazione fallita: ${error.message}`, 'err');
+          showAuthMsg(`Registrazione fallita: ${error.message}`, 'err');
           return;
         }
 
-        showMsg('Registrazione completata. Controlla la tua email se è richiesta la conferma.', 'ok');
+        showAuthMsg('Registrazione completata. Controlla la tua email se è richiesta la conferma.', 'ok');
       }
 
       async function login() {
         if (!supabaseClient) {
-          showMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
+          showAuthMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
           return;
         }
 
@@ -356,17 +362,17 @@
 
         const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) {
-          showMsg(`Login fallito: ${error.message}`, 'err');
+          showAuthMsg(`Login fallito: ${error.message}`, 'err');
           return;
         }
 
-        showMsg('Accesso effettuato.', 'ok');
+        showAuthMsg('Accesso effettuato.', 'ok');
       }
 
       async function logout() {
         if (!supabaseClient) return;
         await supabaseClient.auth.signOut();
-        showMsg('Logout effettuato.', 'ok');
+        showAuthMsg('Logout effettuato.', 'ok');
       }
 
       async function saveProfile() {
@@ -538,6 +544,7 @@
         if (!currentUser) {
           id('authStatus').textContent = 'Non autenticato.';
           setLoggedInUI(false);
+          showAuthMsg('');
           id('myRows').innerHTML = '';
           return;
         }
