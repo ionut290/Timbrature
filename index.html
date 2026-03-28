@@ -109,6 +109,19 @@
       .ok { color: var(--ok); }
       .err { color: var(--error); }
       .small { color: #334155; font-size: 13px; margin: 0; }
+      .sql-help {
+        margin-top: 8px;
+        border: 1px dashed var(--line);
+        border-radius: 10px;
+        padding: 10px;
+        background: #f8fafc;
+      }
+      .sql-help textarea {
+        width: 100%;
+        min-height: 220px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        margin-top: 8px;
+      }
       .pill {
         display: inline-block;
         background: #ecfeff;
@@ -209,6 +222,11 @@
         </div>
 
         <p id="esito" class="msg"></p>
+        <div id="sqlHelp" class="sql-help hidden">
+          <p class="small">Script SQL pronto: incollalo nel SQL Editor di Supabase, poi premi “Ricarica”.</p>
+          <button class="secondary" id="copySqlBtn" type="button">Copia SQL setup</button>
+          <textarea id="sqlHintText" readonly></textarea>
+        </div>
       </div>
 
       <div class="card" id="storicoCard">
@@ -258,6 +276,7 @@
       function showMsg(message, type = 'ok') {
         id('esito').className = `msg ${type}`;
         id('esito').textContent = message;
+        if (type !== 'err') setSqlHint('');
       }
 
       function showAuthMsg(message, type = 'ok') {
@@ -392,8 +411,29 @@
       }
 
 
+      function setSqlHint(sql) {
+        const hasSql = Boolean(sql);
+        id('sqlHelp').classList.toggle('hidden', !hasSql);
+        id('sqlHintText').value = sql || '';
+      }
+
+      async function copySqlHint() {
+        const sql = id('sqlHintText').value;
+        if (!sql) return;
+
+        try {
+          await navigator.clipboard.writeText(sql);
+          showMsg('SQL copiato negli appunti.', 'ok');
+        } catch (_) {
+          id('sqlHintText').focus();
+          id('sqlHintText').select();
+          document.execCommand('copy');
+          showMsg('SQL copiato negli appunti.', 'ok');
+        }
+      }
+
       function explainSupabaseError(error, operationLabel) {
-        if (!error) return '';
+        if (!error) return { message: '', sqlHint: '' };
 
         const msg = (error.message || '').toLowerCase();
         const code = (error.code || '').toUpperCase();
@@ -401,18 +441,47 @@
 
         if (code === 'PGRST205' || code === 'PGRST204' || missingTable) {
           const sqlHint = [
-            'create table if not exists public.timbrature_records (...);',
+            'create table if not exists public.timbrature_records (',
+            '  id uuid primary key default gen_random_uuid(),',
+            '  user_id uuid not null references auth.users(id) on delete cascade,',
+            '  email text not null,',
+            '  nome text,',
+            '  data date not null,',
+            '  entrata text,',
+            '  uscita text,',
+            '  pausa integer default 0,',
+            '  causale text,',
+            '  note text,',
+            '  ore numeric,',
+            '  ord numeric,',
+            '  stra numeric,',
+            '  stato text,',
+            '  updated_at timestamptz not null default now(),',
+            '  unique(user_id, data)',
+            ');',
+            '',
             'alter table public.timbrature_records enable row level security;',
-            'create policy "read own records" on public.timbrature_records for select using (auth.uid() = user_id);',
-            'create policy "insert own records" on public.timbrature_records for insert with check (auth.uid() = user_id);',
-            'create policy "update own records" on public.timbrature_records for update using (auth.uid() = user_id) with check (auth.uid() = user_id);',
-            'create policy "delete own records" on public.timbrature_records for delete using (auth.uid() = user_id);'
+            '',
+            'create policy "read own records" on public.timbrature_records',
+            'for select using (auth.uid() = user_id);',
+            '',
+            'create policy "insert own records" on public.timbrature_records',
+            'for insert with check (auth.uid() = user_id);',
+            '',
+            'create policy "update own records" on public.timbrature_records',
+            'for update using (auth.uid() = user_id) with check (auth.uid() = user_id);',
+            '',
+            'create policy "delete own records" on public.timbrature_records',
+            'for delete using (auth.uid() = user_id);'
           ].join('\n');
 
-          return `${operationLabel}: la tabella cloud public.timbrature_records non esiste in questo progetto Supabase. Apri README.md (sezione 'Crea tabella e policy RLS') e incolla quelle query nel SQL Editor.\nDettaglio tecnico: ${error.message}\n\nSQL di riferimento:\n${sqlHint}`;
+          return {
+            message: `${operationLabel}: la tabella cloud public.timbrature_records non esiste in questo progetto Supabase. Apri il file supabase/setup.sql (o README.md, sezione 'Crea tabella e policy RLS') e incolla quelle query nel SQL Editor.\nDettaglio tecnico: ${error.message}`,
+            sqlHint
+          };
         }
 
-        return `${operationLabel}: ${error.message}`;
+        return { message: `${operationLabel}: ${error.message}`, sqlHint: '' };
       }
 
       function collectPayload(stato) {
@@ -467,7 +536,9 @@
           .maybeSingle();
 
         if (readError) {
-          showMsg(explainSupabaseError(readError, 'Errore lettura'), 'err');
+          const explained = explainSupabaseError(readError, 'Errore lettura');
+          showMsg(explained.message, 'err');
+          setSqlHint(explained.sqlHint);
           return;
         }
 
@@ -484,10 +555,13 @@
         }
 
         if (writeError) {
-          showMsg(explainSupabaseError(writeError, 'Errore salvataggio cloud'), 'err');
+          const explained = explainSupabaseError(writeError, 'Errore salvataggio cloud');
+          showMsg(explained.message, 'err');
+          setSqlHint(explained.sqlHint);
           return;
         }
 
+        setSqlHint('');
         showMsg(`Salvato nel cloud. Ore: ${calc.worked}, Ordinarie: ${calc.ord}, Straordinario: ${calc.stra}`, 'ok');
         await loadMyMonth();
       }
@@ -510,10 +584,13 @@
           .order('data', { ascending: true });
 
         if (error) {
-          showMsg(explainSupabaseError(error, 'Errore caricamento storico'), 'err');
+          const explained = explainSupabaseError(error, 'Errore caricamento storico');
+          showMsg(explained.message, 'err');
+          setSqlHint(explained.sqlHint);
           return;
         }
 
+        setSqlHint('');
         id('myRows').innerHTML = (data || []).map((r) => `
           <tr>
             <td>${r.data || ''}</td>
@@ -541,10 +618,13 @@
           .order('data', { ascending: true });
 
         if (error) {
-          showMsg(explainSupabaseError(error, 'Errore export'), 'err');
+          const explained = explainSupabaseError(error, 'Errore export');
+          showMsg(explained.message, 'err');
+          setSqlHint(explained.sqlHint);
           return;
         }
 
+        setSqlHint('');
         const blob = new Blob([JSON.stringify({ records: data || [] }, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -588,6 +668,7 @@
         id('registerBtn').addEventListener('click', register);
         id('logoutBtn').addEventListener('click', logout);
         id('saveProfile').addEventListener('click', saveProfile);
+        id('copySqlBtn').addEventListener('click', copySqlHint);
 
         if (supabaseClient) {
           supabaseClient.auth.onAuthStateChange(async () => {
