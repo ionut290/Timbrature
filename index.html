@@ -321,6 +321,22 @@
         </div>
         <p id="authEsito" class="msg"></p>
         </form>
+        <div class="sql-help" style="margin-top: 14px;">
+          <p class="small"><strong>Cloud Supabase</strong> (utile su iPhone/app): imposta qui URL e anon key del tuo progetto.</p>
+          <div class="grid">
+            <label>Project URL
+              <input type="url" id="supabaseUrlInput" placeholder="https://tuo-progetto.supabase.co" autocapitalize="none" autocorrect="off" spellcheck="false" />
+            </label>
+            <label>Anon key
+              <input type="text" id="supabaseKeyInput" placeholder="sb_publishable_..." autocapitalize="none" autocorrect="off" spellcheck="false" />
+            </label>
+          </div>
+          <div class="inline-actions" style="margin-top: 10px;">
+            <button type="button" class="secondary" id="saveCloudConfigBtn">Salva cloud su questo dispositivo</button>
+            <button type="button" class="secondary" id="resetCloudConfigBtn">Ripristina cloud predefinito</button>
+          </div>
+          <p class="small" id="cloudConfigStatus"></p>
+        </div>
       </div>
 
       <div class="card hidden" id="userBox">
@@ -493,6 +509,8 @@
       const DEFAULT_SUPABASE_URL = 'https://xxgstjxgrhkrmeqosoak.supabase.co';
       const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_Bjvs0ktNO_fwk9V2W3hW7w_hiln-vII';
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
+      const SUPABASE_URL_STORAGE_KEY = 'timbrature.supabase.url';
+      const SUPABASE_KEY_STORAGE_KEY = 'timbrature.supabase.key';
 
       function resolveSupabaseConfig() {
         const urlFromWindow = window.SUPABASE_URL || '';
@@ -741,6 +759,26 @@
       function showCloudTargetInfo() {
         const projectRef = getProjectRefFromUrl(SUPABASE_URL);
         id('authStatus').textContent = `Non autenticato. Cloud attivo: ${projectRef} (${supabaseConfig.source}).`;
+      }
+
+      function saveCloudConfig() {
+        const cloudUrl = id('supabaseUrlInput').value.trim();
+        const cloudKey = id('supabaseKeyInput').value.trim();
+        if (!cloudUrl || !cloudKey) {
+          showAuthMsg('Inserisci Project URL e anon key prima di salvare.', 'err');
+          return;
+        }
+        localStorage.setItem(SUPABASE_URL_STORAGE_KEY, cloudUrl);
+        localStorage.setItem(SUPABASE_KEY_STORAGE_KEY, cloudKey);
+        showAuthMsg('Cloud salvato su questo dispositivo. Ricarico l’app...', 'ok');
+        window.location.reload();
+      }
+
+      function resetCloudConfig() {
+        localStorage.removeItem(SUPABASE_URL_STORAGE_KEY);
+        localStorage.removeItem(SUPABASE_KEY_STORAGE_KEY);
+        showAuthMsg('Configurazione locale rimossa. Ricarico il cloud predefinito...', 'ok');
+        window.location.reload();
       }
 
       async function register() {
@@ -1498,6 +1536,7 @@
         id('programWeekStart').value = isoWeekStart(nowDateISO());
         applyBreakUI();
         showCloudTargetInfo();
+        refreshCloudConfigUI();
         setLoggedInUI(false);
 
         id('loginBtn').addEventListener('click', login);
@@ -1508,6 +1547,8 @@
         id('registerBtn').addEventListener('click', register);
         id('logoutBtn').addEventListener('click', logout);
         id('saveProfile').addEventListener('click', saveProfile);
+        id('saveCloudConfigBtn').addEventListener('click', saveCloudConfig);
+        id('resetCloudConfigBtn').addEventListener('click', resetCloudConfig);
         id('programBreakEnabled').addEventListener('change', applyBreakUI);
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
