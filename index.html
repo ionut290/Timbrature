@@ -306,9 +306,6 @@
         <h2>Accesso cloud</h2>
         <form id="authForm">
         <div class="grid" id="authInputs">
-          <label>Nome (solo registrazione)
-            <input type="text" id="authName" placeholder="Mario Rossi" autocomplete="name" />
-          </label>
           <label>Email
             <input type="email" id="authEmail" placeholder="mario@azienda.it" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" />
           </label>
@@ -494,30 +491,20 @@
 
     <script>
       const DEFAULT_SUPABASE_URL = 'https://xxgstjxgrhkrmeqosoak.supabase.co';
-      const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_Bjvs0ktNO_fwk9V2W3hW7w_hiln-vII';
+      const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4Z3N0anhncmhrcm1lcW9zb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTk2NDEsImV4cCI6MjA5MDI5NTY0MX0.ayvYyAuZPaMmv4s9_3fwTR88P_8IDokyG11t5L5biNI';
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
 
       function resolveSupabaseConfig() {
-        const params = new URLSearchParams(window.location.search);
-        const urlFromQuery = params.get('supabase_url') || '';
-        const keyFromQuery = params.get('supabase_key') || '';
-
-        if (urlFromQuery && keyFromQuery) {
-          localStorage.setItem('timbrature.supabase.url', urlFromQuery);
-          localStorage.setItem('timbrature.supabase.key', keyFromQuery);
-        }
-
-        const urlFromStorage = localStorage.getItem('timbrature.supabase.url') || '';
-        const keyFromStorage = localStorage.getItem('timbrature.supabase.key') || '';
+        const urlFromWindow = window.SUPABASE_URL || '';
+        const keyFromWindow = window.SUPABASE_ANON_KEY || '';
+        const hasWindowConfig = !!(urlFromWindow && keyFromWindow);
 
         return {
-          url: window.SUPABASE_URL || urlFromStorage || DEFAULT_SUPABASE_URL,
-          key: window.SUPABASE_ANON_KEY || keyFromStorage || DEFAULT_SUPABASE_ANON_KEY,
-          source: window.SUPABASE_URL && window.SUPABASE_ANON_KEY
+          url: hasWindowConfig ? urlFromWindow : DEFAULT_SUPABASE_URL,
+          key: hasWindowConfig ? keyFromWindow : DEFAULT_SUPABASE_ANON_KEY,
+          source: hasWindowConfig
             ? 'window'
-            : urlFromStorage && keyFromStorage
-              ? 'localStorage'
-              : 'default'
+            : 'default'
         };
       }
 
@@ -530,7 +517,13 @@
       if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('INSERISCI_')) missingSupabaseConfig.push('SUPABASE_ANON_KEY');
       const isCloudConfigured = missingSupabaseConfig.length === 0;
       const supabaseClient = isCloudConfigured
-        ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true
+          }
+        })
         : null;
 
       let currentUser = null;
@@ -738,19 +731,17 @@
         id('email').value = user?.email || '';
       }
 
+      function getProjectRefFromUrl(url) {
+        try {
+          return new URL(url).hostname.split('.')[0] || 'sconosciuto';
+        } catch (_) {
+          return 'non valido';
+        }
+      }
+
       function showCloudTargetInfo() {
-        const projectRef = (() => {
-          try {
-            return new URL(SUPABASE_URL).hostname.split('.')[0];
-          } catch (_) {
-            return 'non valido';
-          }
-        })();
-        const usingDefaultCloud = supabaseConfig.source === 'default';
-        const cloudNote = usingDefaultCloud
-          ? 'Stai usando il cloud predefinito: configura il tuo progetto Supabase per accedere con il tuo account.'
-          : `Cloud attivo: ${projectRef} (${supabaseConfig.source}).`;
-        id('authStatus').textContent = `Non autenticato. ${cloudNote}`;
+        const projectRef = getProjectRefFromUrl(SUPABASE_URL);
+        id('authStatus').textContent = `Non autenticato. Cloud attivo: ${projectRef} (${supabaseConfig.source}).`;
       }
 
       async function register() {
@@ -761,7 +752,6 @@
 
         const email = id('authEmail').value.trim().toLowerCase();
         const password = id('authPassword').value;
-        const fullName = id('authName').value.trim();
 
         if (!email || !password) {
           showAuthMsg('Inserisci email e password prima di registrarti.', 'err');
@@ -770,8 +760,7 @@
 
         const { error } = await supabaseClient.auth.signUp({
           email,
-          password,
-          options: { data: { full_name: fullName } }
+          password
         });
 
         if (error) {
@@ -797,26 +786,42 @@
         }
 
         id('loginBtn').disabled = true;
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        id('loginBtn').disabled = false;
-        if (error) {
-          const msg = (error.message || '').toLowerCase();
-          if (msg.includes('invalid login credentials')) {
-            const extraHint = supabaseConfig.source === 'default'
-              ? ' Verifica anche di essere collegato al progetto Supabase corretto (non al cloud predefinito).'
-              : '';
-            showAuthMsg(`Login fallito: credenziali non valide. Controlla email/password e riprova.${extraHint}`, 'err');
+        try {
+          const projectRef = getProjectRefFromUrl(SUPABASE_URL);
+          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+          if (error) {
+            const msg = (error.message || '').toLowerCase();
+            if (msg.includes('invalid login credentials')) {
+              showAuthMsg(`Login fallito: credenziali non valide su progetto ${projectRef}. Se non hai ancora un account premi "Registrati".`, 'err');
+              return;
+            }
+            if (msg.includes('email not confirmed')) {
+              showAuthMsg('Login fallito: email non confermata. Controlla la tua casella email e conferma l’account.', 'err');
+              return;
+            }
+            if (msg.includes('invalid api key') || msg.includes('api key') || msg.includes('jwt')) {
+              showAuthMsg(`Login fallito: chiave Supabase non valida per il progetto ${projectRef}. Verifica URL e anon key del deploy.`, 'err');
+              return;
+            }
+            if (msg.includes('network') || msg.includes('fetch')) {
+              showAuthMsg('Login fallito: errore di rete. Verifica connessione internet e riprova.', 'err');
+              return;
+            }
+            showAuthMsg(`Login fallito: ${error.message}`, 'err');
             return;
           }
-          showAuthMsg(`Login fallito: ${error.message}`, 'err');
-          return;
-        }
 
-        if (data?.user) {
-          currentUser = data.user;
-          await refreshSession();
+          if (data?.user) {
+            currentUser = data.user;
+            await refreshSession();
+          }
+          showAuthMsg('Accesso effettuato.', 'ok');
+        } catch (error) {
+          const message = error?.message || 'Errore di rete durante il login.';
+          showAuthMsg(`Login fallito: ${message}`, 'err');
+        } finally {
+          id('loginBtn').disabled = false;
         }
-        showAuthMsg('Accesso effettuato.', 'ok');
       }
 
       async function logout() {
@@ -1477,8 +1482,12 @@
           return;
         }
 
-        const { data } = await supabaseClient.auth.getUser();
-        currentUser = data.user;
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        currentUser = sessionData?.session?.user || null;
+        if (!currentUser) {
+          const { data: userData } = await supabaseClient.auth.getUser();
+          currentUser = userData?.user || null;
+        }
 
         if (!currentUser) {
           showCloudTargetInfo();
