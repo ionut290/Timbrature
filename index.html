@@ -460,9 +460,19 @@
         const msg = (error.message || '').toLowerCase();
         const code = (error.code || '').toUpperCase();
         const missingTable = msg.includes("could not find the table") && msg.includes('timbrature_records');
+        const projectRef = (() => {
+          try {
+            return new URL(SUPABASE_URL).hostname.split('.')[0];
+          } catch (_) {
+            return '';
+          }
+        })();
+        const projectLabel = projectRef ? ` (project: ${projectRef})` : '';
 
         if (code === 'PGRST205' || code === 'PGRST204' || missingTable) {
           const sqlHint = [
+            'create extension if not exists pgcrypto;',
+            '',
             'create table if not exists public.timbrature_records (',
             '  id uuid primary key default gen_random_uuid(),',
             '  user_id uuid not null references auth.users(id) on delete cascade,',
@@ -484,21 +494,25 @@
             '',
             'alter table public.timbrature_records enable row level security;',
             '',
+            'drop policy if exists "read own records" on public.timbrature_records;',
             'create policy "read own records" on public.timbrature_records',
             'for select using (auth.uid() = user_id);',
             '',
+            'drop policy if exists "insert own records" on public.timbrature_records;',
             'create policy "insert own records" on public.timbrature_records',
             'for insert with check (auth.uid() = user_id);',
             '',
+            'drop policy if exists "update own records" on public.timbrature_records;',
             'create policy "update own records" on public.timbrature_records',
             'for update using (auth.uid() = user_id) with check (auth.uid() = user_id);',
             '',
+            'drop policy if exists "delete own records" on public.timbrature_records;',
             'create policy "delete own records" on public.timbrature_records',
             'for delete using (auth.uid() = user_id);'
           ].join('\n');
 
           return {
-            message: `${operationLabel}: la tabella cloud public.timbrature_records non esiste in questo progetto Supabase. Apri il file supabase/setup.sql (o README.md, sezione 'Crea tabella e policy RLS') e incolla quelle query nel SQL Editor.\nDettaglio tecnico: ${error.message}`,
+            message: `${operationLabel}: la tabella cloud public.timbrature_records non esiste in questo progetto Supabase${projectLabel}. Apri il file supabase/setup.sql (o README.md, sezione 'Crea tabella e policy RLS') e incolla quelle query nel SQL Editor del progetto corretto.\nDettaglio tecnico: ${error.message}`,
             sqlHint
           };
         }

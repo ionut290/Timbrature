@@ -26,6 +26,8 @@ const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_Bjvs0ktNO_
 Nel SQL Editor di Supabase esegui lo script `supabase/setup.sql` (contenuto anche qui sotto):
 
 ```sql
+create extension if not exists pgcrypto;
+
 create table if not exists public.timbrature_records (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -47,27 +49,57 @@ create table if not exists public.timbrature_records (
 
 alter table public.timbrature_records enable row level security;
 
+drop policy if exists "read own records" on public.timbrature_records;
 create policy "read own records"
 on public.timbrature_records
 for select
 using (auth.uid() = user_id);
 
+drop policy if exists "insert own records" on public.timbrature_records;
 create policy "insert own records"
 on public.timbrature_records
 for insert
 with check (auth.uid() = user_id);
 
+drop policy if exists "update own records" on public.timbrature_records;
 create policy "update own records"
 on public.timbrature_records
 for update
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+drop policy if exists "delete own records" on public.timbrature_records;
 create policy "delete own records"
 on public.timbrature_records
 for delete
 using (auth.uid() = user_id);
 ```
+
+### Risoluzione errore: `Could not find the table 'public.timbrature_records' in the schema cache`
+
+Se vedi l’errore nello storico, fai questi passi (in ordine):
+
+1. Apri **Supabase → SQL Editor** del progetto giusto.
+2. Incolla tutto `supabase/setup.sql` ed esegui.
+3. Verifica che la tabella esista:
+
+```sql
+select table_schema, table_name
+from information_schema.tables
+where table_schema = 'public' and table_name = 'timbrature_records';
+```
+
+4. Verifica che le policy RLS esistano:
+
+```sql
+select policyname
+from pg_policies
+where schemaname = 'public' and tablename = 'timbrature_records'
+order by policyname;
+```
+
+5. Controlla che `SUPABASE_URL` e `SUPABASE_ANON_KEY` in `index.html` siano del **medesimo progetto** dove hai creato la tabella.
+6. Fai logout/login nell’app e ricarica la pagina.
 
 ## 3) Avvio
 
