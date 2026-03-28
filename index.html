@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Timbrature (senza Google Sheet)</title>
+    <title>Timbrature Cloud</title>
     <style>
       :root {
         --bg: #f4f6f8;
@@ -72,6 +72,11 @@
         background: var(--secondary);
       }
 
+      button:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+
       .actions {
         margin-top: 12px;
         display: grid;
@@ -114,12 +119,35 @@
         font-size: 12px;
         font-weight: 600;
       }
+      .hidden { display: none; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
   <body>
     <div class="container">
       <h1>Timbrature Aziendali</h1>
-      <p class="pill">Salvataggio locale automatico (nessun Google Sheet)</p>
+      <p class="pill">Multi utente con login + salvataggio cloud (Supabase)</p>
+
+      <div class="card" id="authBox">
+        <h2>Accesso cloud</h2>
+        <div class="grid">
+          <label>Nome (solo registrazione)
+            <input type="text" id="authName" placeholder="Mario Rossi" />
+          </label>
+          <label>Email
+            <input type="email" id="authEmail" placeholder="mario@azienda.it" />
+          </label>
+          <label>Password
+            <input type="password" id="authPassword" placeholder="almeno 6 caratteri" />
+          </label>
+        </div>
+        <div class="inline-actions" style="margin-top: 12px;">
+          <button id="loginBtn">Accedi</button>
+          <button class="secondary" id="registerBtn">Registrati</button>
+          <button class="secondary" id="logoutBtn">Logout</button>
+          <span class="small" id="authStatus">Non autenticato.</span>
+        </div>
+      </div>
 
       <div class="card" id="userBox">
         <h2>Profilo</h2>
@@ -128,16 +156,16 @@
             <input type="text" id="nome" placeholder="Mario Rossi" />
           </label>
           <label>Email
-            <input type="email" id="email" placeholder="mario@azienda.it" />
+            <input type="email" id="email" placeholder="mario@azienda.it" readonly />
           </label>
         </div>
         <div class="inline-actions" style="margin-top: 12px;">
-          <button class="secondary" id="saveProfile">Salva profilo</button>
-          <p class="small">Il profilo e le timbrature si salvano automaticamente nel browser.</p>
+          <button class="secondary" id="saveProfile">Salva nome profilo</button>
+          <p class="small">Ogni utente vede solo i propri dati grazie all'account personale.</p>
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="timbratureCard">
         <h2>Nuova timbratura / giornata</h2>
         <div class="grid">
           <label>Data
@@ -182,13 +210,12 @@
         <p id="esito" class="msg"></p>
       </div>
 
-      <div class="card">
+      <div class="card" id="storicoCard">
         <h2>Storico mese</h2>
         <div class="inline-actions">
           <input type="month" id="mese">
           <button onclick="loadMyMonth()">Ricarica</button>
           <button class="secondary" onclick="exportData()">Esporta backup JSON</button>
-          <input type="file" id="importFile" accept="application/json" />
         </div>
         <table>
           <thead>
@@ -210,43 +237,23 @@
     </div>
 
     <script>
-      const STORAGE_KEY = 'timbrature_local_db_v2';
+      const SUPABASE_URL = window.SUPABASE_URL || 'INSERISCI_SUPABASE_URL';
+      const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'INSERISCI_SUPABASE_ANON_KEY';
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
+
+      const isCloudConfigured = !SUPABASE_URL.includes('INSERISCI_') && !SUPABASE_ANON_KEY.includes('INSERISCI_');
+      const supabaseClient = isCloudConfigured
+        ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        : null;
+
+      let currentUser = null;
+      let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
 
       function id(x) { return document.getElementById(x); }
 
       function showMsg(message, type = 'ok') {
         id('esito').className = `msg ${type}`;
         id('esito').textContent = message;
-      }
-
-      function defaultDb() {
-        return {
-          user: { nome: '', email: '' },
-          rules: { roundingMinutes: 15, ordinaryHours: 8 },
-          records: []
-        };
-      }
-
-      function loadDb() {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (!raw) return defaultDb();
-          const parsed = JSON.parse(raw);
-          return {
-            ...defaultDb(),
-            ...parsed,
-            user: { ...defaultDb().user, ...(parsed.user || {}) },
-            rules: { ...defaultDb().rules, ...(parsed.rules || {}) },
-            records: Array.isArray(parsed.records) ? parsed.records : []
-          };
-        } catch {
-          return defaultDb();
-        }
-      }
-
-      function saveDb(db) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
       }
 
       function parseTimeToMinutes(hhmm) {
@@ -289,23 +296,90 @@
         return new Date().toISOString().slice(0, 10);
       }
 
-      function monthFromDate(dateIso) {
-        return String(dateIso || '').slice(0, 7);
+      function monthRange(monthValue) {
+        const [year, month] = monthValue.split('-').map(Number);
+        const start = `${year}-${String(month).padStart(2, '0')}-01`;
+        const endDate = new Date(Date.UTC(year, month, 0));
+        const end = `${year}-${String(month).padStart(2, '0')}-${String(endDate.getUTCDate()).padStart(2, '0')}`;
+        return { start, end };
+      }
+
+      function setLoggedInUI(isLoggedIn) {
+        id('timbratureCard').classList.toggle('hidden', !isLoggedIn);
+        id('storicoCard').classList.toggle('hidden', !isLoggedIn);
+        id('userBox').classList.toggle('hidden', !isLoggedIn);
+        id('logoutBtn').disabled = !isLoggedIn;
+        id('loginBtn').disabled = isLoggedIn;
+        id('registerBtn').disabled = isLoggedIn;
       }
 
       function setProfileUI(user) {
-        id('nome').value = user.nome || '';
-        id('email').value = user.email || '';
+        id('nome').value = user?.user_metadata?.full_name || '';
+        id('email').value = user?.email || '';
       }
 
-      function saveProfile() {
-        const db = loadDb();
-        db.user = {
-          nome: id('nome').value.trim(),
-          email: id('email').value.trim().toLowerCase()
-        };
-        saveDb(db);
-        showMsg('Profilo salvato in locale.', 'ok');
+      async function register() {
+        if (!supabaseClient) {
+          showMsg('Configura prima SUPABASE_URL e SUPABASE_ANON_KEY.', 'err');
+          return;
+        }
+
+        const email = id('authEmail').value.trim().toLowerCase();
+        const password = id('authPassword').value;
+        const fullName = id('authName').value.trim();
+
+        const { error } = await supabaseClient.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: fullName } }
+        });
+
+        if (error) {
+          showMsg(`Registrazione fallita: ${error.message}`, 'err');
+          return;
+        }
+
+        showMsg('Registrazione completata. Controlla la tua email se è richiesta la conferma.', 'ok');
+      }
+
+      async function login() {
+        if (!supabaseClient) {
+          showMsg('Configura prima SUPABASE_URL e SUPABASE_ANON_KEY.', 'err');
+          return;
+        }
+
+        const email = id('authEmail').value.trim().toLowerCase();
+        const password = id('authPassword').value;
+
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+          showMsg(`Login fallito: ${error.message}`, 'err');
+          return;
+        }
+
+        showMsg('Accesso effettuato.', 'ok');
+      }
+
+      async function logout() {
+        if (!supabaseClient) return;
+        await supabaseClient.auth.signOut();
+        showMsg('Logout effettuato.', 'ok');
+      }
+
+      async function saveProfile() {
+        if (!supabaseClient || !currentUser) return;
+
+        const fullName = id('nome').value.trim();
+        const { error } = await supabaseClient.auth.updateUser({
+          data: { full_name: fullName }
+        });
+
+        if (error) {
+          showMsg(`Errore salvataggio profilo: ${error.message}`, 'err');
+          return;
+        }
+
+        showMsg('Profilo aggiornato nel cloud.', 'ok');
       }
 
       function collectPayload(stato) {
@@ -320,32 +394,26 @@
         };
       }
 
-      function saveRecord(stato) {
-        const db = loadDb();
-        const payload = collectPayload(stato);
-
-        if (!db.user.nome || !db.user.email) {
-          showMsg('Compila prima il profilo (nome + email).', 'err');
+      async function saveRecord(stato) {
+        if (!supabaseClient || !currentUser) {
+          showMsg('Devi essere autenticato.', 'err');
           return;
         }
 
+        const payload = collectPayload(stato);
         const calc = computeHours(
           payload.entrata,
           payload.uscita,
           payload.pausaMinuti,
           payload.causale,
-          db.rules
+          currentRules
         );
 
-        const idx = db.records.findIndex(
-          (r) => r.data === payload.data && r.email === db.user.email
-        );
-
-        const record = {
-          id: idx >= 0 ? db.records[idx].id : crypto.randomUUID(),
+        const row = {
+          user_id: currentUser.id,
+          email: currentUser.email,
+          nome: id('nome').value.trim(),
           data: payload.data,
-          email: db.user.email,
-          nome: db.user.nome,
           entrata: payload.entrata,
           uscita: payload.uscita,
           pausa: payload.pausaMinuti,
@@ -355,28 +423,65 @@
           ord: calc.ord,
           stra: calc.stra,
           stato: payload.stato,
-          updatedAt: new Date().toISOString()
+          updated_at: new Date().toISOString()
         };
 
-        if (idx >= 0) {
-          db.records[idx] = record;
-        } else {
-          db.records.push(record);
+        const { data: existing, error: readError } = await supabaseClient
+          .from('timbrature_records')
+          .select('id')
+          .eq('user_id', currentUser.id)
+          .eq('data', payload.data)
+          .maybeSingle();
+
+        if (readError) {
+          showMsg(`Errore lettura: ${readError.message}`, 'err');
+          return;
         }
 
-        saveDb(db);
-        showMsg(`Salvato in locale. Ore: ${calc.worked}, Ordinarie: ${calc.ord}, Straordinario: ${calc.stra}`, 'ok');
-        loadMyMonth();
+        let writeError;
+        if (existing?.id) {
+          ({ error: writeError } = await supabaseClient
+            .from('timbrature_records')
+            .update(row)
+            .eq('id', existing.id));
+        } else {
+          ({ error: writeError } = await supabaseClient
+            .from('timbrature_records')
+            .insert(row));
+        }
+
+        if (writeError) {
+          showMsg(`Errore salvataggio cloud: ${writeError.message}`, 'err');
+          return;
+        }
+
+        showMsg(`Salvato nel cloud. Ore: ${calc.worked}, Ordinarie: ${calc.ord}, Straordinario: ${calc.stra}`, 'ok');
+        await loadMyMonth();
       }
 
-      function loadMyMonth() {
-        const db = loadDb();
-        const month = id('mese').value;
-        const rows = db.records
-          .filter((r) => monthFromDate(r.data) === month && r.email === db.user.email)
-          .sort((a, b) => a.data.localeCompare(b.data));
+      async function loadMyMonth() {
+        if (!supabaseClient || !currentUser) {
+          id('myRows').innerHTML = '';
+          return;
+        }
 
-        id('myRows').innerHTML = rows.map((r) => `
+        const month = id('mese').value;
+        const { start, end } = monthRange(month);
+
+        const { data, error } = await supabaseClient
+          .from('timbrature_records')
+          .select('data, entrata, uscita, pausa, causale, ore, ord, stra, stato')
+          .eq('user_id', currentUser.id)
+          .gte('data', start)
+          .lte('data', end)
+          .order('data', { ascending: true });
+
+        if (error) {
+          showMsg(`Errore caricamento storico: ${error.message}`, 'err');
+          return;
+        }
+
+        id('myRows').innerHTML = (data || []).map((r) => `
           <tr>
             <td>${r.data || ''}</td>
             <td>${r.entrata || ''}</td>
@@ -390,56 +495,73 @@
           </tr>`).join('');
       }
 
-      function exportData() {
-        const db = loadDb();
-        const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+      async function exportData() {
+        if (!supabaseClient || !currentUser) {
+          showMsg('Devi essere autenticato.', 'err');
+          return;
+        }
+
+        const { data, error } = await supabaseClient
+          .from('timbrature_records')
+          .select('*')
+          .eq('user_id', currentUser.id)
+          .order('data', { ascending: true });
+
+        if (error) {
+          showMsg(`Errore export: ${error.message}`, 'err');
+          return;
+        }
+
+        const blob = new Blob([JSON.stringify({ records: data || [] }, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `timbrature-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `timbrature-cloud-backup-${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(url);
       }
 
-      function importData(file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          try {
-            const parsed = JSON.parse(reader.result);
-            const db = {
-              ...defaultDb(),
-              ...parsed,
-              user: { ...defaultDb().user, ...(parsed.user || {}) },
-              rules: { ...defaultDb().rules, ...(parsed.rules || {}) },
-              records: Array.isArray(parsed.records) ? parsed.records : []
-            };
-            saveDb(db);
-            setProfileUI(db.user);
-            loadMyMonth();
-            showMsg('Backup importato con successo.', 'ok');
-          } catch {
-            showMsg('File non valido.', 'err');
-          }
-        };
-        reader.readAsText(file);
+      async function refreshSession() {
+        if (!supabaseClient) {
+          id('authStatus').textContent = 'Configura Supabase per usare login e cloud.';
+          setLoggedInUI(false);
+          showMsg('Imposta SUPABASE_URL e SUPABASE_ANON_KEY nel file index.html.', 'err');
+          return;
+        }
+
+        const { data } = await supabaseClient.auth.getUser();
+        currentUser = data.user;
+
+        if (!currentUser) {
+          id('authStatus').textContent = 'Non autenticato.';
+          setLoggedInUI(false);
+          id('myRows').innerHTML = '';
+          return;
+        }
+
+        setProfileUI(currentUser);
+        id('authStatus').textContent = `Connesso come ${currentUser.email}`;
+        setLoggedInUI(true);
+        await loadMyMonth();
       }
 
-      function init() {
-        const db = loadDb();
-        setProfileUI(db.user);
-
+      async function init() {
         id('data').value = nowDateISO();
         const now = new Date();
-        id('mese').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        id('mese').value = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 
+        id('loginBtn').addEventListener('click', login);
+        id('registerBtn').addEventListener('click', register);
+        id('logoutBtn').addEventListener('click', logout);
         id('saveProfile').addEventListener('click', saveProfile);
-        id('importFile').addEventListener('change', (e) => {
-          const file = e.target.files && e.target.files[0];
-          if (file) importData(file);
-          e.target.value = '';
-        });
 
-        loadMyMonth();
+        if (supabaseClient) {
+          supabaseClient.auth.onAuthStateChange(async () => {
+            await refreshSession();
+          });
+        }
+
+        await refreshSession();
       }
 
       window.onload = init;
