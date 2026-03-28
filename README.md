@@ -19,6 +19,8 @@ const SUPABASE_URL = window.SUPABASE_URL || 'INSERISCI_SUPABASE_URL';
 const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'INSERISCI_SUPABASE_ANON_KEY';
 ```
 
+> Nota: in questa repository la `SUPABASE_ANON_KEY` è già valorizzata; devi ancora inserire la `SUPABASE_URL`.
+
 ## 2) Crea tabella e policy RLS
 
 Nel SQL Editor di Supabase esegui:
