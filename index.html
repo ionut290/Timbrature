@@ -238,10 +238,13 @@
 
     <script>
       const SUPABASE_URL = window.SUPABASE_URL || 'INSERISCI_SUPABASE_URL';
-      const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'INSERISCI_SUPABASE_ANON_KEY';
+      const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_Bjvs0ktNO_fwk9V2W3hW7w_hiln-vII';
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
 
-      const isCloudConfigured = !SUPABASE_URL.includes('INSERISCI_') && !SUPABASE_ANON_KEY.includes('INSERISCI_');
+      const missingSupabaseConfig = [];
+      if (!SUPABASE_URL || SUPABASE_URL.includes('INSERISCI_')) missingSupabaseConfig.push('SUPABASE_URL');
+      if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('INSERISCI_')) missingSupabaseConfig.push('SUPABASE_ANON_KEY');
+      const isCloudConfigured = missingSupabaseConfig.length === 0;
       const supabaseClient = isCloudConfigured
         ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
         : null;
@@ -320,7 +323,7 @@
 
       async function register() {
         if (!supabaseClient) {
-          showMsg('Configura prima SUPABASE_URL e SUPABASE_ANON_KEY.', 'err');
+          showMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
           return;
         }
 
@@ -344,7 +347,7 @@
 
       async function login() {
         if (!supabaseClient) {
-          showMsg('Configura prima SUPABASE_URL e SUPABASE_ANON_KEY.', 'err');
+          showMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
           return;
         }
 
@@ -523,9 +526,9 @@
 
       async function refreshSession() {
         if (!supabaseClient) {
-          id('authStatus').textContent = 'Configura Supabase per usare login e cloud.';
+          id('authStatus').textContent = `Configura Supabase (${missingSupabaseConfig.join(', ')}) per usare login e cloud.`;
           setLoggedInUI(false);
-          showMsg('Imposta SUPABASE_URL e SUPABASE_ANON_KEY nel file index.html.', 'err');
+          showMsg(`Imposta ${missingSupabaseConfig.join(' e ')} nel file index.html.`, 'err');
           return;
         }
 
