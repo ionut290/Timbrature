@@ -302,7 +302,7 @@
         </div>
 
         <div class="main-content">
-      <div class="card" id="authBox">
+        <div class="card" id="authBox">
         <h2>Accesso cloud</h2>
         <form id="authForm">
         <div class="grid" id="authInputs">
@@ -315,28 +315,10 @@
         </div>
         <div class="auth-row" style="margin-top: 12px;" id="authRow">
           <button id="loginBtn" type="button">Accedi</button>
-          <button class="secondary" id="registerBtn" type="button">Registrati</button>
           <button class="secondary hidden" id="logoutBtn" type="button">Logout</button>
-          <span class="small" id="authStatus">Non autenticato.</span>
         </div>
         <p id="authEsito" class="msg"></p>
         </form>
-        <div class="sql-help" style="margin-top: 14px;">
-          <p class="small"><strong>Cloud Supabase</strong> (utile su iPhone/app): imposta qui URL e anon key del tuo progetto.</p>
-          <div class="grid">
-            <label>Project URL
-              <input type="url" id="supabaseUrlInput" placeholder="https://tuo-progetto.supabase.co" autocapitalize="none" autocorrect="off" spellcheck="false" />
-            </label>
-            <label>Anon key
-              <input type="text" id="supabaseKeyInput" placeholder="sb_publishable_..." autocapitalize="none" autocorrect="off" spellcheck="false" />
-            </label>
-          </div>
-          <div class="inline-actions" style="margin-top: 10px;">
-            <button type="button" class="secondary" id="saveCloudConfigBtn">Salva cloud su questo dispositivo</button>
-            <button type="button" class="secondary" id="resetCloudConfigBtn">Ripristina cloud predefinito</button>
-          </div>
-          <p class="small" id="cloudConfigStatus"></p>
-        </div>
       </div>
 
       <div class="card hidden" id="userBox">
@@ -726,7 +708,6 @@
         id('topMenuBar').classList.toggle('hidden', !isLoggedIn);
         id('authInputs').classList.toggle('hidden', isLoggedIn);
         id('loginBtn').classList.toggle('hidden', isLoggedIn);
-        id('registerBtn').classList.toggle('hidden', isLoggedIn);
         id('authRow').classList.toggle('compact', isLoggedIn);
         id('logoutBtn').disabled = !isLoggedIn;
         id('logoutBtn').classList.toggle('hidden', !isLoggedIn);
@@ -758,35 +739,7 @@
       }
 
       function showCloudTargetInfo() {
-        const projectRef = getProjectRefFromUrl(SUPABASE_URL);
-        id('authStatus').textContent = `Non autenticato. Cloud attivo: ${projectRef} (${supabaseConfig.source}).`;
-      }
-
-      async function register() {
-        if (!supabaseClient) {
-          showAuthMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
-          return;
-        }
-
-        const email = id('authEmail').value.trim().toLowerCase();
-        const password = id('authPassword').value;
-
-        if (!email || !password) {
-          showAuthMsg('Inserisci email e password prima di registrarti.', 'err');
-          return;
-        }
-
-        const { error } = await supabaseClient.auth.signUp({
-          email,
-          password
-        });
-
-        if (error) {
-          showAuthMsg(`Registrazione fallita: ${error.message}`, 'err');
-          return;
-        }
-
-        showAuthMsg('Registrazione completata. Controlla la tua email se è richiesta la conferma.', 'ok');
+        // Configurazione cloud preimpostata: la schermata di login resta minimale.
       }
 
       async function login() {
@@ -810,7 +763,6 @@
           if (error) {
             const msg = (error.message || '').toLowerCase();
             if (msg.includes('invalid login credentials')) {
-              showAuthMsg(`Login fallito: credenziali non valide su progetto ${projectRef}. Se non hai ancora un account premi "Registrati".`, 'err');
               const extraHint = supabaseConfig.source === 'default'
                 ? ' Verifica anche di essere collegato al progetto Supabase corretto (non al cloud predefinito).'
                 : '';
@@ -1498,7 +1450,6 @@
 
       async function refreshSession() {
         if (!supabaseClient) {
-          id('authStatus').textContent = `Configura Supabase (${missingSupabaseConfig.join(', ')}) per usare login e cloud.`;
           setLoggedInUI(false);
           showMsg(`Imposta ${missingSupabaseConfig.join(' e ')} nel file index.html.`, 'err');
           return;
@@ -1522,7 +1473,6 @@
         }
 
         setProfileUI(currentUser);
-        id('authStatus').textContent = `Connesso come ${currentUser.email}`;
         setLoggedInUI(true);
         id('programWeekStart').value = isoWeekStart(nowDateISO());
         await loadUserPrograms();
@@ -1537,7 +1487,6 @@
         id('programWeekStart').value = isoWeekStart(nowDateISO());
         applyBreakUI();
         showCloudTargetInfo();
-        refreshCloudConfigUI();
         setLoggedInUI(false);
 
         id('loginBtn').addEventListener('click', login);
@@ -1545,11 +1494,8 @@
           event.preventDefault();
           await login();
         });
-        id('registerBtn').addEventListener('click', register);
         id('logoutBtn').addEventListener('click', logout);
         id('saveProfile').addEventListener('click', saveProfile);
-        id('saveCloudConfigBtn').addEventListener('click', saveCloudConfig);
-        id('resetCloudConfigBtn').addEventListener('click', resetCloudConfig);
         id('programBreakEnabled').addEventListener('change', applyBreakUI);
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
