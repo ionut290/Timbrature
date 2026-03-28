@@ -27,9 +27,31 @@ apps-script/
 3. Copia i file della cartella `apps-script/` nel progetto Apps Script.
 4. Esegui manualmente la funzione `setupSpreadsheet()` una volta sola.
 5. Compila il foglio `Dipendenti` con i tuoi utenti e ruoli.
-6. Deploy come Web App:
-   - **Esegui come**: te
-   - **Accesso**: dominio aziendale (consigliato)
+
+## Deploy come Web App Google Apps Script (soluzione più diretta)
+
+1. Nell'editor Apps Script clicca **Distribuisci → Nuova distribuzione**.
+2. Tipo distribuzione: **App web**.
+3. Configura i parametri:
+   - **Esegui come**: `Utente che esegue il deployment` (tu)
+   - **Chi ha accesso**: `Solo utenti del dominio` (se usi Google Workspace)
+4. Clicca **Distribuisci** e autorizza gli scope richiesti.
+5. Copia l'URL della Web App e aprilo in una finestra in incognito con un utente abilitato.
+
+### Quando aggiorni il codice
+
+- Vai su **Distribuisci → Gestisci distribuzioni**.
+- Apri la distribuzione Web App esistente.
+- Clicca **Modifica** e crea una **Nuova versione**.
+- Salva: l'URL della Web App resta lo stesso, ma verrà pubblicato il nuovo codice.
+
+### Troubleshooting rapido deploy Web App
+
+- Se `Session.getActiveUser().getEmail()` restituisce vuoto, verifica che:
+  - il progetto sia su account Workspace,
+  - l'accesso sia limitato al dominio,
+  - l'utente apra la Web App autenticato con l'account aziendale corretto.
+- Se vedi errori autorizzativi, riesegui una funzione server (es. `setupSpreadsheet`) da editor per riallineare i permessi.
 
 ## Deploy su Netlify: cosa devi sapere
 
