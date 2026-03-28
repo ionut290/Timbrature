@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= include('Styles'); ?>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Timbrature Aziendali</h1>
+      <div class="card" id="userBox"></div>
+
+      <div class="card">
+        <h2>Nuova timbratura / giornata</h2>
+        <div class="grid">
+          <label>Data
+            <input type="date" id="data">
+          </label>
+
+          <label>Entrata
+            <input type="time" id="entrata">
+          </label>
+
+          <label>Uscita
+            <input type="time" id="uscita">
+          </label>
+
+          <label>Pausa (minuti)
+            <input type="number" id="pausa" min="0" value="0">
+          </label>
+
+          <label>Causale
+            <select id="causale"></select>
+          </label>
+
+          <label>Note
+            <textarea id="note" rows="2" placeholder="Aggiungi dettagli se necessario"></textarea>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="secondary" onclick="saveRecord('BOZZA')">Salva bozza</button>
+          <button onclick="saveRecord('INVIATO')">Invia al responsabile</button>
+        </div>
+
+        <p id="esito" class="msg"></p>
+      </div>
+
+      <div class="card">
+        <h2>Storico mese</h2>
+        <div class="inline-actions">
+          <input type="month" id="mese">
+          <button onclick="loadMyMonth()">Ricarica</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Entrata</th>
+              <th>Uscita</th>
+              <th>Pausa</th>
+              <th>Causale</th>
+              <th>Ore</th>
+              <th>Ordinarie</th>
+              <th>Straordinario</th>
+              <th>Stato</th>
+            </tr>
+          </thead>
+          <tbody id="myRows"></tbody>
+        </table>
+      </div>
+
+      <div class="card" id="managerBox" hidden>
+        <h2>Approvazioni responsabile</h2>
+        <div class="inline-actions">
+          <button onclick="loadPending()">Aggiorna richieste</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Dipendente</th>
+              <th>Causale</th>
+              <th>Ore</th>
+              <th>Stato</th>
+              <th>Azioni</th>
+            </tr>
+          </thead>
+          <tbody id="pendingRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <?!= include('Scripts'); ?>
+  </body>
+</html>
