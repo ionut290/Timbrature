@@ -306,9 +306,6 @@
         <h2>Accesso cloud</h2>
         <form id="authForm">
         <div class="grid" id="authInputs">
-          <label>Nome (solo registrazione)
-            <input type="text" id="authName" placeholder="Mario Rossi" autocomplete="name" />
-          </label>
           <label>Email
             <input type="email" id="authEmail" placeholder="mario@azienda.it" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" />
           </label>
@@ -525,8 +522,8 @@
           localStorage.setItem(SUPABASE_KEY_STORAGE_KEY, keyFromQuery);
         }
 
-        const urlFromStorage = localStorage.getItem(SUPABASE_URL_STORAGE_KEY) || '';
-        const keyFromStorage = localStorage.getItem(SUPABASE_KEY_STORAGE_KEY) || '';
+        const urlFromStorage = localStorage.getItem('timbrature.supabase.url') || '';
+        const keyFromStorage = localStorage.getItem('timbrature.supabase.key') || '';
         const urlFromWindow = window.SUPABASE_URL || '';
         const keyFromWindow = window.SUPABASE_ANON_KEY || '';
 
@@ -550,7 +547,13 @@
       if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('INSERISCI_')) missingSupabaseConfig.push('SUPABASE_ANON_KEY');
       const isCloudConfigured = missingSupabaseConfig.length === 0;
       const supabaseClient = isCloudConfigured
-        ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true
+          }
+        })
         : null;
 
       let currentUser = null;
@@ -766,18 +769,6 @@
         }
       }
 
-      function refreshCloudConfigUI() {
-        id('supabaseUrlInput').value = SUPABASE_URL;
-        id('supabaseKeyInput').value = SUPABASE_ANON_KEY;
-        const projectRef = getProjectRefFromUrl(SUPABASE_URL);
-        const sourceLabel = supabaseConfig.source === 'localStorage'
-          ? 'configurazione salvata sul dispositivo'
-          : supabaseConfig.source === 'window'
-            ? 'configurazione forzata dal deploy'
-            : 'cloud predefinito';
-        id('cloudConfigStatus').textContent = `Progetto attivo: ${projectRef} (${sourceLabel}).`;
-      }
-
       function showCloudTargetInfo() {
         const projectRef = getProjectRefFromUrl(SUPABASE_URL);
         const usingDefaultCloud = supabaseConfig.source === 'default';
@@ -815,7 +806,6 @@
 
         const email = id('authEmail').value.trim().toLowerCase();
         const password = id('authPassword').value;
-        const fullName = id('authName').value.trim();
 
         if (!email || !password) {
           showAuthMsg('Inserisci email e password prima di registrarti.', 'err');
@@ -824,8 +814,7 @@
 
         const { error } = await supabaseClient.auth.signUp({
           email,
-          password,
-          options: { data: { full_name: fullName } }
+          password
         });
 
         if (error) {
@@ -1531,8 +1520,12 @@
           return;
         }
 
-        const { data } = await supabaseClient.auth.getUser();
-        currentUser = data.user;
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        currentUser = sessionData?.session?.user || null;
+        if (!currentUser) {
+          const { data: userData } = await supabaseClient.auth.getUser();
+          currentUser = userData?.user || null;
+        }
 
         if (!currentUser) {
           showCloudTargetInfo();
