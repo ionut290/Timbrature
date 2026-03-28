@@ -241,6 +241,14 @@
           <label>Note
             <textarea id="note" rows="2" placeholder="Aggiungi dettagli se necessario"></textarea>
           </label>
+
+          <label>Cantiere (manuale)
+            <input type="text" id="cantiere" placeholder="Es. Cantiere Via Roma" />
+          </label>
+
+          <label>Caposquadra (manuale)
+            <input type="text" id="caposquadra" placeholder="Es. Mario Rossi" />
+          </label>
         </div>
 
         <div class="actions">
@@ -272,6 +280,8 @@
               <th>Uscita</th>
               <th>Pausa</th>
               <th>Causale</th>
+              <th>Cantiere</th>
+              <th>Caposquadra</th>
               <th>Ore</th>
               <th>Ordinarie</th>
               <th>Straordinario</th>
@@ -566,6 +576,8 @@
             '  pausa integer default 0,',
             '  causale text,',
             '  note text,',
+            '  cantiere text,',
+            '  caposquadra text,',
             '  ore numeric,',
             '  ord numeric,',
             '  stra numeric,',
@@ -573,6 +585,10 @@
             '  updated_at timestamptz not null default now(),',
             '  unique(user_id, data)',
             ');',
+            '',
+            'alter table public.timbrature_records',
+            '  add column if not exists cantiere text,',
+            '  add column if not exists caposquadra text;',
             '',
             'alter table public.timbrature_records enable row level security;',
             '',
@@ -610,6 +626,8 @@
           pausaMinuti: Number(id('pausa').value || 0),
           causale: id('causale').value,
           note: id('note').value,
+          cantiere: id('cantiere').value.trim(),
+          caposquadra: id('caposquadra').value.trim(),
           stato
         };
       }
@@ -648,6 +666,8 @@
           pausa: payload.pausaMinuti,
           causale: payload.causale,
           note: payload.note,
+          cantiere: payload.cantiere,
+          caposquadra: payload.caposquadra,
           ore: calc.worked,
           ord: calc.ord,
           stra: calc.stra,
@@ -776,7 +796,7 @@
 
         const { data, error } = await supabaseClient
           .from('timbrature_records')
-          .select('data, entrata, uscita, pausa, causale, note, stato')
+          .select('data, entrata, uscita, pausa, causale, note, cantiere, caposquadra, stato')
           .eq('user_id', currentUser.id)
           .eq('data', today)
           .maybeSingle();
@@ -792,6 +812,8 @@
           id('pausa').value = 0;
           id('causale').value = 'LAV';
           id('note').value = '';
+          id('cantiere').value = '';
+          id('caposquadra').value = '';
           setPunchStatus('NONE');
           return;
         }
@@ -801,6 +823,8 @@
         id('pausa').value = data.pausa || 0;
         id('causale').value = data.causale || 'LAV';
         id('note').value = data.note || '';
+        id('cantiere').value = data.cantiere || '';
+        id('caposquadra').value = data.caposquadra || '';
 
         if (data.stato === 'COMPLETATA') {
           setPunchStatus('COMPLETATA', data.entrata, data.uscita);
@@ -823,7 +847,7 @@
 
         const { data, error } = await supabaseClient
           .from('timbrature_records')
-          .select('data, entrata, uscita, pausa, causale, ore, ord, stra, stato')
+          .select('data, entrata, uscita, pausa, causale, cantiere, caposquadra, ore, ord, stra, stato')
           .eq('user_id', currentUser.id)
           .gte('data', start)
           .lte('data', end)
@@ -844,6 +868,8 @@
             <td>${r.uscita || ''}</td>
             <td>${r.pausa || 0}</td>
             <td>${r.causale || ''}</td>
+            <td>${r.cantiere || ''}</td>
+            <td>${r.caposquadra || ''}</td>
             <td>${r.ore || 0}</td>
             <td>${r.ord || 0}</td>
             <td>${r.stra || 0}</td>
