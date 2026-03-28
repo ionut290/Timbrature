@@ -349,7 +349,7 @@
             <input type="number" id="programBreakMinutes" min="0" value="0" />
           </label>
         </div>
-        <p class="small" style="margin-top: 10px;">Il sabato viene calcolato come giornata di recupero automatico per coprire eventuali giornate feriali sotto le 8 ore.</p>
+        <p class="small" style="margin-top: 10px;">Il sabato viene calcolato come giornata di recupero automatico per coprire eventuali giornate feriali sotto le 8 ore. Se la domenica è lavorata (&gt; 0 ore), una giornata feriale con ore più basse viene considerata riposo compensativo e non genera recupero aggiuntivo.</p>
         <div class="week-grid">
           <label>Lunedì (ore)
             <input type="number" id="hoursMon" min="0" step="0.25" value="8" />
@@ -654,8 +654,12 @@
           Number(program.thursday_hours || 0),
           Number(program.friday_hours || 0)
         ];
-        const missingHours = plannedWeekdays.reduce((acc, h) => acc + Math.max(8 - h, 0), 0);
-        return +(Math.max(Number(program.saturday_hours || 0), missingHours)).toFixed(2);
+        const weekdayDeficits = plannedWeekdays.map((h) => Math.max(8 - h, 0));
+        const missingHours = weekdayDeficits.reduce((acc, h) => acc + h, 0);
+        const sundayHours = Number(program.sunday_hours || 0);
+        const compensatoryRestCredit = sundayHours > 0 ? Math.max(...weekdayDeficits, 0) : 0;
+        const netMissingHours = Math.max(missingHours - compensatoryRestCredit, 0);
+        return +(Math.max(Number(program.saturday_hours || 0), netMissingHours)).toFixed(2);
       }
 
       function currentMonthValueUTC() {
