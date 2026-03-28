@@ -156,14 +156,29 @@
         justify-content: space-between;
       }
       .app-shell {
+        position: relative;
+      }
+      .top-menu {
         display: flex;
-        gap: 14px;
-        align-items: flex-start;
+        justify-content: flex-end;
+        margin: 8px 0 10px;
+      }
+      .kebab-btn {
+        width: 44px;
+        min-width: 44px;
+        padding: 0;
+        border-radius: 999px;
+        font-size: 24px;
+        line-height: 1;
+        background: var(--secondary);
       }
       .left-menu {
-        width: 210px;
-        position: sticky;
-        top: 12px;
+        width: min(280px, calc(100vw - 24px));
+        position: absolute;
+        right: 0;
+        top: 52px;
+        z-index: 20;
+        margin: 0;
       }
       .left-menu h3 {
         margin: 0 0 10px;
@@ -184,7 +199,6 @@
         color: #fff;
       }
       .main-content {
-        flex: 1;
         min-width: 0;
       }
       .week-grid {
@@ -207,16 +221,8 @@
         padding: 0;
       }
       @media (max-width: 860px) {
-        .app-shell {
-          flex-direction: column;
-        }
         .left-menu {
-          width: 100%;
-          position: static;
-        }
-        .menu-links {
-          flex-direction: row;
-          flex-wrap: wrap;
+          width: min(320px, calc(100vw - 20px));
         }
         .actions {
           grid-template-columns: 1fr;
@@ -281,15 +287,19 @@
       <p class="pill">Multi utente con login + salvataggio cloud (Supabase)</p>
 
       <div class="app-shell">
-        <aside class="card left-menu hidden" id="leftMenu">
-          <h3>Menu</h3>
-          <div class="menu-links">
-            <button type="button" class="menu-link active" data-menu-target="authBox">Accesso cloud</button>
-            <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
-            <button type="button" class="menu-link" data-menu-target="programCard">Programma settimana</button>
-            <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
-          </div>
-        </aside>
+        <div class="top-menu hidden" id="topMenuBar">
+          <button type="button" class="kebab-btn" id="menuToggleBtn" aria-label="Apri menu" aria-expanded="false">⋮</button>
+          <aside class="card left-menu hidden" id="leftMenu">
+            <h3>Menu</h3>
+            <div class="menu-links">
+              <button type="button" class="menu-link active" data-menu-target="timbratureCard">Nuova timbratura / giornata</button>
+              <button type="button" class="menu-link" data-menu-target="programCard">Programma settimana</button>
+              <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
+              <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
+              <button type="button" class="menu-link" data-menu-target="authBox">Accesso cloud</button>
+            </div>
+          </aside>
+        </div>
 
         <div class="main-content">
       <div class="card" id="authBox">
@@ -526,8 +536,9 @@
       let currentUser = null;
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
       let cachedPrograms = [];
-      const menuPanelIds = ['authBox', 'userBox', 'programCard', 'storicoCard'];
-      let activeMenuPanel = 'authBox';
+      const menuPanelIds = ['timbratureCard', 'programCard', 'storicoCard', 'userBox', 'authBox'];
+      let activeMenuPanel = 'timbratureCard';
+      let menuOpen = false;
 
       function id(x) { return document.getElementById(x); }
 
@@ -691,11 +702,17 @@
         document.querySelectorAll('[data-menu-target]').forEach((btn) => {
           btn.classList.toggle('active', btn.dataset.menuTarget === panelId);
         });
+        setMenuOpen(false);
+      }
+
+      function setMenuOpen(isOpen) {
+        menuOpen = !!isOpen;
+        id('leftMenu').classList.toggle('hidden', !menuOpen);
+        id('menuToggleBtn').setAttribute('aria-expanded', menuOpen ? 'true' : 'false');
       }
 
       function setLoggedInUI(isLoggedIn) {
-        id('timbratureCard').classList.toggle('hidden', !isLoggedIn);
-        id('leftMenu').classList.toggle('hidden', !isLoggedIn);
+        id('topMenuBar').classList.toggle('hidden', !isLoggedIn);
         id('authInputs').classList.toggle('hidden', isLoggedIn);
         id('loginBtn').classList.toggle('hidden', isLoggedIn);
         id('registerBtn').classList.toggle('hidden', isLoggedIn);
@@ -703,11 +720,16 @@
         id('logoutBtn').disabled = !isLoggedIn;
         id('logoutBtn').classList.toggle('hidden', !isLoggedIn);
         if (isLoggedIn) {
+          if (activeMenuPanel === 'authBox') activeMenuPanel = 'timbratureCard';
           setMenuSection(activeMenuPanel);
         } else {
+          setMenuOpen(false);
+          activeMenuPanel = 'authBox';
           id('authBox').classList.remove('hidden');
           id('userBox').classList.add('hidden');
+          id('programCard').classList.add('hidden');
           id('storicoCard').classList.add('hidden');
+          id('timbratureCard').classList.add('hidden');
         }
       }
 
@@ -1502,6 +1524,19 @@
         id('editPunchBtn').addEventListener('click', toggleManualCorrection);
         id('saveDraftBtn').addEventListener('click', () => saveRecord('BOZZA', 'Timbratura corretta e salvata in bozza.'));
         id('saveDayBtn').addEventListener('click', () => saveRecord('COMPLETATA', 'Timbratura corretta e giornata confermata.'));
+        id('menuToggleBtn').addEventListener('click', (event) => {
+          event.stopPropagation();
+          setMenuOpen(!menuOpen);
+        });
+        id('leftMenu').addEventListener('click', (event) => {
+          event.stopPropagation();
+        });
+        document.addEventListener('click', () => {
+          if (menuOpen) setMenuOpen(false);
+        });
+        document.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && menuOpen) setMenuOpen(false);
+        });
         document.querySelectorAll('[data-menu-target]').forEach((btn) => {
           btn.addEventListener('click', () => setMenuSection(btn.dataset.menuTarget));
         });
