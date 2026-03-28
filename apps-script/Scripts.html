@@ -69,15 +69,15 @@
       .withSuccessHandler((rows) => {
         id('myRows').innerHTML = rows.map(r => `
           <tr>
-            <td>${r.data || ''}</td>
-            <td>${r.entrata || ''}</td>
-            <td>${r.uscita || ''}</td>
-            <td>${r.pausa || 0}</td>
-            <td>${r.causale || ''}</td>
-            <td>${r.ore || 0}</td>
-            <td>${r.ord || 0}</td>
-            <td>${r.stra || 0}</td>
-            <td>${r.stato || ''}</td>
+            <td data-label="Data">${r.data || ''}</td>
+            <td data-label="Entrata">${r.entrata || ''}</td>
+            <td data-label="Uscita">${r.uscita || ''}</td>
+            <td data-label="Pausa">${r.pausa || 0}</td>
+            <td data-label="Causale">${r.causale || ''}</td>
+            <td data-label="Ore">${r.ore || 0}</td>
+            <td data-label="Ordinarie">${r.ord || 0}</td>
+            <td data-label="Straordinario">${r.stra || 0}</td>
+            <td data-label="Stato">${r.stato || ''}</td>
           </tr>`).join('');
       })
       .withFailureHandler((e) => showMsg(e.message || String(e), 'err'))
@@ -90,12 +90,12 @@
       .withSuccessHandler((rows) => {
         id('pendingRows').innerHTML = rows.map(r => `
           <tr>
-            <td>${r.data}</td>
-            <td>${r.dipendente}</td>
-            <td>${r.causale}</td>
-            <td>${r.ore}</td>
-            <td>${r.stato}</td>
-            <td>
+            <td data-label="Data">${r.data}</td>
+            <td data-label="Dipendente">${r.dipendente}</td>
+            <td data-label="Causale">${r.causale}</td>
+            <td data-label="Ore">${r.ore}</td>
+            <td data-label="Stato">${r.stato}</td>
+            <td data-label="Azioni" class="actions-cell">
               <button onclick="approve('${r.id}', true)">Approva</button>
               <button class="secondary" onclick="approve('${r.id}', false)">Rifiuta</button>
             </td>

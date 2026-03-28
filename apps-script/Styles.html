@@ -1,11 +1,11 @@
 <style>
   :root {
-    --bg: #f4f6f8;
+    --bg: #eef2ff;
     --card: #ffffff;
-    --line: #d8dde3;
+    --line: #dbe3f2;
     --text: #1e293b;
     --primary: #2563eb;
-    --secondary: #475569;
+    --secondary: #334155;
     --ok: #047857;
     --error: #b91c1c;
   }
@@ -14,45 +14,50 @@
   body {
     margin: 0;
     font-family: Inter, Arial, sans-serif;
-    background: var(--bg);
+    background: radial-gradient(circle at top, #dbeafe 0%, var(--bg) 35%);
     color: var(--text);
   }
 
   .container {
-    max-width: 1080px;
+    max-width: 960px;
     margin: 0 auto;
-    padding: 20px 12px 40px;
+    padding: 16px 12px 88px;
   }
 
-  h1, h2 { margin-top: 0; }
+  h1, h2 { margin-top: 0; margin-bottom: 10px; }
+  h1 { font-size: clamp(1.3rem, 5vw, 1.9rem); }
+  h2 { font-size: clamp(1rem, 4.2vw, 1.2rem); }
 
   .card {
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 14px;
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
   }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 10px;
   }
 
   label {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
+    color: #334155;
   }
 
   input, select, textarea, button {
-    padding: 10px;
+    min-height: 44px;
+    padding: 10px 12px;
     border: 1px solid var(--line);
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 12px;
+    font-size: 16px;
   }
 
   button {
@@ -60,6 +65,7 @@
     background: var(--primary);
     color: #fff;
     border: none;
+    font-weight: 600;
   }
 
   button.secondary {
@@ -80,6 +86,11 @@
     margin-bottom: 8px;
   }
 
+  .table-wrap {
+    overflow-x: auto;
+    margin-top: 8px;
+  }
+
   table {
     width: 100%;
     border-collapse: collapse;
@@ -88,7 +99,7 @@
   th, td {
     border: 1px solid var(--line);
     padding: 8px;
-    font-size: 13px;
+    font-size: 12px;
     text-align: left;
   }
 
@@ -97,4 +108,65 @@
   .msg { min-height: 18px; }
   .ok { color: var(--ok); }
   .err { color: var(--error); }
+
+  @media (max-width: 720px) {
+    .container { padding: 12px 10px 86px; }
+    .card { padding: 12px; border-radius: 14px; }
+    .grid { grid-template-columns: 1fr; }
+    .actions { grid-template-columns: 1fr; position: sticky; bottom: 8px; z-index: 2; background: #fff; padding-top: 8px; }
+    .inline-actions { flex-wrap: wrap; }
+    .inline-actions input,
+    .inline-actions button { width: 100%; }
+
+    .responsive-table thead {
+      display: none;
+    }
+
+    .responsive-table,
+    .responsive-table tbody,
+    .responsive-table tr,
+    .responsive-table td {
+      display: block;
+      width: 100%;
+    }
+
+    .responsive-table tr {
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+
+    .responsive-table td {
+      border: 0;
+      border-bottom: 1px solid #e2e8f0;
+      padding: 6px 4px;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .responsive-table td:last-child {
+      border-bottom: 0;
+    }
+
+    .responsive-table td::before {
+      content: attr(data-label);
+      font-weight: 700;
+      color: #334155;
+      flex: 0 0 44%;
+    }
+
+    .responsive-table td.actions-cell {
+      display: block;
+      padding-top: 10px;
+    }
+
+    .responsive-table td.actions-cell button {
+      width: 100%;
+      margin-bottom: 6px;
+    }
+  }
 </style>
