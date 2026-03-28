@@ -3,223 +3,446 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Timbrature - Avvio Web App</title>
+    <title>Timbrature (senza Google Sheet)</title>
     <style>
       :root {
-        --bg: #f8fafc;
+        --bg: #f4f6f8;
         --card: #ffffff;
-        --line: #dbe2ea;
-        --text: #0f172a;
-        --muted: #475569;
-        --primary: #1d4ed8;
-        --primary-hover: #1e40af;
-        --ok-bg: #ecfdf3;
-        --ok-text: #166534;
-        --warn-bg: #fff7ed;
-        --warn-text: #9a3412;
+        --line: #d8dde3;
+        --text: #1e293b;
+        --primary: #2563eb;
+        --secondary: #475569;
+        --ok: #047857;
+        --error: #b91c1c;
       }
 
-      * {
-        box-sizing: border-box;
-      }
-
+      * { box-sizing: border-box; }
       body {
         margin: 0;
         font-family: Inter, Arial, sans-serif;
         background: var(--bg);
         color: var(--text);
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        padding: 16px;
       }
 
-      main {
-        width: min(780px, 100%);
+      .container {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 20px 12px 40px;
+      }
+
+      h1, h2 { margin-top: 0; }
+
+      .card {
         background: var(--card);
         border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 22px;
-      }
-
-      h1 {
-        margin: 0 0 12px;
-        font-size: 1.4rem;
-      }
-
-      p {
-        margin: 0 0 12px;
-        line-height: 1.45;
-        color: var(--muted);
-      }
-
-      .badge {
-        display: inline-block;
-        margin: 0 0 14px;
-        padding: 8px 12px;
-        border-radius: 10px;
-        background: var(--ok-bg);
-        color: var(--ok-text);
-        font-weight: 600;
-      }
-
-      .warn {
-        margin: 14px 0;
-        padding: 10px 12px;
-        border-radius: 10px;
-        background: var(--warn-bg);
-        color: var(--warn-text);
-        font-size: 0.95rem;
-      }
-
-      .panel {
-        border: 1px solid var(--line);
         border-radius: 12px;
-        padding: 14px;
-        background: #f8fbff;
+        padding: 16px;
+        margin-bottom: 14px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
       }
 
       label {
-        display: block;
-        margin: 0 0 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 13px;
         font-weight: 600;
       }
 
-      input[type='url'] {
-        width: 100%;
-        border: 1px solid #cbd5e1;
-        border-radius: 10px;
-        padding: 10px 12px;
-        font-size: 0.95rem;
+      input, select, textarea, button {
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        font-size: 14px;
       }
 
-      .row {
-        margin-top: 10px;
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-
-      .help {
-        margin-top: 8px;
-        font-size: 0.9rem;
-        color: var(--muted);
-      }
-
-      button,
-      a.button {
-        border: 0;
-        border-radius: 10px;
-        padding: 10px 14px;
-        font-size: 0.95rem;
+      button {
         cursor: pointer;
-        text-decoration: none;
-      }
-
-      button.primary,
-      a.button.primary {
         background: var(--primary);
         color: #fff;
-      }
-
-      button.primary:hover,
-      a.button.primary:hover {
-        background: var(--primary-hover);
+        border: none;
       }
 
       button.secondary {
-        background: #e2e8f0;
-        color: #0f172a;
+        background: var(--secondary);
       }
 
-      code {
-        background: #eff6ff;
-        border: 1px solid #bfdbfe;
-        border-radius: 6px;
-        padding: 2px 6px;
-        color: #1e3a8a;
+      .actions {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .inline-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th, td {
+        border: 1px solid var(--line);
+        padding: 8px;
+        font-size: 13px;
+        text-align: left;
+      }
+
+      th { background: #eef2ff; }
+      .msg { min-height: 18px; }
+      .ok { color: var(--ok); }
+      .err { color: var(--error); }
+      .small { color: #334155; font-size: 13px; margin: 0; }
+      .pill {
+        display: inline-block;
+        background: #ecfeff;
+        border: 1px solid #bae6fd;
+        color: #075985;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 12px;
+        font-weight: 600;
       }
     </style>
   </head>
   <body>
-    <main>
-      <div class="badge">Deploy Netlify raggiungibile ✅</div>
-      <h1>Questa non è la web app completa</h1>
-      <p>
-        Se vedi questa schermata è normale: il dominio Netlify è online, ma l'app timbrature funziona
-        solo dentro Google Apps Script perché usa <code>google.script.run</code>.
-      </p>
+    <div class="container">
+      <h1>Timbrature Aziendali</h1>
+      <p class="pill">Salvataggio locale automatico (nessun Google Sheet)</p>
 
-      <div class="warn">
-        Per aprire l'app reale devi usare l'URL della distribuzione <strong>Web App</strong> di Apps Script.
-      </div>
-
-      <div class="panel">
-        <label for="appUrl">Incolla qui il link Web App Apps Script</label>
-        <input
-          id="appUrl"
-          type="url"
-          placeholder="https://script.google.com/macros/s/AKfycb.../exec"
-        />
-        <div class="row">
-          <button id="save" class="secondary">Salva link</button>
-          <a id="open" class="button primary" href="#" target="_blank" rel="noopener">Apri app timbrature</a>
+      <div class="card" id="userBox">
+        <h2>Profilo</h2>
+        <div class="grid">
+          <label>Nome
+            <input type="text" id="nome" placeholder="Mario Rossi" />
+          </label>
+          <label>Email
+            <input type="email" id="email" placeholder="mario@azienda.it" />
+          </label>
         </div>
-        <div id="helpText" class="help">Incolla il link e premi <strong>Invio</strong> oppure <strong>Salva link</strong>.</div>
+        <div class="inline-actions" style="margin-top: 12px;">
+          <button class="secondary" id="saveProfile">Salva profilo</button>
+          <p class="small">Il profilo e le timbrature si salvano automaticamente nel browser.</p>
+        </div>
       </div>
 
-      <p style="margin-top: 14px">
-        Suggerimento: in Apps Script vai su <strong>Distribuisci → Gestisci distribuzioni</strong>, copia il link
-        <code>/exec</code> e incollalo qui una volta sola.
-      </p>
-    </main>
+      <div class="card">
+        <h2>Nuova timbratura / giornata</h2>
+        <div class="grid">
+          <label>Data
+            <input type="date" id="data">
+          </label>
+
+          <label>Entrata
+            <input type="time" id="entrata">
+          </label>
+
+          <label>Uscita
+            <input type="time" id="uscita">
+          </label>
+
+          <label>Pausa (minuti)
+            <input type="number" id="pausa" min="0" value="0">
+          </label>
+
+          <label>Causale
+            <select id="causale">
+              <option value="LAV">LAV - Lavoro ordinario</option>
+              <option value="FER">FER - Ferie</option>
+              <option value="MAL">MAL - Malattia</option>
+              <option value="PIO">PIO - Pioggia</option>
+              <option value="PER">PER - Permesso</option>
+              <option value="TRA">TRA - Trasferta</option>
+              <option value="FES">FES - Festivo</option>
+              <option value="SW">SW - Smart working</option>
+            </select>
+          </label>
+
+          <label>Note
+            <textarea id="note" rows="2" placeholder="Aggiungi dettagli se necessario"></textarea>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="secondary" onclick="saveRecord('BOZZA')">Salva bozza</button>
+          <button onclick="saveRecord('INVIATO')">Conferma giornata</button>
+        </div>
+
+        <p id="esito" class="msg"></p>
+      </div>
+
+      <div class="card">
+        <h2>Storico mese</h2>
+        <div class="inline-actions">
+          <input type="month" id="mese">
+          <button onclick="loadMyMonth()">Ricarica</button>
+          <button class="secondary" onclick="exportData()">Esporta backup JSON</button>
+          <input type="file" id="importFile" accept="application/json" />
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Entrata</th>
+              <th>Uscita</th>
+              <th>Pausa</th>
+              <th>Causale</th>
+              <th>Ore</th>
+              <th>Ordinarie</th>
+              <th>Straordinario</th>
+              <th>Stato</th>
+            </tr>
+          </thead>
+          <tbody id="myRows"></tbody>
+        </table>
+      </div>
+    </div>
 
     <script>
-      const KEY = 'timbrature_web_app_url';
-      const input = document.getElementById('appUrl');
-      const saveButton = document.getElementById('save');
-      const openButton = document.getElementById('open');
+      const STORAGE_KEY = 'timbrature_local_db_v2';
+      const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
 
-      function normalizeUrl(value) {
-        const url = value.trim();
-        return url.endsWith('/exec') ? url : url;
+      function id(x) { return document.getElementById(x); }
+
+      function showMsg(message, type = 'ok') {
+        id('esito').className = `msg ${type}`;
+        id('esito').textContent = message;
       }
 
-      function updateOpenLink(url) {
-        const hasUrl = Boolean(url);
-        openButton.href = hasUrl ? url : '#';
-        openButton.style.pointerEvents = hasUrl ? 'auto' : 'none';
-        openButton.style.opacity = hasUrl ? '1' : '0.55';
-        openButton.textContent = hasUrl ? 'Apri app timbrature' : 'Incolla prima il link';
+      function defaultDb() {
+        return {
+          user: { nome: '', email: '' },
+          rules: { roundingMinutes: 15, ordinaryHours: 8 },
+          records: []
+        };
       }
 
-      function persistUrl() {
-        const url = normalizeUrl(input.value);
-        if (!url) {
-          localStorage.removeItem(KEY);
-          updateOpenLink('');
-          return '';
+      function loadDb() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return defaultDb();
+          const parsed = JSON.parse(raw);
+          return {
+            ...defaultDb(),
+            ...parsed,
+            user: { ...defaultDb().user, ...(parsed.user || {}) },
+            rules: { ...defaultDb().rules, ...(parsed.rules || {}) },
+            records: Array.isArray(parsed.records) ? parsed.records : []
+          };
+        } catch {
+          return defaultDb();
+        }
+      }
+
+      function saveDb(db) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+      }
+
+      function parseTimeToMinutes(hhmm) {
+        if (!hhmm) return null;
+        const [h, m] = String(hhmm).split(':').map(Number);
+        if (Number.isNaN(h) || Number.isNaN(m)) return null;
+        return h * 60 + m;
+      }
+
+      function roundMinutes(minutes, step) {
+        if (!step || step <= 0) return minutes;
+        return Math.round(minutes / step) * step;
+      }
+
+      function computeHours(entrata, uscita, pausaMinuti, causale, rules) {
+        if (!CAUSALI_LAVORATIVE.includes(causale)) {
+          return { worked: 0, ord: 0, stra: 0 };
         }
 
-        localStorage.setItem(KEY, url);
-        updateOpenLink(url);
-        return url;
+        const inMin = parseTimeToMinutes(entrata);
+        const outMin = parseTimeToMinutes(uscita);
+        if (inMin == null || outMin == null) return { worked: 0, ord: 0, stra: 0 };
+
+        let workedMin = outMin - inMin - (Number(pausaMinuti) || 0);
+        if (workedMin < 0) workedMin = 0;
+
+        const rounded = roundMinutes(workedMin, Number(rules.roundingMinutes || 0));
+        const threshold = Number(rules.ordinaryHours || 8) * 60;
+        const ordMin = Math.min(rounded, threshold);
+        const straMin = Math.max(rounded - threshold, 0);
+
+        return {
+          worked: +(rounded / 60).toFixed(2),
+          ord: +(ordMin / 60).toFixed(2),
+          stra: +(straMin / 60).toFixed(2)
+        };
       }
 
-      const savedUrl = localStorage.getItem(KEY) || '';
-      input.value = savedUrl;
-      updateOpenLink(savedUrl);
+      function nowDateISO() {
+        return new Date().toISOString().slice(0, 10);
+      }
 
-      saveButton.addEventListener('click', persistUrl);
+      function monthFromDate(dateIso) {
+        return String(dateIso || '').slice(0, 7);
+      }
 
-      input.addEventListener('input', () => updateOpenLink(normalizeUrl(input.value)));
-      input.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          const url = persistUrl();
-          if (url) window.open(url, '_blank', 'noopener');
+      function setProfileUI(user) {
+        id('nome').value = user.nome || '';
+        id('email').value = user.email || '';
+      }
+
+      function saveProfile() {
+        const db = loadDb();
+        db.user = {
+          nome: id('nome').value.trim(),
+          email: id('email').value.trim().toLowerCase()
+        };
+        saveDb(db);
+        showMsg('Profilo salvato in locale.', 'ok');
+      }
+
+      function collectPayload(stato) {
+        return {
+          data: id('data').value || nowDateISO(),
+          entrata: id('entrata').value,
+          uscita: id('uscita').value,
+          pausaMinuti: Number(id('pausa').value || 0),
+          causale: id('causale').value,
+          note: id('note').value,
+          stato
+        };
+      }
+
+      function saveRecord(stato) {
+        const db = loadDb();
+        const payload = collectPayload(stato);
+
+        if (!db.user.nome || !db.user.email) {
+          showMsg('Compila prima il profilo (nome + email).', 'err');
+          return;
         }
-      });
+
+        const calc = computeHours(
+          payload.entrata,
+          payload.uscita,
+          payload.pausaMinuti,
+          payload.causale,
+          db.rules
+        );
+
+        const idx = db.records.findIndex(
+          (r) => r.data === payload.data && r.email === db.user.email
+        );
+
+        const record = {
+          id: idx >= 0 ? db.records[idx].id : crypto.randomUUID(),
+          data: payload.data,
+          email: db.user.email,
+          nome: db.user.nome,
+          entrata: payload.entrata,
+          uscita: payload.uscita,
+          pausa: payload.pausaMinuti,
+          causale: payload.causale,
+          note: payload.note,
+          ore: calc.worked,
+          ord: calc.ord,
+          stra: calc.stra,
+          stato: payload.stato,
+          updatedAt: new Date().toISOString()
+        };
+
+        if (idx >= 0) {
+          db.records[idx] = record;
+        } else {
+          db.records.push(record);
+        }
+
+        saveDb(db);
+        showMsg(`Salvato in locale. Ore: ${calc.worked}, Ordinarie: ${calc.ord}, Straordinario: ${calc.stra}`, 'ok');
+        loadMyMonth();
+      }
+
+      function loadMyMonth() {
+        const db = loadDb();
+        const month = id('mese').value;
+        const rows = db.records
+          .filter((r) => monthFromDate(r.data) === month && r.email === db.user.email)
+          .sort((a, b) => a.data.localeCompare(b.data));
+
+        id('myRows').innerHTML = rows.map((r) => `
+          <tr>
+            <td>${r.data || ''}</td>
+            <td>${r.entrata || ''}</td>
+            <td>${r.uscita || ''}</td>
+            <td>${r.pausa || 0}</td>
+            <td>${r.causale || ''}</td>
+            <td>${r.ore || 0}</td>
+            <td>${r.ord || 0}</td>
+            <td>${r.stra || 0}</td>
+            <td>${r.stato || ''}</td>
+          </tr>`).join('');
+      }
+
+      function exportData() {
+        const db = loadDb();
+        const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `timbrature-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function importData(file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const parsed = JSON.parse(reader.result);
+            const db = {
+              ...defaultDb(),
+              ...parsed,
+              user: { ...defaultDb().user, ...(parsed.user || {}) },
+              rules: { ...defaultDb().rules, ...(parsed.rules || {}) },
+              records: Array.isArray(parsed.records) ? parsed.records : []
+            };
+            saveDb(db);
+            setProfileUI(db.user);
+            loadMyMonth();
+            showMsg('Backup importato con successo.', 'ok');
+          } catch {
+            showMsg('File non valido.', 'err');
+          }
+        };
+        reader.readAsText(file);
+      }
+
+      function init() {
+        const db = loadDb();
+        setProfileUI(db.user);
+
+        id('data').value = nowDateISO();
+        const now = new Date();
+        id('mese').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+        id('saveProfile').addEventListener('click', saveProfile);
+        id('importFile').addEventListener('change', (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (file) importData(file);
+          e.target.value = '';
+        });
+
+        loadMyMonth();
+      }
+
+      window.onload = init;
     </script>
   </body>
 </html>
