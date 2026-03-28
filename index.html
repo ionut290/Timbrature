@@ -644,7 +644,9 @@
       async function logout() {
         if (!supabaseClient) return;
 
-        const { error } = await supabaseClient.auth.signOut();
+        // Esegue il logout solo su questo dispositivo/browser, senza invalidare
+        // le altre sessioni attive dello stesso utente su altri dispositivi.
+        const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
         if (error) {
           showAuthMsg(`Logout fallito: ${error.message}`, 'err');
           return;
