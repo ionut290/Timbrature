@@ -174,7 +174,7 @@
         <div class="auth-row" style="margin-top: 12px;" id="authRow">
           <button id="loginBtn" type="button">Accedi</button>
           <button class="secondary" id="registerBtn" type="button">Registrati</button>
-          <button class="secondary" id="logoutBtn">Logout</button>
+          <button class="secondary" id="logoutBtn" type="button">Logout</button>
           <span class="small" id="authStatus">Non autenticato.</span>
         </div>
         <p id="authEsito" class="msg"></p>
@@ -482,7 +482,19 @@
 
       async function logout() {
         if (!supabaseClient) return;
-        await supabaseClient.auth.signOut();
+
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+          showAuthMsg(`Logout fallito: ${error.message}`, 'err');
+          return;
+        }
+
+        currentUser = null;
+        setLoggedInUI(false);
+        setProfileUI(null);
+        id('myRows').innerHTML = '';
+        setPunchStatus('NONE');
+        await refreshSession();
         showAuthMsg('Logout effettuato.', 'ok');
       }
 
