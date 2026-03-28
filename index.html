@@ -324,8 +324,20 @@
         return new Date().toISOString().slice(0, 10);
       }
 
+      function currentMonthValueUTC() {
+        const now = new Date();
+        return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+      }
+
+      function normalizeMonthValue(monthValue) {
+        const value = String(monthValue || '').trim();
+        if (/^\d{4}-\d{2}$/.test(value)) return value;
+        return currentMonthValueUTC();
+      }
+
       function monthRange(monthValue) {
-        const [year, month] = monthValue.split('-').map(Number);
+        const normalized = normalizeMonthValue(monthValue);
+        const [year, month] = normalized.split('-').map(Number);
         const start = `${year}-${String(month).padStart(2, '0')}-01`;
         const endDate = new Date(Date.UTC(year, month, 0));
         const end = `${year}-${String(month).padStart(2, '0')}-${String(endDate.getUTCDate()).padStart(2, '0')}`;
@@ -356,6 +368,11 @@
         const password = id('authPassword').value;
         const fullName = id('authName').value.trim();
 
+        if (!email || !password) {
+          showAuthMsg('Inserisci email e password prima di registrarti.', 'err');
+          return;
+        }
+
         const { error } = await supabaseClient.auth.signUp({
           email,
           password,
@@ -378,6 +395,11 @@
 
         const email = id('authEmail').value.trim().toLowerCase();
         const password = id('authPassword').value;
+
+        if (!email || !password) {
+          showAuthMsg('Inserisci email e password prima di accedere.', 'err');
+          return;
+        }
 
         const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) {
@@ -572,7 +594,8 @@
           return;
         }
 
-        const month = id('mese').value;
+        const month = normalizeMonthValue(id('mese').value);
+        id('mese').value = month;
         const { start, end } = monthRange(month);
 
         const { data, error } = await supabaseClient
@@ -661,8 +684,7 @@
 
       async function init() {
         id('data').value = nowDateISO();
-        const now = new Date();
-        id('mese').value = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+        id('mese').value = currentMonthValueUTC();
 
         id('loginBtn').addEventListener('click', login);
         id('registerBtn').addEventListener('click', register);
