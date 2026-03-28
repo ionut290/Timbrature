@@ -64,3 +64,11 @@ Se vuoi, nel prossimo step posso prepararti una versione `frontend` pronta per N
 - L'identità utente usa `Session.getActiveUser().getEmail()`.
 - Se l'email risulta vuota, verificare permessi e policy del dominio Google Workspace.
 - Record con stato `APPROVATO` non modificabili dal dipendente.
+
+
+### Nota per Netlify (fix 404)
+
+In questa repo è stato aggiunto un `index.html` statico alla root per evitare l'errore **Page not found** quando apri il dominio Netlify.
+
+- Questo risolve il 404 del link Netlify.
+- Non rende automaticamente funzionante la web app Apps Script (che richiede `google.script.run`).
