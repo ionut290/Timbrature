@@ -334,7 +334,7 @@
 
       <div class="card hidden" id="programCard">
         <h2>Programma settimanale utente</h2>
-        <p class="small">Imposta la settimana di riferimento e le ore ordinarie per ogni giorno. Il sistema usa queste regole per calcolare ordinarie/straordinario.</p>
+        <p class="small">Imposta una settimana di riferimento: il programma viene applicato a tutto l'anno dell'utente. Il sistema usa queste regole per calcolare ordinarie/straordinario.</p>
         <div class="grid">
           <label>Settimana (data inizio)
             <input type="date" id="programWeekStart" />
@@ -348,14 +348,8 @@
           <label>Minuti pausa standard
             <input type="number" id="programBreakMinutes" min="0" value="0" />
           </label>
-          <label>Ore recupero notturno (sabato)
-            <input type="number" id="programNightRecoveryHours" min="0" step="0.25" value="0" />
-          </label>
         </div>
-        <div class="check-row" style="margin-top: 10px;">
-          <input type="checkbox" id="programSaturdayOrdinary" />
-          <label for="programSaturdayOrdinary" style="display:inline;font-size:14px;">Conta il sabato come ordinario (es. recupero notturno)</label>
-        </div>
+        <p class="small" style="margin-top: 10px;">Il sabato viene calcolato come giornata di recupero automatico per coprire eventuali giornate feriali sotto le 8 ore.</p>
         <div class="week-grid">
           <label>Lunedì (ore)
             <input type="number" id="hoursMon" min="0" step="0.25" value="8" />
@@ -560,14 +554,42 @@
         return Math.round(minutes / step) * step;
       }
 
+      function overlapMinutes(startA, endA, startB, endB) {
+        const start = Math.max(startA, startB);
+        const end = Math.min(endA, endB);
+        return Math.max(end - start, 0);
+      }
+
+      function calculateNightMinutes(entrata, uscita, pausaMinuti) {
+        const inMin = parseTimeToMinutes(entrata);
+        const outMin = parseTimeToMinutes(uscita);
+        if (inMin == null || outMin == null) return 0;
+
+        let start = inMin;
+        let end = outMin;
+        if (end <= start) end += 24 * 60;
+
+        const day = 24 * 60;
+        const overlapCurrentNight = overlapMinutes(start, end, 22 * 60, day);
+        const overlapNextNight = overlapMinutes(start, end, day, day + 6 * 60);
+        const overlapExtendedNight = overlapMinutes(start, end, day + 22 * 60, day * 2);
+        const grossNight = overlapCurrentNight + overlapNextNight + overlapExtendedNight;
+
+        const workedMin = Math.max(end - start - (Number(pausaMinuti) || 0), 0);
+        if (workedMin <= 0 || grossNight <= 0) return 0;
+
+        const pauseRatio = Math.min((Number(pausaMinuti) || 0) / (end - start), 1);
+        return Math.max(grossNight * (1 - pauseRatio), 0);
+      }
+
       function computeHours(entrata, uscita, pausaMinuti, causale, rules) {
         if (!CAUSALI_LAVORATIVE.includes(causale)) {
-          return { worked: 0, ord: 0, stra: 0 };
+          return { worked: 0, ord: 0, stra: 0, night: 0 };
         }
 
         const inMin = parseTimeToMinutes(entrata);
         const outMin = parseTimeToMinutes(uscita);
-        if (inMin == null || outMin == null) return { worked: 0, ord: 0, stra: 0 };
+        if (inMin == null || outMin == null) return { worked: 0, ord: 0, stra: 0, night: 0 };
 
         let workedMin = outMin - inMin - (Number(pausaMinuti) || 0);
         if (workedMin < 0) workedMin = 0;
@@ -576,11 +598,13 @@
         const threshold = Number(rules.ordinaryHours || 8) * 60;
         const ordMin = Math.min(rounded, threshold);
         const straMin = Math.max(rounded - threshold, 0);
+        const nightMin = calculateNightMinutes(entrata, uscita, pausaMinuti);
 
         return {
           worked: +(rounded / 60).toFixed(2),
           ord: +(ordMin / 60).toFixed(2),
-          stra: +(straMin / 60).toFixed(2)
+          stra: +(straMin / 60).toFixed(2),
+          night: +(nightMin / 60).toFixed(2)
         };
       }
 
@@ -620,6 +644,18 @@
           Number(program.sunday_hours || 0)
         ];
         return byDay[dayIndex] || 0;
+      }
+
+      function getSaturdayRecoveryHours(program) {
+        const plannedWeekdays = [
+          Number(program.monday_hours || 0),
+          Number(program.tuesday_hours || 0),
+          Number(program.wednesday_hours || 0),
+          Number(program.thursday_hours || 0),
+          Number(program.friday_hours || 0)
+        ];
+        const missingHours = plannedWeekdays.reduce((acc, h) => acc + Math.max(8 - h, 0), 0);
+        return +(Math.max(Number(program.saturday_hours || 0), missingHours)).toFixed(2);
       }
 
       function currentMonthValueUTC() {
@@ -798,8 +834,6 @@
           week_start: isoWeekStart(id('programWeekStart').value || nowDateISO()),
           break_enabled: id('programBreakEnabled').value === 'true',
           break_minutes: Number(id('programBreakMinutes').value || 0),
-          saturday_ordinary: id('programSaturdayOrdinary').checked,
-          night_recovery_hours: Number(id('programNightRecoveryHours').value || 0),
           monday_hours: Number(id('hoursMon').value || 0),
           tuesday_hours: Number(id('hoursTue').value || 0),
           wednesday_hours: Number(id('hoursWed').value || 0),
@@ -815,8 +849,6 @@
         id('programWeekStart').value = program.week_start;
         id('programBreakEnabled').value = String(Boolean(program.break_enabled));
         id('programBreakMinutes').value = Number(program.break_minutes || 0);
-        id('programSaturdayOrdinary').checked = Boolean(program.saturday_ordinary);
-        id('programNightRecoveryHours').value = Number(program.night_recovery_hours || 0);
         id('hoursMon').value = Number(program.monday_hours || 0);
         id('hoursTue').value = Number(program.tuesday_hours || 0);
         id('hoursWed').value = Number(program.wednesday_hours || 0);
@@ -882,8 +914,8 @@
           week_start: payload.week_start,
           break_enabled: payload.break_enabled,
           break_minutes: payload.break_enabled ? payload.break_minutes : 0,
-          saturday_ordinary: payload.saturday_ordinary,
-          night_recovery_hours: payload.night_recovery_hours,
+          saturday_ordinary: false,
+          night_recovery_hours: 0,
           monday_hours: payload.monday_hours,
           tuesday_hours: payload.tuesday_hours,
           wednesday_hours: payload.wednesday_hours,
@@ -911,12 +943,20 @@
 
       function programForDate(dateValue) {
         const dayISO = dateValue || nowDateISO();
+        const selectedWeekStart = isoWeekStart(dayISO);
         const sorted = [...cachedPrograms].sort((a, b) => {
           if (a.week_start === b.week_start) return 0;
           return a.week_start > b.week_start ? -1 : 1;
         });
-        const match = sorted.find((p) => p.week_start <= dayISO);
-        return match || null;
+        const exactWeek = sorted.find((p) => p.week_start === selectedWeekStart);
+        if (exactWeek) return exactWeek;
+
+        const selectedYear = Number(dayISO.slice(0, 4));
+        const sameYear = sorted.filter((p) => Number(String(p.week_start || '').slice(0, 4)) === selectedYear);
+        if (!sameYear.length) return null;
+
+        const firstInYear = [...sameYear].sort((a, b) => (a.week_start > b.week_start ? 1 : -1))[0];
+        return firstInYear || null;
       }
 
       function resolveRulesForDate(dateValue) {
@@ -926,10 +966,7 @@
         }
         const dayIdx = weekDayIndex(dateValue);
         let ordinaryHours = getProgramHoursByDay(program, dayIdx);
-
-        if (dayIdx === 5 && program.saturday_ordinary) {
-          ordinaryHours = ordinaryHours + Number(program.night_recovery_hours || 0);
-        }
+        if (dayIdx === 5) ordinaryHours = getSaturdayRecoveryHours(program);
 
         return {
           rules: {
@@ -1172,7 +1209,7 @@
         }
 
         setSqlHint('');
-        showMsg(customMessage || `Salvato nel cloud. Ore: ${calc.worked}, Ordinarie: ${calc.ord}, Straordinario: ${calc.stra}`, 'ok');
+        showMsg(customMessage || `Salvato nel cloud. Ore: ${calc.worked}, Ordinarie: ${calc.ord}, Straordinario: ${calc.stra}, Notturne: ${calc.night}`, 'ok');
         await loadMyMonth();
         return row;
       }
