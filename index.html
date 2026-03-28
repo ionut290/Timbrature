@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Timbrature - Deploy su Netlify</title>
+    <title>Timbrature - Avvio Web App</title>
     <style>
       :root {
         --bg: #f8fafc;
@@ -12,9 +12,17 @@
         --text: #0f172a;
         --muted: #475569;
         --primary: #1d4ed8;
+        --primary-hover: #1e40af;
+        --ok-bg: #ecfdf3;
+        --ok-text: #166534;
+        --warn-bg: #fff7ed;
+        --warn-text: #9a3412;
       }
 
-      * { box-sizing: border-box; }
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
         font-family: Inter, Arial, sans-serif;
@@ -27,7 +35,7 @@
       }
 
       main {
-        width: min(760px, 100%);
+        width: min(780px, 100%);
         background: var(--card);
         border: 1px solid var(--line);
         border-radius: 14px;
@@ -35,14 +43,87 @@
       }
 
       h1 {
-        margin: 0 0 10px;
-        font-size: 1.5rem;
+        margin: 0 0 12px;
+        font-size: 1.4rem;
       }
 
       p {
         margin: 0 0 12px;
         line-height: 1.45;
         color: var(--muted);
+      }
+
+      .badge {
+        display: inline-block;
+        margin: 0 0 14px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: var(--ok-bg);
+        color: var(--ok-text);
+        font-weight: 600;
+      }
+
+      .warn {
+        margin: 14px 0;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        font-size: 0.95rem;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px;
+        background: #f8fbff;
+      }
+
+      label {
+        display: block;
+        margin: 0 0 8px;
+        font-weight: 600;
+      }
+
+      input[type='url'] {
+        width: 100%;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 0.95rem;
+      }
+
+      .row {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      button,
+      a.button {
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 0.95rem;
+        cursor: pointer;
+        text-decoration: none;
+      }
+
+      button.primary,
+      a.button.primary {
+        background: var(--primary);
+        color: #fff;
+      }
+
+      button.primary:hover,
+      a.button.primary:hover {
+        background: var(--primary-hover);
+      }
+
+      button.secondary {
+        background: #e2e8f0;
+        color: #0f172a;
       }
 
       code {
@@ -56,16 +137,70 @@
   </head>
   <body>
     <main>
-      <h1>Timbrature: link Netlify attivo ✅</h1>
+      <div class="badge">Deploy Netlify raggiungibile ✅</div>
+      <h1>Questa non è la web app completa</h1>
       <p>
-        Se stai vedendo questa pagina, il deploy Netlify è raggiungibile.
+        Se vedi questa schermata è normale: il dominio Netlify è online, ma l'app timbrature funziona
+        solo dentro Google Apps Script perché usa <code>google.script.run</code>.
       </p>
-      <p>
-        Nota: l'app completa di timbrature usa <code>google.script.run</code>, che funziona solo quando il frontend gira come Web App Google Apps Script.
-      </p>
-      <p>
-        Per pubblicare l'app funzionale devi usare il deploy Google Apps Script, oppure riscrivere il frontend in modalità REST con <code>fetch()</code> verso endpoint <code>doGet/doPost</code>.
+
+      <div class="warn">
+        Per aprire l'app reale devi usare l'URL della distribuzione <strong>Web App</strong> di Apps Script.
+      </div>
+
+      <div class="panel">
+        <label for="appUrl">Incolla qui il link Web App Apps Script</label>
+        <input
+          id="appUrl"
+          type="url"
+          placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+        />
+        <div class="row">
+          <button id="save" class="secondary">Salva link</button>
+          <a id="open" class="button primary" href="#" target="_blank" rel="noopener">Apri app timbrature</a>
+        </div>
+      </div>
+
+      <p style="margin-top: 14px">
+        Suggerimento: in Apps Script vai su <strong>Distribuisci → Gestisci distribuzioni</strong>, copia il link
+        <code>/exec</code> e incollalo qui una volta sola.
       </p>
     </main>
+
+    <script>
+      const KEY = 'timbrature_web_app_url';
+      const input = document.getElementById('appUrl');
+      const saveButton = document.getElementById('save');
+      const openButton = document.getElementById('open');
+
+      function normalizeUrl(value) {
+        const url = value.trim();
+        return url.endsWith('/exec') ? url : url;
+      }
+
+      function updateOpenLink(url) {
+        const hasUrl = Boolean(url);
+        openButton.href = hasUrl ? url : '#';
+        openButton.style.pointerEvents = hasUrl ? 'auto' : 'none';
+        openButton.style.opacity = hasUrl ? '1' : '0.55';
+        openButton.textContent = hasUrl ? 'Apri app timbrature' : 'Incolla prima il link';
+      }
+
+      const savedUrl = localStorage.getItem(KEY) || '';
+      input.value = savedUrl;
+      updateOpenLink(savedUrl);
+
+      saveButton.addEventListener('click', () => {
+        const url = normalizeUrl(input.value);
+        if (!url) {
+          localStorage.removeItem(KEY);
+          updateOpenLink('');
+          return;
+        }
+
+        localStorage.setItem(KEY, url);
+        updateOpenLink(url);
+      });
+    </script>
   </body>
 </html>
