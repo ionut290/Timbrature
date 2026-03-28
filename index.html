@@ -321,6 +321,22 @@
         </div>
         <p id="authEsito" class="msg"></p>
         </form>
+        <div class="sql-help" style="margin-top: 14px;">
+          <p class="small"><strong>Cloud Supabase</strong> (utile su iPhone/app): imposta qui URL e anon key del tuo progetto.</p>
+          <div class="grid">
+            <label>Project URL
+              <input type="url" id="supabaseUrlInput" placeholder="https://tuo-progetto.supabase.co" autocapitalize="none" autocorrect="off" spellcheck="false" />
+            </label>
+            <label>Anon key
+              <input type="text" id="supabaseKeyInput" placeholder="sb_publishable_..." autocapitalize="none" autocorrect="off" spellcheck="false" />
+            </label>
+          </div>
+          <div class="inline-actions" style="margin-top: 10px;">
+            <button type="button" class="secondary" id="saveCloudConfigBtn">Salva cloud su questo dispositivo</button>
+            <button type="button" class="secondary" id="resetCloudConfigBtn">Ripristina cloud predefinito</button>
+          </div>
+          <p class="small" id="cloudConfigStatus"></p>
+        </div>
       </div>
 
       <div class="card hidden" id="userBox">
@@ -493,6 +509,8 @@
       const DEFAULT_SUPABASE_URL = 'https://xxgstjxgrhkrmeqosoak.supabase.co';
       const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4Z3N0anhncmhrcm1lcW9zb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTk2NDEsImV4cCI6MjA5MDI5NTY0MX0.ayvYyAuZPaMmv4s9_3fwTR88P_8IDokyG11t5L5biNI';
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
+      const SUPABASE_URL_STORAGE_KEY = 'timbrature.supabase.url';
+      const SUPABASE_KEY_STORAGE_KEY = 'timbrature.supabase.key';
 
       function resolveSupabaseConfig() {
         const urlFromWindow = window.SUPABASE_URL || '';
@@ -1498,6 +1516,7 @@
         id('programWeekStart').value = isoWeekStart(nowDateISO());
         applyBreakUI();
         showCloudTargetInfo();
+        refreshCloudConfigUI();
         setLoggedInUI(false);
 
         id('loginBtn').addEventListener('click', login);
@@ -1508,6 +1527,8 @@
         id('registerBtn').addEventListener('click', register);
         id('logoutBtn').addEventListener('click', logout);
         id('saveProfile').addEventListener('click', saveProfile);
+        id('saveCloudConfigBtn').addEventListener('click', saveCloudConfig);
+        id('resetCloudConfigBtn').addEventListener('click', resetCloudConfig);
         id('programBreakEnabled').addEventListener('change', applyBreakUI);
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
