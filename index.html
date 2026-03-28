@@ -515,11 +515,12 @@
       function resolveSupabaseConfig() {
         const urlFromWindow = window.SUPABASE_URL || '';
         const keyFromWindow = window.SUPABASE_ANON_KEY || '';
+        const hasWindowConfig = !!(urlFromWindow && keyFromWindow);
 
         return {
-          url: urlFromWindow || DEFAULT_SUPABASE_URL,
-          key: keyFromWindow || DEFAULT_SUPABASE_ANON_KEY,
-          source: urlFromWindow && keyFromWindow
+          url: hasWindowConfig ? urlFromWindow : DEFAULT_SUPABASE_URL,
+          key: hasWindowConfig ? keyFromWindow : DEFAULT_SUPABASE_ANON_KEY,
+          source: hasWindowConfig
             ? 'window'
             : 'default'
         };
@@ -803,26 +804,36 @@
         }
 
         id('loginBtn').disabled = true;
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        id('loginBtn').disabled = false;
-        if (error) {
-          const msg = (error.message || '').toLowerCase();
-          if (msg.includes('invalid login credentials')) {
-            const extraHint = supabaseConfig.source === 'default'
-              ? ' Verifica anche di essere collegato al progetto Supabase corretto (non al cloud predefinito).'
-              : '';
-            showAuthMsg(`Login fallito: credenziali non valide. Controlla email/password e riprova.${extraHint}`, 'err');
+        try {
+          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+          if (error) {
+            const msg = (error.message || '').toLowerCase();
+            if (msg.includes('invalid login credentials')) {
+              const extraHint = supabaseConfig.source === 'default'
+                ? ' Verifica anche di essere collegato al progetto Supabase corretto (non al cloud predefinito).'
+                : '';
+              showAuthMsg(`Login fallito: credenziali non valide. Controlla email/password e riprova.${extraHint}`, 'err');
+              return;
+            }
+            if (msg.includes('email not confirmed')) {
+              showAuthMsg('Login fallito: email non confermata. Controlla la tua casella email e conferma l’account.', 'err');
+              return;
+            }
+            showAuthMsg(`Login fallito: ${error.message}`, 'err');
             return;
           }
-          showAuthMsg(`Login fallito: ${error.message}`, 'err');
-          return;
-        }
 
-        if (data?.user) {
-          currentUser = data.user;
-          await refreshSession();
+          if (data?.user) {
+            currentUser = data.user;
+            await refreshSession();
+          }
+          showAuthMsg('Accesso effettuato.', 'ok');
+        } catch (error) {
+          const message = error?.message || 'Errore di rete durante il login.';
+          showAuthMsg(`Login fallito: ${message}`, 'err');
+        } finally {
+          id('loginBtn').disabled = false;
         }
-        showAuthMsg('Accesso effettuato.', 'ok');
       }
 
       async function logout() {
