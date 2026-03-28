@@ -27,7 +27,7 @@
       .container {
         max-width: 1080px;
         margin: 0 auto;
-        padding: 20px 12px 40px;
+        padding: 16px 12px 88px;
       }
 
       h1, h2 { margin-top: 0; }
@@ -55,10 +55,11 @@
       }
 
       input, select, textarea, button {
-        padding: 10px;
+        min-height: 44px;
+        padding: 10px 12px;
         border: 1px solid var(--line);
         border-radius: 8px;
-        font-size: 14px;
+        font-size: 16px;
       }
 
       button {
@@ -95,6 +96,10 @@
       table {
         width: 100%;
         border-collapse: collapse;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        margin-top: 8px;
       }
 
       th, td {
@@ -193,6 +198,59 @@
         .menu-links {
           flex-direction: row;
           flex-wrap: wrap;
+        }
+        .actions {
+          grid-template-columns: 1fr;
+        }
+        .inline-actions {
+          flex-wrap: wrap;
+        }
+        .inline-actions input,
+        .inline-actions button {
+          width: 100%;
+        }
+        .responsive-table thead {
+          display: none;
+        }
+        .responsive-table,
+        .responsive-table tbody,
+        .responsive-table tr,
+        .responsive-table td {
+          display: block;
+          width: 100%;
+        }
+        .responsive-table tr {
+          background: #f8fafc;
+          border: 1px solid var(--line);
+          border-radius: 12px;
+          margin-bottom: 10px;
+          padding: 8px;
+        }
+        .responsive-table td {
+          border: 0;
+          border-bottom: 1px solid #e2e8f0;
+          padding: 6px 4px;
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          font-size: 13px;
+        }
+        .responsive-table td:last-child {
+          border-bottom: 0;
+        }
+        .responsive-table td::before {
+          content: attr(data-label);
+          font-weight: 700;
+          color: #334155;
+          flex: 0 0 44%;
+        }
+        .responsive-table td.actions-cell {
+          display: block;
+          padding-top: 10px;
+        }
+        .responsive-table td.actions-cell button {
+          width: 100%;
+          margin-bottom: 6px;
         }
       }
     </style>
@@ -328,7 +386,8 @@
           <button onclick="loadMyMonth()">Ricarica</button>
           <button class="secondary" onclick="exportData()">Esporta backup JSON</button>
         </div>
-        <table>
+        <div class="table-wrap">
+        <table class="responsive-table">
           <thead>
             <tr>
               <th>Data</th>
@@ -347,6 +406,7 @@
           </thead>
           <tbody id="myRows"></tbody>
         </table>
+        </div>
       </div>
       </div>
       </div>
@@ -941,18 +1001,18 @@
         setSqlHint('');
         id('myRows').innerHTML = (data || []).map((r) => `
           <tr>
-            <td>${r.data || ''}</td>
-            <td>${r.entrata || ''}</td>
-            <td>${r.uscita || ''}</td>
-            <td>${r.pausa || 0}</td>
-            <td>${r.causale || ''}</td>
-            <td>${r.cantiere || ''}</td>
-            <td>${r.caposquadra || ''}</td>
-            <td>${r.ore || 0}</td>
-            <td>${r.ord || 0}</td>
-            <td>${r.stra || 0}</td>
-            <td>${r.stato || ''}</td>
-            <td>
+            <td data-label="Data">${r.data || ''}</td>
+            <td data-label="Entrata">${r.entrata || ''}</td>
+            <td data-label="Uscita">${r.uscita || ''}</td>
+            <td data-label="Pausa">${r.pausa || 0}</td>
+            <td data-label="Causale">${r.causale || ''}</td>
+            <td data-label="Cantiere">${r.cantiere || ''}</td>
+            <td data-label="Caposquadra">${r.caposquadra || ''}</td>
+            <td data-label="Ore">${r.ore || 0}</td>
+            <td data-label="Ordinarie">${r.ord || 0}</td>
+            <td data-label="Straordinario">${r.stra || 0}</td>
+            <td data-label="Stato">${r.stato || ''}</td>
+            <td data-label="Azioni" class="actions-cell">
               <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${r.data}')">Elimina</button>
             </td>
           </tr>`).join('');
