@@ -805,10 +805,12 @@
 
         id('loginBtn').disabled = true;
         try {
+          const projectRef = getProjectRefFromUrl(SUPABASE_URL);
           const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
           if (error) {
             const msg = (error.message || '').toLowerCase();
             if (msg.includes('invalid login credentials')) {
+              showAuthMsg(`Login fallito: credenziali non valide su progetto ${projectRef}. Se non hai ancora un account premi "Registrati".`, 'err');
               const extraHint = supabaseConfig.source === 'default'
                 ? ' Verifica anche di essere collegato al progetto Supabase corretto (non al cloud predefinito).'
                 : '';
@@ -817,6 +819,14 @@
             }
             if (msg.includes('email not confirmed')) {
               showAuthMsg('Login fallito: email non confermata. Controlla la tua casella email e conferma l’account.', 'err');
+              return;
+            }
+            if (msg.includes('invalid api key') || msg.includes('api key') || msg.includes('jwt')) {
+              showAuthMsg(`Login fallito: chiave Supabase non valida per il progetto ${projectRef}. Verifica URL e anon key del deploy.`, 'err');
+              return;
+            }
+            if (msg.includes('network') || msg.includes('fetch')) {
+              showAuthMsg('Login fallito: errore di rete. Verifica connessione internet e riprova.', 'err');
               return;
             }
             showAuthMsg(`Login fallito: ${error.message}`, 'err');
