@@ -100,6 +100,12 @@
         flex-wrap: wrap;
       }
 
+      .help {
+        margin-top: 8px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
       button,
       a.button {
         border: 0;
@@ -159,6 +165,7 @@
           <button id="save" class="secondary">Salva link</button>
           <a id="open" class="button primary" href="#" target="_blank" rel="noopener">Apri app timbrature</a>
         </div>
+        <div id="helpText" class="help">Incolla il link e premi <strong>Invio</strong> oppure <strong>Salva link</strong>.</div>
       </div>
 
       <p style="margin-top: 14px">
@@ -186,20 +193,32 @@
         openButton.textContent = hasUrl ? 'Apri app timbrature' : 'Incolla prima il link';
       }
 
-      const savedUrl = localStorage.getItem(KEY) || '';
-      input.value = savedUrl;
-      updateOpenLink(savedUrl);
-
-      saveButton.addEventListener('click', () => {
+      function persistUrl() {
         const url = normalizeUrl(input.value);
         if (!url) {
           localStorage.removeItem(KEY);
           updateOpenLink('');
-          return;
+          return '';
         }
 
         localStorage.setItem(KEY, url);
         updateOpenLink(url);
+        return url;
+      }
+
+      const savedUrl = localStorage.getItem(KEY) || '';
+      input.value = savedUrl;
+      updateOpenLink(savedUrl);
+
+      saveButton.addEventListener('click', persistUrl);
+
+      input.addEventListener('input', () => updateOpenLink(normalizeUrl(input.value)));
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          const url = persistUrl();
+          if (url) window.open(url, '_blank', 'noopener');
+        }
       });
     </script>
   </body>
