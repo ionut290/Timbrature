@@ -101,6 +101,31 @@ order by policyname;
 5. Controlla che `SUPABASE_URL` e `SUPABASE_ANON_KEY` in `index.html` siano del **medesimo progetto** dove hai creato la tabella.
 6. Fai logout/login nell’app e ricarica la pagina.
 
+
+## Strategia alternativa: cambiare cloud velocemente
+
+Se il progetto Supabase è incoerente (es. tabella presente su un altro project ref), puoi spostare l'app su un altro cloud senza patchare il codice:
+
+1. Apri l'app aggiungendo query params URL:
+
+```text
+?supabase_url=https://TUO-PROGETTO.supabase.co&supabase_key=TUO_ANON_KEY
+```
+
+2. Al primo caricamento i valori vengono salvati in `localStorage` e riutilizzati ai successivi accessi.
+3. Nel nuovo progetto esegui sempre `supabase/setup.sql` nel SQL Editor.
+4. Verifica di essere nel progetto corretto con:
+
+```sql
+select current_database(), current_schema();
+
+select table_schema, table_name
+from information_schema.tables
+where table_schema = 'public' and table_name = 'timbrature_records';
+```
+
+> Suggerimento: se vuoi tornare alla configurazione di default, cancella le chiavi `timbrature.supabase.url` e `timbrature.supabase.key` dal browser (Local Storage).
+
 ## 3) Avvio
 
 1. Apri `index.html` in locale o pubblica su Netlify.
