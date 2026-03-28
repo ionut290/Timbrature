@@ -11,6 +11,8 @@ create table if not exists public.timbrature_records (
   pausa integer default 0,
   causale text,
   note text,
+  cantiere text,
+  caposquadra text,
   ore numeric,
   ord numeric,
   stra numeric,
@@ -18,6 +20,10 @@ create table if not exists public.timbrature_records (
   updated_at timestamptz not null default now(),
   unique(user_id, data)
 );
+
+alter table public.timbrature_records
+  add column if not exists cantiere text,
+  add column if not exists caposquadra text;
 
 alter table public.timbrature_records enable row level security;
 
