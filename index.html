@@ -150,6 +150,51 @@
       .auth-row.compact {
         justify-content: space-between;
       }
+      .app-shell {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+      }
+      .left-menu {
+        width: 210px;
+        position: sticky;
+        top: 12px;
+      }
+      .left-menu h3 {
+        margin: 0 0 10px;
+        font-size: 16px;
+      }
+      .menu-links {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .menu-link {
+        background: #e2e8f0;
+        color: #0f172a;
+        text-align: left;
+      }
+      .menu-link.active {
+        background: var(--primary);
+        color: #fff;
+      }
+      .main-content {
+        flex: 1;
+        min-width: 0;
+      }
+      @media (max-width: 860px) {
+        .app-shell {
+          flex-direction: column;
+        }
+        .left-menu {
+          width: 100%;
+          position: static;
+        }
+        .menu-links {
+          flex-direction: row;
+          flex-wrap: wrap;
+        }
+      }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
@@ -158,6 +203,17 @@
       <h1>Timbrature Aziendali</h1>
       <p class="pill">Multi utente con login + salvataggio cloud (Supabase)</p>
 
+      <div class="app-shell">
+        <aside class="card left-menu hidden" id="leftMenu">
+          <h3>Menu</h3>
+          <div class="menu-links">
+            <button type="button" class="menu-link active" data-menu-target="authBox">Accesso cloud</button>
+            <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
+            <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
+          </div>
+        </aside>
+
+        <div class="main-content">
       <div class="card" id="authBox">
         <h2>Accesso cloud</h2>
         <div class="grid" id="authInputs">
@@ -291,6 +347,8 @@
           <tbody id="myRows"></tbody>
         </table>
       </div>
+      </div>
+      </div>
     </div>
 
     <script>
@@ -336,6 +394,8 @@
 
       let currentUser = null;
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
+      const menuPanelIds = ['authBox', 'userBox', 'storicoCard'];
+      let activeMenuPanel = 'authBox';
 
       function id(x) { return document.getElementById(x); }
 
@@ -410,16 +470,33 @@
         return { start, end };
       }
 
+      function setMenuSection(panelId) {
+        if (!menuPanelIds.includes(panelId)) return;
+        activeMenuPanel = panelId;
+        menuPanelIds.forEach((idName) => {
+          id(idName).classList.toggle('hidden', idName !== panelId);
+        });
+        document.querySelectorAll('[data-menu-target]').forEach((btn) => {
+          btn.classList.toggle('active', btn.dataset.menuTarget === panelId);
+        });
+      }
+
       function setLoggedInUI(isLoggedIn) {
         id('timbratureCard').classList.toggle('hidden', !isLoggedIn);
-        id('storicoCard').classList.toggle('hidden', !isLoggedIn);
-        id('userBox').classList.toggle('hidden', !isLoggedIn);
+        id('leftMenu').classList.toggle('hidden', !isLoggedIn);
         id('authInputs').classList.toggle('hidden', isLoggedIn);
         id('loginBtn').classList.toggle('hidden', isLoggedIn);
         id('registerBtn').classList.toggle('hidden', isLoggedIn);
         id('authRow').classList.toggle('compact', isLoggedIn);
         id('logoutBtn').disabled = !isLoggedIn;
         id('logoutBtn').classList.toggle('hidden', !isLoggedIn);
+        if (isLoggedIn) {
+          setMenuSection(activeMenuPanel);
+        } else {
+          id('authBox').classList.remove('hidden');
+          id('userBox').classList.add('hidden');
+          id('storicoCard').classList.add('hidden');
+        }
       }
 
       function setProfileUI(user) {
@@ -948,6 +1025,9 @@
         id('editPunchBtn').addEventListener('click', toggleManualCorrection);
         id('saveDraftBtn').addEventListener('click', () => saveRecord('BOZZA', 'Timbratura corretta e salvata in bozza.'));
         id('saveDayBtn').addEventListener('click', () => saveRecord('COMPLETATA', 'Timbratura corretta e giornata confermata.'));
+        document.querySelectorAll('[data-menu-target]').forEach((btn) => {
+          btn.addEventListener('click', () => setMenuSection(btn.dataset.menuTarget));
+        });
 
         if (supabaseClient) {
           supabaseClient.auth.onAuthStateChange(async () => {
