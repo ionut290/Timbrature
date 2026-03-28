@@ -15,11 +15,11 @@ Questa versione usa **Supabase** per avere:
 3. Apri `index.html` e imposta i due valori:
 
 ```js
-const SUPABASE_URL = window.SUPABASE_URL || 'INSERISCI_SUPABASE_URL';
-const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'INSERISCI_SUPABASE_ANON_KEY';
+const SUPABASE_URL = window.SUPABASE_URL || 'https://xxgstjxgrhkrmeqosoak.supabase.co';
+const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'sb_publishable_Bjvs0ktNO_fwk9V2W3hW7w_hiln-vII';
 ```
 
-> Nota: in questa repository la `SUPABASE_ANON_KEY` è già valorizzata; devi ancora inserire la `SUPABASE_URL`.
+> Nota: in questa repository sia `SUPABASE_URL` che `SUPABASE_ANON_KEY` sono già valorizzate in `index.html`.
 
 ## 2) Crea tabella e policy RLS
 
