@@ -31,6 +31,21 @@ apps-script/
    - **Esegui come**: te
    - **Accesso**: dominio aziendale (consigliato)
 
+## Deploy su Netlify: cosa devi sapere
+
+Questo progetto **non può essere pubblicato direttamente su Netlify** così com'è, perché il frontend usa `google.script.run`, API disponibili solo quando l'app gira dentro Google Apps Script.
+
+Hai due opzioni:
+
+1. **Consigliata (attuale):** deploy come Web App Google Apps Script.
+2. **Netlify + backend Apps Script:**
+   - tieni `Code.gs` come backend (esposto con endpoint HTTP `doGet/doPost`),
+   - sposti il frontend su Netlify,
+   - sostituisci le chiamate `google.script.run` con `fetch()` verso l'URL della Web App Apps Script,
+   - gestisci autenticazione/autorizzazione (token/JWT/API key) lato backend.
+
+Se vuoi, nel prossimo step posso prepararti una versione `frontend` pronta per Netlify (HTML/CSS/JS statici + chiamate REST).
+
 ## Ruoli supportati
 
 - `dipendente`: inserimento presenze e invio al responsabile.
