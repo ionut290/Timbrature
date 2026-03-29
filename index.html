@@ -813,7 +813,10 @@
       function buildOAuthRedirectUrl() {
         try {
           const current = new URL(window.location.href);
-          const redirect = new URL(`${current.origin}${current.pathname}`);
+          // Usa la root del dominio per ridurre mismatch con la allow-list di Supabase.
+          // Se la callback contiene path specifici (es. /index.html) spesso non è inclusa
+          // in Authentication > URL Configuration e Supabase ricade sul Site URL.
+          const redirect = new URL(`${current.origin}/`);
           const forwardedParams = ['supabase_url', 'supabase_key'];
 
           forwardedParams.forEach((param) => {
@@ -931,7 +934,7 @@
           if (error) {
             const msg = (error.message || '').toLowerCase();
             if (msg.includes('redirect') && msg.includes('allowed')) {
-              showAuthMsg('Accesso Google fallito: URL di callback non autorizzato. In Supabase aggiungi il dominio in Authentication → URL Configuration.', 'err');
+              showAuthMsg(`Accesso Google fallito: URL di callback non autorizzato (${redirectTo}). In Supabase aggiungi questo URL in Authentication → URL Configuration.`, 'err');
               return;
             }
             showAuthMsg(`Accesso Google fallito: ${error.message}`, 'err');
