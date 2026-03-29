@@ -319,10 +319,11 @@
         </div>
         <div class="auth-row" style="margin-top: 12px;" id="authRow">
           <button id="loginBtn" type="button">Accedi</button>
+          <button class="secondary" id="registerBtn" type="button">Registrati</button>
           <button class="secondary" id="googleLoginBtn" type="button">Accedi con Google</button>
           <button class="secondary hidden" id="logoutBtn" type="button">Logout</button>
         </div>
-        <p class="oauth-divider">Oppure usa Google (richiede provider Google attivo in Supabase).</p>
+        <p class="oauth-divider" id="authGoogleHelp">Oppure usa Google (richiede provider Google attivo in Supabase).</p>
         <p id="authEsito" class="msg"></p>
         </form>
       </div>
@@ -497,6 +498,7 @@
       const DEFAULT_SUPABASE_URL = 'https://xxgstjxgrhkrmeqosoak.supabase.co';
       const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4Z3N0anhncmhrcm1lcW9zb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTk2NDEsImV4cCI6MjA5MDI5NTY0MX0.ayvYyAuZPaMmv4s9_3fwTR88P_8IDokyG11t5L5biNI';
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
+      const ENABLE_GOOGLE_LOGIN = false;
       const SUPABASE_URL_STORAGE_KEY = 'timbrature.supabase.url';
       const SUPABASE_KEY_STORAGE_KEY = 'timbrature.supabase.key';
 
@@ -779,7 +781,10 @@
         id('topMenuBar').classList.toggle('hidden', !isLoggedIn);
         id('authInputs').classList.toggle('hidden', isLoggedIn);
         id('loginBtn').classList.toggle('hidden', isLoggedIn);
-        id('googleLoginBtn').classList.toggle('hidden', isLoggedIn);
+        id('registerBtn').classList.toggle('hidden', isLoggedIn);
+        id('googleLoginBtn').classList.toggle('hidden', isLoggedIn || !ENABLE_GOOGLE_LOGIN);
+        id('googleLoginBtn').disabled = !ENABLE_GOOGLE_LOGIN;
+        id('authGoogleHelp').classList.toggle('hidden', !ENABLE_GOOGLE_LOGIN);
         id('authRow').classList.toggle('compact', isLoggedIn);
         id('logoutBtn').disabled = !isLoggedIn;
         id('logoutBtn').classList.toggle('hidden', !isLoggedIn);
@@ -807,6 +812,26 @@
           return new URL(url).hostname.split('.')[0] || 'sconosciuto';
         } catch (_) {
           return 'non valido';
+        }
+      }
+
+      function buildOAuthRedirectUrl() {
+        try {
+          const current = new URL(window.location.href);
+          // Usa la root del dominio per ridurre mismatch con la allow-list di Supabase.
+          // Se la callback contiene path specifici (es. /index.html) spesso non è inclusa
+          // in Authentication > URL Configuration e Supabase ricade sul Site URL.
+          const redirect = new URL(`${current.origin}/`);
+          const forwardedParams = ['supabase_url', 'supabase_key'];
+
+          forwardedParams.forEach((param) => {
+            const value = current.searchParams.get(param);
+            if (value) redirect.searchParams.set(param, value);
+          });
+
+          return redirect.toString();
+        } catch (_) {
+          return window.location.origin || window.location.href;
         }
       }
 
@@ -870,6 +895,48 @@
         }
       }
 
+      async function register() {
+        if (!supabaseClient) {
+          showAuthMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
+          return;
+        }
+
+        const email = id('authEmail').value.trim().toLowerCase();
+        const password = id('authPassword').value;
+
+        if (!email || !password) {
+          showAuthMsg('Inserisci email e password per registrarti.', 'err');
+          return;
+        }
+        if (password.length < 6) {
+          showAuthMsg('Password troppo corta: usa almeno 6 caratteri.', 'err');
+          return;
+        }
+
+        id('registerBtn').disabled = true;
+        try {
+          const { data, error } = await supabaseClient.auth.signUp({ email, password });
+          if (error) {
+            showAuthMsg(`Registrazione fallita: ${error.message}`, 'err');
+            return;
+          }
+
+          if (data?.session) {
+            currentUser = data.user || data.session.user || null;
+            await refreshSession();
+            showAuthMsg('Registrazione completata. Accesso effettuato.', 'ok');
+            return;
+          }
+
+          showAuthMsg('Registrazione completata. Se non entri subito, disattiva "Confirm email" in Supabase (Authentication → Providers → Email).', 'ok');
+        } catch (error) {
+          const message = error?.message || 'Errore di rete durante la registrazione.';
+          showAuthMsg(`Registrazione fallita: ${message}`, 'err');
+        } finally {
+          id('registerBtn').disabled = false;
+        }
+      }
+
       async function logout() {
         if (!supabaseClient) return;
 
@@ -896,6 +963,10 @@
       }
 
       async function loginWithGoogle() {
+        if (!ENABLE_GOOGLE_LOGIN) {
+          showAuthMsg('Accesso Google disattivato: usa Email + Password.', 'err');
+          return;
+        }
         if (!supabaseClient) {
           showAuthMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
           return;
@@ -904,13 +975,19 @@
         const googleBtn = id('googleLoginBtn');
         googleBtn.disabled = true;
         try {
+          const redirectTo = buildOAuthRedirectUrl();
           const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
-              redirectTo: window.location.href
+              redirectTo
             }
           });
           if (error) {
+            const msg = (error.message || '').toLowerCase();
+            if (msg.includes('redirect') && msg.includes('allowed')) {
+              showAuthMsg(`Accesso Google fallito: URL di callback non autorizzato (${redirectTo}). In Supabase aggiungi questo URL in Authentication → URL Configuration.`, 'err');
+              return;
+            }
             showAuthMsg(`Accesso Google fallito: ${error.message}`, 'err');
             return;
           }
@@ -1595,6 +1672,7 @@
         setLoggedInUI(false);
 
         id('loginBtn').addEventListener('click', login);
+        id('registerBtn').addEventListener('click', register);
         id('googleLoginBtn').addEventListener('click', loginWithGoogle);
         id('authForm').addEventListener('submit', async (event) => {
           event.preventDefault();
