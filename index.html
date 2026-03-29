@@ -319,6 +319,7 @@
         </div>
         <div class="auth-row" style="margin-top: 12px;" id="authRow">
           <button id="loginBtn" type="button">Accedi</button>
+          <button class="secondary" id="registerBtn" type="button">Registrati</button>
           <button class="secondary" id="googleLoginBtn" type="button">Accedi con Google</button>
           <button class="secondary hidden" id="logoutBtn" type="button">Logout</button>
         </div>
@@ -780,6 +781,7 @@
         id('topMenuBar').classList.toggle('hidden', !isLoggedIn);
         id('authInputs').classList.toggle('hidden', isLoggedIn);
         id('loginBtn').classList.toggle('hidden', isLoggedIn);
+        id('registerBtn').classList.toggle('hidden', isLoggedIn);
         id('googleLoginBtn').classList.toggle('hidden', isLoggedIn || !ENABLE_GOOGLE_LOGIN);
         id('googleLoginBtn').disabled = !ENABLE_GOOGLE_LOGIN;
         id('authGoogleHelp').classList.toggle('hidden', !ENABLE_GOOGLE_LOGIN);
@@ -890,6 +892,48 @@
           showAuthMsg(`Login fallito: ${message}`, 'err');
         } finally {
           id('loginBtn').disabled = false;
+        }
+      }
+
+      async function register() {
+        if (!supabaseClient) {
+          showAuthMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
+          return;
+        }
+
+        const email = id('authEmail').value.trim().toLowerCase();
+        const password = id('authPassword').value;
+
+        if (!email || !password) {
+          showAuthMsg('Inserisci email e password per registrarti.', 'err');
+          return;
+        }
+        if (password.length < 6) {
+          showAuthMsg('Password troppo corta: usa almeno 6 caratteri.', 'err');
+          return;
+        }
+
+        id('registerBtn').disabled = true;
+        try {
+          const { data, error } = await supabaseClient.auth.signUp({ email, password });
+          if (error) {
+            showAuthMsg(`Registrazione fallita: ${error.message}`, 'err');
+            return;
+          }
+
+          if (data?.session) {
+            currentUser = data.user || data.session.user || null;
+            await refreshSession();
+            showAuthMsg('Registrazione completata. Accesso effettuato.', 'ok');
+            return;
+          }
+
+          showAuthMsg('Registrazione completata. Se non entri subito, disattiva "Confirm email" in Supabase (Authentication → Providers → Email).', 'ok');
+        } catch (error) {
+          const message = error?.message || 'Errore di rete durante la registrazione.';
+          showAuthMsg(`Registrazione fallita: ${message}`, 'err');
+        } finally {
+          id('registerBtn').disabled = false;
         }
       }
 
@@ -1628,6 +1672,7 @@
         setLoggedInUI(false);
 
         id('loginBtn').addEventListener('click', login);
+        id('registerBtn').addEventListener('click', register);
         id('googleLoginBtn').addEventListener('click', loginWithGoogle);
         id('authForm').addEventListener('submit', async (event) => {
           event.preventDefault();
