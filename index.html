@@ -233,6 +233,7 @@
             </div>
             <p id="serviceTotal" class="service-total">Totale ore in servizio: 00:00</p>
             <p id="serviceSubTotal" class="service-subtotal">Totale ore lavorate: 0.00</p>
+            <p id="serviceCantiereTotals" class="service-subtotal">Ore per cantiere: -</p>
           </div>
 
           <div id="manualEditBox" class="hidden">
@@ -277,7 +278,7 @@
             <input type="month" id="mese"><button onclick="loadMyMonth()">Ricarica</button><button class="secondary" onclick="exportData()">Esporta backup JSON</button>
           </div>
           <div class="table-wrap">
-            <table><thead><tr><th>Data</th><th>Entrata</th><th>Uscita</th><th>Pausa</th><th>Causale</th><th>Cantiere</th><th>Caposquadra</th><th>Contratto</th><th>Pioggia/CIS</th><th>Ore</th><th>Ordinarie</th><th>Straordinario</th><th>Stato</th><th>Azioni</th></tr></thead><tbody id="myRows"></tbody></table>
+            <table><thead><tr><th>Data</th><th>Entrata</th><th>Uscita</th><th>Pausa</th><th>Causale</th><th>Cantiere</th><th>Caposquadra</th><th>Contratto</th><th>Pioggia/CIS</th><th>Ore</th><th>Ordinarie</th><th>Straordinario</th><th>Ore per cantiere</th><th>Stato</th><th>Azioni</th></tr></thead><tbody id="myRows"></tbody></table>
           </div>
         </div>
       </div>
@@ -445,6 +446,25 @@
         const m = String(safe % 60).padStart(2, '0');
         return `${h}:${m}`;
       }
+      function computeSegmentMinutes(segment) {
+        const start = parseTimeToMinutes(segment?.start);
+        const end = parseTimeToMinutes(segment?.end);
+        if (start == null || end == null || end <= start) return 0;
+        return end - start;
+      }
+      function computeHoursByCantiere(segments) {
+        const map = {};
+        (Array.isArray(segments) ? segments : []).forEach((seg) => {
+          const key = (seg?.cantiere || 'Cantiere non indicato').trim() || 'Cantiere non indicato';
+          map[key] = (map[key] || 0) + computeSegmentMinutes(seg);
+        });
+        return Object.entries(map).map(([cantiere, minutes]) => ({ cantiere, minutes, hours: +(minutes / 60).toFixed(2) }));
+      }
+      function formatHoursByCantiere(segments) {
+        const rows = computeHoursByCantiere(segments);
+        if (!rows.length) return '-';
+        return rows.map((entry) => `${entry.cantiere}: ${entry.hours.toFixed(2)}h`).join(' | ');
+      }
       function updateServiceTotals() {
         const entrataMin = parseTimeToMinutes(id('entrata').value);
         const uscitaMin = parseTimeToMinutes(id('uscita').value);
@@ -458,6 +478,7 @@
         const worked = computeHours(id('entrata').value, id('uscita').value || nowLocalDateAndTime().time, Number(id('pausa').value || 0), id('causale').value, resolveRulesForDate(id('data').value || nowDateISO()).rules).worked;
         id('serviceTotal').textContent = `Totale ore in servizio: ${minutesToHHMM(serviceMin)}`;
         id('serviceSubTotal').textContent = `Totale ore lavorate: ${Number(worked || 0).toFixed(2)}`;
+        id('serviceCantiereTotals').textContent = `Ore per cantiere: ${formatHoursByCantiere(todaySegments)}`;
       }
       function refreshPunchSummary() {
         id('summaryEntryTime').textContent = id('entrata').value || '--:--';
@@ -520,7 +541,8 @@
       function upsertRecord(payload, customMessage='') {
         const profile = getProfile();
         const calc = computeHours(payload.entrata, payload.uscita, payload.pausaMinuti, payload.causale, resolveRulesForDate(payload.data).rules);
-        const row = { nome: profile.nome || '', azienda: profile.azienda || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, contratto:payload.contratto || 'DET', meteoGestione:payload.meteoGestione || '', segments: payload.segments || [], ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, updated_at:new Date().toISOString() };
+        const rowSegments = payload.segments || [];
+        const row = { nome: profile.nome || '', azienda: profile.azienda || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, contratto:payload.contratto || 'DET', meteoGestione:payload.meteoGestione || '', segments: rowSegments, cantiereHours: computeHoursByCantiere(rowSegments), ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, updated_at:new Date().toISOString() };
         const records = getRecords().filter((r)=>r.data !== payload.data);
         records.push(row);
         records.sort((a,b)=>a.data > b.data ? 1 : -1);
@@ -601,12 +623,61 @@
         upsertRecord(collectPayload(stato), `${label} corretta: ${value}.`);
         setPunchStatus(stato, id('entrata').value, id('uscita').value);
       }
+      function correctSegmentsByDate(dataRecord) {
+        const records = getRecords();
+        const idx = records.findIndex((r) => r.data === dataRecord);
+        if (idx < 0) { showMsg('Giornata non trovata.', 'err'); return; }
+        const record = records[idx];
+        const sourceSegments = Array.isArray(record.segments) && record.segments.length
+          ? record.segments
+          : (record.entrata ? [{ start: record.entrata, end: record.uscita || '', cantiere: record.cantiere || '', caposquadra: record.caposquadra || '' }] : []);
+        if (!sourceSegments.length) { showMsg('Nessun intervallo da correggere per questa giornata.', 'err'); return; }
+        const updatedSegments = [];
+        for (let i = 0; i < sourceSegments.length; i += 1) {
+          const seg = sourceSegments[i];
+          const seq = i + 1;
+          const cantiere = window.prompt(`Cantiere segmento ${seq}`, seg.cantiere || '');
+          if (cantiere === null) return;
+          const caposquadra = window.prompt(`Caposquadra segmento ${seq}`, seg.caposquadra || '');
+          if (caposquadra === null) return;
+          const start = window.prompt(`Ora inizio segmento ${seq} (HH:MM)`, seg.start || '');
+          if (start === null) return;
+          const end = window.prompt(`Ora fine segmento ${seq} (HH:MM)`, seg.end || '');
+          if (end === null) return;
+          if (!/^\d{2}:\d{2}$/.test(start) || !/^\d{2}:\d{2}$/.test(end)) { showMsg(`Formato non valido nel segmento ${seq}. Usa HH:MM.`, 'err'); return; }
+          if ((parseTimeToMinutes(end) ?? 0) < (parseTimeToMinutes(start) ?? 0)) { showMsg(`Intervallo non valido nel segmento ${seq}.`, 'err'); return; }
+          updatedSegments.push({ start, end, cantiere: cantiere.trim(), caposquadra: caposquadra.trim() });
+        }
+        const primary = updatedSegments[updatedSegments.length - 1] || updatedSegments[0];
+        const updatedRecord = {
+          ...record,
+          segments: updatedSegments,
+          cantiere: primary?.cantiere || record.cantiere || '',
+          caposquadra: primary?.caposquadra || record.caposquadra || '',
+          cantiereHours: computeHoursByCantiere(updatedSegments),
+          updated_at: new Date().toISOString()
+        };
+        records[idx] = updatedRecord;
+        setRecords(records);
+        if (id('data').value === dataRecord) {
+          todaySegments = updatedSegments;
+          id('cantiere').value = updatedRecord.cantiere || '';
+          id('caposquadra').value = updatedRecord.caposquadra || '';
+          refreshPunchSummary();
+        }
+        showMsg(`Segmenti cantiere aggiornati per il ${dataRecord}.`, 'ok');
+        loadMyMonth();
+      }
       function normalizeMonthValue(monthValue) { return /^\d{4}-\d{2}$/.test(String(monthValue||'').trim()) ? monthValue : currentMonthValueUTC(); }
       function loadMyMonth() {
         const month = normalizeMonthValue(id('mese').value);
         id('mese').value = month;
         const rows = getRecords().filter((r)=> String(r.data||'').startsWith(month));
-        id('myRows').innerHTML = rows.map((r)=>`<tr><td>${r.data||''}</td><td>${r.entrata||''}</td><td>${r.uscita||''}</td><td>${r.pausa||0}</td><td>${r.causale||''}</td><td>${r.cantiere||''}</td><td>${r.caposquadra||''}</td><td>${r.contratto||''}</td><td>${r.meteoGestione||''}</td><td>${r.ore||0}</td><td>${r.ord||0}</td><td>${r.stra||0}</td><td>${r.stato||''}</td><td><button type="button" class="secondary" onclick="deleteTimbraturaByDate('${r.data}')">Elimina</button></td></tr>`).join('');
+        id('myRows').innerHTML = rows.map((r)=>{
+          const cantiereHours = Array.isArray(r.cantiereHours) ? r.cantiereHours : computeHoursByCantiere(r.segments);
+          const cantiereHoursText = cantiereHours.length ? cantiereHours.map((entry)=>`${entry.cantiere}: ${Number(entry.hours || 0).toFixed(2)}h`).join('<br>') : '-';
+          return `<tr><td>${r.data||''}</td><td>${r.entrata||''}</td><td>${r.uscita||''}</td><td>${r.pausa||0}</td><td>${r.causale||''}</td><td>${r.cantiere||''}</td><td>${r.caposquadra||''}</td><td>${r.contratto||''}</td><td>${r.meteoGestione||''}</td><td>${r.ore||0}</td><td>${r.ord||0}</td><td>${r.stra||0}</td><td>${cantiereHoursText}</td><td>${r.stato||''}</td><td><button type="button" class="secondary" onclick="correctSegmentsByDate('${r.data}')">Correggi cantieri</button> <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${r.data}')">Elimina</button></td></tr>`;
+        }).join('');
       }
       function deleteTimbraturaByDate(dataRecord) {
         if (!window.confirm(`Confermi l'eliminazione della timbratura del ${dataRecord}?`)) return;
@@ -667,6 +738,7 @@
       window.loadMyMonth = loadMyMonth;
       window.exportData = exportData;
       window.deleteTimbraturaByDate = deleteTimbraturaByDate;
+      window.correctSegmentsByDate = correctSegmentsByDate;
     </script>
   </body>
 </html>
