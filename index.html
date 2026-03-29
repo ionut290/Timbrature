@@ -103,7 +103,7 @@
             <h3>Menu</h3>
             <div class="menu-links">
               <button type="button" class="menu-link active" data-menu-target="timbratureCard">Nuova timbratura / giornata</button>
-              <button type="button" class="menu-link" data-menu-target="programCard">Contratto settimanale</button>
+              <button type="button" class="menu-link" data-menu-target="programCard">Impostazioni contratto</button>
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
@@ -131,16 +131,24 @@
         </div>
 
         <div class="card hidden" id="programCard">
-          <h2>Impostazioni contratto settimanale</h2>
+          <h2>Impostazioni contratto</h2>
           <div class="grid">
-            <label>Settimana (data inizio)
-              <input type="date" id="programWeekStart" />
-            </label>
             <label>Pause abilitate nel contratto?
               <select id="programBreakEnabled"><option value="true">Sì</option><option value="false">No</option></select>
             </label>
             <label>Pausa standard (fallback, minuti)
               <input type="number" id="programBreakMinutes" min="0" value="0" />
+            </label>
+          </div>
+          <div class="grid">
+            <label>Paga oraria (€)
+              <input type="number" id="hourlyRate" min="0" step="0.01" value="0" />
+            </label>
+            <label>Maggiorazione notturno (%)
+              <input type="number" id="nightBonusPercent" min="0" step="0.1" value="0" />
+            </label>
+            <label>Maggiorazione straordinario (%)
+              <input type="number" id="overtimeBonusPercent" min="0" step="0.1" value="0" />
             </label>
           </div>
           <div class="contract-grid">
@@ -195,7 +203,7 @@
             </div>
           </div>
           <div class="actions">
-            <button class="secondary" id="loadProgramBtn" type="button">Carica settimana</button>
+            <button class="secondary" id="loadProgramBtn" type="button">Carica contratto</button>
             <button id="saveProgramBtn" type="button">Salva contratto</button>
           </div>
           <p id="programEsito" class="msg"></p>
@@ -269,6 +277,8 @@
             <p id="serviceTotal" class="service-total">Totale ore in servizio: 00:00</p>
             <p id="serviceSubTotal" class="service-subtotal">Totale ore lavorate: 0.00</p>
             <p id="serviceCantiereTotals" class="service-subtotal">Ore per cantiere: -</p>
+            <p id="serviceDayEarnings" class="service-subtotal">Guadagno giornata: € 0.00</p>
+            <p id="serviceTotalEarnings" class="service-subtotal">Fino adesso hai guadagnato circa: € 0.00</p>
           </div>
 
           <div id="manualEditBox" class="hidden">
@@ -315,6 +325,7 @@
           <div class="month-totals">
             <span class="month-pill" id="monthWorkedHours">Ore lavorate mese: 0.00</span>
             <span class="month-pill" id="monthOvertimeHours">Straordinari mese: 0.00</span>
+            <span class="month-pill" id="monthEarningsTotal">Guadagno mese: € 0.00</span>
           </div>
           <div id="monthCalendar" class="calendar-grid"></div>
           <div id="selectedDaySummary" class="day-summary-card">
@@ -383,7 +394,11 @@
       function programForDate(dateValue) {
         const selectedWeekStart = isoWeekStart(dateValue || nowDateISO());
         const sorted = [...getPrograms()].sort((a,b)=>a.week_start > b.week_start ? -1 : 1);
-        return sorted.find((p)=>p.week_start === selectedWeekStart) || null;
+        const exact = sorted.find((p)=>p.week_start === selectedWeekStart);
+        if (exact) return exact;
+        const selectedDate = new Date(`${selectedWeekStart}T00:00:00`);
+        const nearestPrevious = sorted.find((p)=> new Date(`${p.week_start}T00:00:00`) <= selectedDate);
+        return nearestPrevious || sorted[0] || null;
       }
       function getProgramHoursByDay(program, dayIndex) {
         const dayMap = [
@@ -420,9 +435,12 @@
 
       function collectProgramPayload() {
         return {
-          week_start: isoWeekStart(id('programWeekStart').value || nowDateISO()),
+          week_start: isoWeekStart(nowDateISO()),
           break_enabled: id('programBreakEnabled').value==='true',
           break_minutes:Number(id('programBreakMinutes').value||0),
+          hourly_rate:Number(id('hourlyRate').value||0),
+          night_bonus_percent:Number(id('nightBonusPercent').value||0),
+          overtime_bonus_percent:Number(id('overtimeBonusPercent').value||0),
           monday_start:id('startMon').value, monday_end:id('endMon').value, monday_break_minutes:Number(id('breakMon').value||0), monday_hours:Number(id('hoursMon').value||0),
           tuesday_start:id('startTue').value, tuesday_end:id('endTue').value, tuesday_break_minutes:Number(id('breakTue').value||0), tuesday_hours:Number(id('hoursTue').value||0),
           wednesday_start:id('startWed').value, wednesday_end:id('endWed').value, wednesday_break_minutes:Number(id('breakWed').value||0), wednesday_hours:Number(id('hoursWed').value||0),
@@ -434,7 +452,10 @@
       }
       function fillProgramForm(p) {
         if (!p) return;
-        id('programWeekStart').value = p.week_start; id('programBreakEnabled').value = String(Boolean(p.break_enabled)); id('programBreakMinutes').value = Number(p.break_minutes||0);
+        id('programBreakEnabled').value = String(Boolean(p.break_enabled)); id('programBreakMinutes').value = Number(p.break_minutes||0);
+        id('hourlyRate').value = Number(p.hourly_rate || 0);
+        id('nightBonusPercent').value = Number(p.night_bonus_percent || 0);
+        id('overtimeBonusPercent').value = Number(p.overtime_bonus_percent || 0);
         id('startMon').value = p.monday_start || ''; id('endMon').value = p.monday_end || ''; id('breakMon').value = Number(p.monday_break_minutes ?? p.break_minutes ?? 0); id('hoursMon').value = Number(p.monday_hours||0);
         id('startTue').value = p.tuesday_start || ''; id('endTue').value = p.tuesday_end || ''; id('breakTue').value = Number(p.tuesday_break_minutes ?? p.break_minutes ?? 0); id('hoursTue').value = Number(p.tuesday_hours||0);
         id('startWed').value = p.wednesday_start || ''; id('endWed').value = p.wednesday_end || ''; id('breakWed').value = Number(p.wednesday_break_minutes ?? p.break_minutes ?? 0); id('hoursWed').value = Number(p.wednesday_hours||0);
@@ -461,18 +482,32 @@
       function saveProgram() {
         autoFillHoursFromContract();
         const payload = collectProgramPayload();
-        const programs = getPrograms().filter((p)=>p.week_start !== payload.week_start);
-        programs.push(payload);
-        setPrograms(programs);
-        showProgramMsg(`Contratto settimana ${payload.week_start} salvato localmente.`, 'ok');
+        setPrograms([payload]);
+        showProgramMsg('Impostazioni contratto annuali salvate localmente.', 'ok');
+        refreshPunchSummary();
+        loadMyMonth();
       }
       function loadProgramBySelectedWeek() {
-        const weekStart = isoWeekStart(id('programWeekStart').value || nowDateISO());
-        id('programWeekStart').value = weekStart;
-        const found = getPrograms().find((p)=>p.week_start === weekStart);
-        if (!found) { showProgramMsg('Nessun contratto trovato per questa settimana.', 'err'); return; }
+        const found = getPrograms()[0];
+        if (!found) { showProgramMsg('Nessun contratto salvato.', 'err'); return; }
         fillProgramForm(found);
-        showProgramMsg(`Contratto caricato per ${weekStart}.`, 'ok');
+        showProgramMsg('Contratto caricato.', 'ok');
+      }
+
+      function calculateRecordEarnings(record, program) {
+        const safeHourlyRate = Math.max(Number(program?.hourly_rate || 0), 0);
+        const overtimeBonus = Math.max(Number(program?.overtime_bonus_percent || 0), 0) / 100;
+        const nightBonus = Math.max(Number(program?.night_bonus_percent || 0), 0) / 100;
+        const ordinaryHours = Math.max(Number(record?.ord || 0), 0);
+        const overtimeHours = Math.max(Number(record?.stra || 0), 0);
+        const nightHours = Math.max(Number(record?.nightHours || 0), 0);
+        const ordinaryPay = ordinaryHours * safeHourlyRate;
+        const overtimePay = overtimeHours * safeHourlyRate * (1 + overtimeBonus);
+        const nightPay = nightHours * safeHourlyRate * nightBonus;
+        return +(ordinaryPay + overtimePay + nightPay).toFixed(2);
+      }
+      function calculateCumulativeEarnings(records, program) {
+        return +(records.reduce((sum, row)=>sum + calculateRecordEarnings(row, program), 0)).toFixed(2);
       }
 
       function nowLocalDateAndTime() { const n = new Date(); return { date:`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`, time:`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`}; }
@@ -524,6 +559,12 @@
         const cantiereText = formatHoursByCantiere(todaySegments);
         id('serviceCantiereTotals').textContent = `Ore per cantiere: ${cantiereText}`;
         id('splitSummaryText').textContent = `Cantieri di oggi: ${cantiereText}`;
+        const program = programForDate(id('data').value || nowDateISO());
+        const todayCalc = computeHours(id('entrata').value, id('uscita').value || nowLocalDateAndTime().time, Number(id('pausa').value || 0), id('causale').value, resolveRulesForDate(id('data').value || nowDateISO()).rules);
+        const todayEarnings = calculateRecordEarnings({ ord: todayCalc.ord, stra: todayCalc.stra, nightHours: 0 }, program);
+        id('serviceDayEarnings').textContent = `Guadagno giornata: € ${todayEarnings.toFixed(2)}`;
+        const totalEarnings = calculateCumulativeEarnings(getRecords(), program);
+        id('serviceTotalEarnings').textContent = `Fino adesso hai guadagnato circa: € ${totalEarnings.toFixed(2)}`;
       }
       function refreshPunchSummary() {
         id('summaryEntryTime').textContent = id('entrata').value || '--:--';
@@ -749,10 +790,12 @@
           return;
         }
         const cantiereHours = Array.isArray(record.cantiereHours) ? record.cantiereHours : computeHoursByCantiere(record.segments);
+        const dailyProgram = programForDate(record.data);
+        const dayEarnings = calculateRecordEarnings(record, dailyProgram);
         const perCantiere = cantiereHours.length
           ? cantiereHours.map((entry)=>`<div class="summary-line"><strong>${entry.cantiere}</strong>: ${Number(entry.hours || 0).toFixed(2)}h</div>`).join('')
           : '<div class="summary-line">Nessun dettaglio cantiere</div>';
-        id('selectedDaySummary').innerHTML = `<h3>Riepilogo ${dateValue}</h3><div class="summary-column"><div class="summary-line"><strong>Entrata:</strong> ${record.entrata || '-'}</div><div class="summary-line"><strong>Uscita:</strong> ${record.uscita || '-'}</div><div class="summary-line"><strong>Pausa:</strong> ${record.pausa || 0} min</div><div class="summary-line"><strong>Causale:</strong> ${record.causale || '-'}</div><div class="summary-line"><strong>Ore lavorate:</strong> ${Number(record.ore || 0).toFixed(2)}</div><div class="summary-line"><strong>Ordinarie:</strong> ${Number(record.ord || 0).toFixed(2)}</div><div class="summary-line"><strong>Straordinario:</strong> ${Number(record.stra || 0).toFixed(2)}</div><div class="summary-line"><strong>Stato:</strong> ${record.stato || '-'}</div><div class="summary-line"><strong>Dettaglio cantieri:</strong></div>${perCantiere}<div class="inline-actions"><button type="button" class="secondary" onclick="correctSegmentsByDate('${record.data}')">Correggi cantieri</button> <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${record.data}')">Elimina</button></div></div>`;
+        id('selectedDaySummary').innerHTML = `<h3>Riepilogo ${dateValue}</h3><div class="summary-column"><div class="summary-line"><strong>Entrata:</strong> ${record.entrata || '-'}</div><div class="summary-line"><strong>Uscita:</strong> ${record.uscita || '-'}</div><div class="summary-line"><strong>Pausa:</strong> ${record.pausa || 0} min</div><div class="summary-line"><strong>Causale:</strong> ${record.causale || '-'}</div><div class="summary-line"><strong>Ore lavorate:</strong> ${Number(record.ore || 0).toFixed(2)}</div><div class="summary-line"><strong>Ordinarie:</strong> ${Number(record.ord || 0).toFixed(2)}</div><div class="summary-line"><strong>Straordinario:</strong> ${Number(record.stra || 0).toFixed(2)}</div><div class="summary-line"><strong>Guadagno giorno:</strong> € ${dayEarnings.toFixed(2)}</div><div class="summary-line"><strong>Stato:</strong> ${record.stato || '-'}</div><div class="summary-line"><strong>Dettaglio cantieri:</strong></div>${perCantiere}<div class="inline-actions"><button type="button" class="secondary" onclick="correctSegmentsByDate('${record.data}')">Correggi cantieri</button> <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${record.data}')">Elimina</button></div></div>`;
         const month = normalizeMonthValue(id('mese').value);
         const rows = getRecords().filter((r)=> String(r.data||'').startsWith(month));
         renderMonthCalendar(month, rows);
@@ -763,8 +806,11 @@
         const rows = getRecords().filter((r)=> String(r.data||'').startsWith(month));
         const totalWorked = rows.reduce((acc, row)=>acc + Number(row.ore || 0), 0);
         const totalStra = rows.reduce((acc, row)=>acc + Number(row.stra || 0), 0);
+        const activeProgram = programForDate(nowDateISO());
+        const monthEarnings = calculateCumulativeEarnings(rows, activeProgram);
         id('monthWorkedHours').textContent = `Ore lavorate mese: ${totalWorked.toFixed(2)}`;
         id('monthOvertimeHours').textContent = `Straordinari mese: ${totalStra.toFixed(2)}`;
+        id('monthEarningsTotal').textContent = `Guadagno mese: € ${monthEarnings.toFixed(2)}`;
         renderMonthCalendar(month, rows);
         if (selectedMonthDay && String(selectedMonthDay).startsWith(month)) showDaySummary(selectedMonthDay);
         else id('selectedDaySummary').innerHTML = '<p class="small">Clicca su un giorno del calendario per vedere il riepilogo in colonna.</p>';
@@ -817,7 +863,6 @@
       function init() {
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
-        id('programWeekStart').value = isoWeekStart(nowDateISO());
         loadProfileUI();
         updateWelcomeMessage();
         loadTodayPunch();
