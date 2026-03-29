@@ -152,6 +152,11 @@
         align-items: center;
         flex-wrap: wrap;
       }
+      .oauth-divider {
+        margin: 10px 0 0;
+        color: #64748b;
+        font-size: 13px;
+      }
       .auth-row.compact {
         justify-content: space-between;
       }
@@ -315,8 +320,10 @@
         </div>
         <div class="auth-row" style="margin-top: 12px;" id="authRow">
           <button id="loginBtn" type="button">Accedi</button>
+          <button class="secondary" id="googleLoginBtn" type="button">Accedi con Google</button>
           <button class="secondary hidden" id="logoutBtn" type="button">Logout</button>
         </div>
+        <p class="oauth-divider">Oppure usa Google (richiede provider Google attivo in Supabase).</p>
         <p id="authEsito" class="msg"></p>
         </form>
       </div>
@@ -753,6 +760,7 @@
         id('topMenuBar').classList.toggle('hidden', !isLoggedIn);
         id('authInputs').classList.toggle('hidden', isLoggedIn);
         id('loginBtn').classList.toggle('hidden', isLoggedIn);
+        id('googleLoginBtn').classList.toggle('hidden', isLoggedIn);
         id('authRow').classList.toggle('compact', isLoggedIn);
         id('logoutBtn').disabled = !isLoggedIn;
         id('logoutBtn').classList.toggle('hidden', !isLoggedIn);
@@ -866,6 +874,34 @@
         setPunchStatus('NONE');
         await refreshSession();
         showAuthMsg('Logout effettuato.', 'ok');
+      }
+
+      async function loginWithGoogle() {
+        if (!supabaseClient) {
+          showAuthMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
+          return;
+        }
+
+        const googleBtn = id('googleLoginBtn');
+        googleBtn.disabled = true;
+        try {
+          const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: window.location.href
+            }
+          });
+          if (error) {
+            showAuthMsg(`Accesso Google fallito: ${error.message}`, 'err');
+            return;
+          }
+          showAuthMsg('Reindirizzamento a Google in corso…', 'ok');
+        } catch (error) {
+          const message = error?.message || 'Errore durante il login Google.';
+          showAuthMsg(`Accesso Google fallito: ${message}`, 'err');
+        } finally {
+          googleBtn.disabled = false;
+        }
       }
 
       async function saveProfile() {
@@ -1540,6 +1576,7 @@
         setLoggedInUI(false);
 
         id('loginBtn').addEventListener('click', login);
+        id('googleLoginBtn').addEventListener('click', loginWithGoogle);
         id('authForm').addEventListener('submit', async (event) => {
           event.preventDefault();
           await login();
