@@ -28,6 +28,17 @@
         '5': { label: '5° livello', hourlyRate: 10.6 },
         '4': { label: '4° livello', hourlyRate: 11.9 }
       }
+    },
+    AGRICOLTURA: {
+      label: 'Agricoltura',
+      levels: {
+        '7B': { label: '7° bis (allineato a 7°)', hourlyRate: 7.09, byEmploymentType: { IND: 7.09, DET: 9.25 } },
+        '7': { label: '7° livello', hourlyRate: 7.09, byEmploymentType: { IND: 7.09, DET: 9.25 } },
+        '6': { label: '6° livello', hourlyRate: 8.81, byEmploymentType: { IND: 8.81, DET: 11.50 } },
+        '5': { label: '5° livello', hourlyRate: 10.00, byEmploymentType: { IND: 10.00, DET: 13.05 } },
+        '4': { label: '4° livello', hourlyRate: 10.61, byEmploymentType: { IND: 10.61, DET: 13.84 } },
+        '3': { label: '3° livello', hourlyRate: 11.14, byEmploymentType: { IND: 11.14, DET: 14.54 } }
+      }
     }
   };
 
@@ -62,13 +73,18 @@
   function writeWeeklyContract(value) {
     localStorage.setItem(WEEK_CONTRACT_KEY, JSON.stringify(value));
   }
-  function getPresetRate(template, level) {
-    return CONTRACT_PRESETS[template]?.levels?.[level] || null;
+  function getPresetRate(template, level, employmentType = 'IND') {
+    const preset = CONTRACT_PRESETS[template]?.levels?.[level] || null;
+    if (!preset) return null;
+    const typeKey = String(employmentType || 'IND').toUpperCase();
+    const typedRate = preset.byEmploymentType?.[typeKey];
+    if (!Number.isFinite(typedRate)) return preset;
+    return { ...preset, hourlyRate: typedRate };
   }
   function getEffectiveHourlyRate() {
     const manualRate = Number(id('hourlyRate').value || 0);
     if (manualRate > 0) return manualRate;
-    return Number(getPresetRate(id('contractTemplate').value, id('contractLevel').value)?.hourlyRate || 0);
+    return Number(getPresetRate(id('contractTemplate').value, id('contractLevel').value, id('contractEmploymentType').value)?.hourlyRate || 0);
   }
   function parseTimeToMinutes(hhmm) {
     if (!hhmm) return null;
@@ -92,12 +108,13 @@
     updateContractHint();
   }
   function updateContractHint() {
-    const preset = getPresetRate(id('contractTemplate').value, id('contractLevel').value);
+    const employmentType = id('contractEmploymentType').value || 'IND';
+    const preset = getPresetRate(id('contractTemplate').value, id('contractLevel').value, employmentType);
     if (!preset) {
       id('contractHint').textContent = 'Seleziona contratto e livello.';
       return;
     }
-    id('contractHint').textContent = `Paga suggerita: € ${Number(preset.hourlyRate).toFixed(2)}/h. Se paghi diversamente, imposta la paga manuale.`;
+    id('contractHint').textContent = `Paga suggerita (${employmentType}): € ${Number(preset.hourlyRate).toFixed(2)}/h. Se paghi diversamente, imposta la paga manuale.`;
   }
   function saveWeeklyContract() {
     const payload = {
@@ -302,6 +319,7 @@
     buildContractLevelOptions();
     id('contractTemplate').addEventListener('change', buildContractLevelOptions);
     id('contractLevel').addEventListener('change', updateContractHint);
+    id('contractEmploymentType').addEventListener('change', updateContractHint);
     id('hourlyRate').addEventListener('input', updateLiveEarnings);
     ['entrata', 'uscita', 'pausa'].forEach((field) => id(field).addEventListener('change', updateLiveEarnings));
     loadWeeklyContract(true);
