@@ -40,7 +40,12 @@
       .menu-link { background:#e2e8f0; color:#0f172a; text-align:left; }
       .menu-link.active { background:var(--primary); color:#fff; }
       .week-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:10px; }
+      .contract-grid { margin-top:10px; display:grid; gap:8px; }
+      .contract-row { display:grid; grid-template-columns:minmax(120px, 1.1fr) repeat(4, minmax(90px, 1fr)); gap:8px; align-items:end; }
+      .contract-row label { font-size:12px; }
+      .contract-row .day-name { font-weight:700; font-size:13px; padding-bottom:11px; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
+      @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
     </style>
   </head>
   <body>
@@ -55,7 +60,7 @@
             <h3>Menu</h3>
             <div class="menu-links">
               <button type="button" class="menu-link active" data-menu-target="timbratureCard">Nuova timbratura / giornata</button>
-              <button type="button" class="menu-link" data-menu-target="programCard">Programma settimana</button>
+              <button type="button" class="menu-link" data-menu-target="programCard">Contratto settimanale</button>
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
@@ -80,30 +85,72 @@
         </div>
 
         <div class="card hidden" id="programCard">
-          <h2>Programma settimanale</h2>
+          <h2>Impostazioni contratto settimanale</h2>
           <div class="grid">
             <label>Settimana (data inizio)
               <input type="date" id="programWeekStart" />
             </label>
-            <label>Pausa prevista?
+            <label>Pause abilitate nel contratto?
               <select id="programBreakEnabled"><option value="true">Sì</option><option value="false">No</option></select>
             </label>
-            <label>Minuti pausa standard
+            <label>Pausa standard (fallback, minuti)
               <input type="number" id="programBreakMinutes" min="0" value="0" />
             </label>
           </div>
-          <div class="week-grid">
-            <label>Lunedì (ore)<input type="number" id="hoursMon" min="0" step="0.25" value="8" /></label>
-            <label>Martedì (ore)<input type="number" id="hoursTue" min="0" step="0.25" value="8" /></label>
-            <label>Mercoledì (ore)<input type="number" id="hoursWed" min="0" step="0.25" value="8" /></label>
-            <label>Giovedì (ore)<input type="number" id="hoursThu" min="0" step="0.25" value="8" /></label>
-            <label>Venerdì (ore)<input type="number" id="hoursFri" min="0" step="0.25" value="8" /></label>
-            <label>Sabato (ore)<input type="number" id="hoursSat" min="0" step="0.25" value="0" /></label>
-            <label>Domenica (ore)<input type="number" id="hoursSun" min="0" step="0.25" value="0" /></label>
+          <div class="contract-grid">
+            <div class="contract-row">
+              <div class="day-name">Lunedì</div>
+              <label>Inizio<input type="time" id="startMon" value="08:00" /></label>
+              <label>Fine<input type="time" id="endMon" value="17:00" /></label>
+              <label>Pausa (min)<input type="number" id="breakMon" min="0" value="60" /></label>
+              <label>Ore ordinarie<input type="number" id="hoursMon" min="0" step="0.25" value="8" /></label>
+            </div>
+            <div class="contract-row">
+              <div class="day-name">Martedì</div>
+              <label>Inizio<input type="time" id="startTue" value="08:00" /></label>
+              <label>Fine<input type="time" id="endTue" value="17:00" /></label>
+              <label>Pausa (min)<input type="number" id="breakTue" min="0" value="60" /></label>
+              <label>Ore ordinarie<input type="number" id="hoursTue" min="0" step="0.25" value="8" /></label>
+            </div>
+            <div class="contract-row">
+              <div class="day-name">Mercoledì</div>
+              <label>Inizio<input type="time" id="startWed" value="08:00" /></label>
+              <label>Fine<input type="time" id="endWed" value="17:00" /></label>
+              <label>Pausa (min)<input type="number" id="breakWed" min="0" value="60" /></label>
+              <label>Ore ordinarie<input type="number" id="hoursWed" min="0" step="0.25" value="8" /></label>
+            </div>
+            <div class="contract-row">
+              <div class="day-name">Giovedì</div>
+              <label>Inizio<input type="time" id="startThu" value="08:00" /></label>
+              <label>Fine<input type="time" id="endThu" value="17:00" /></label>
+              <label>Pausa (min)<input type="number" id="breakThu" min="0" value="60" /></label>
+              <label>Ore ordinarie<input type="number" id="hoursThu" min="0" step="0.25" value="8" /></label>
+            </div>
+            <div class="contract-row">
+              <div class="day-name">Venerdì</div>
+              <label>Inizio<input type="time" id="startFri" value="08:00" /></label>
+              <label>Fine<input type="time" id="endFri" value="17:00" /></label>
+              <label>Pausa (min)<input type="number" id="breakFri" min="0" value="60" /></label>
+              <label>Ore ordinarie<input type="number" id="hoursFri" min="0" step="0.25" value="8" /></label>
+            </div>
+            <div class="contract-row">
+              <div class="day-name">Sabato</div>
+              <label>Inizio<input type="time" id="startSat" /></label>
+              <label>Fine<input type="time" id="endSat" /></label>
+              <label>Pausa (min)<input type="number" id="breakSat" min="0" value="0" /></label>
+              <label>Ore ordinarie<input type="number" id="hoursSat" min="0" step="0.25" value="0" /></label>
+            </div>
+            <div class="contract-row">
+              <div class="day-name">Domenica</div>
+              <label>Inizio<input type="time" id="startSun" /></label>
+              <label>Fine<input type="time" id="endSun" /></label>
+              <label>Pausa (min)<input type="number" id="breakSun" min="0" value="0" /></label>
+              <label>Ore ordinarie<input type="number" id="hoursSun" min="0" step="0.25" value="0" /></label>
+            </div>
           </div>
           <div class="actions">
             <button class="secondary" id="loadProgramBtn" type="button">Carica settimana</button>
-            <button id="saveProgramBtn" type="button">Salva programma</button>
+            <button id="saveProgramBtn" type="button">Salva contratto</button>
           </div>
           <p id="programEsito" class="msg"></p>
         </div>
@@ -173,6 +220,13 @@
       const showProfileMsg = (m, t='ok') => { id('profileEsito').className = `msg ${t}`; id('profileEsito').textContent = m; };
 
       function parseTimeToMinutes(hhmm) { if (!hhmm) return null; const [h,m] = String(hhmm).split(':').map(Number); return Number.isNaN(h)||Number.isNaN(m) ? null : h*60+m; }
+      function durationHoursFromSchedule(startTime, endTime, breakMinutes) {
+        const start = parseTimeToMinutes(startTime);
+        const end = parseTimeToMinutes(endTime);
+        if (start == null || end == null || end <= start) return 0;
+        const breakMin = Math.max(Number(breakMinutes) || 0, 0);
+        return +(Math.max(end - start - breakMin, 0) / 60).toFixed(2);
+      }
       function roundMinutes(minutes, step) { return !step || step<=0 ? minutes : Math.round(minutes / step) * step; }
       function computeHours(entrata, uscita, pausaMinuti, causale, rules) {
         if (!CAUSALI_LAVORATIVE.includes(causale)) return { worked:0, ord:0, stra:0 };
@@ -199,8 +253,18 @@
         return sorted.find((p)=>p.week_start === selectedWeekStart) || null;
       }
       function getProgramHoursByDay(program, dayIndex) {
-        const byDay = [Number(program.monday_hours||0),Number(program.tuesday_hours||0),Number(program.wednesday_hours||0),Number(program.thursday_hours||0),Number(program.friday_hours||0),Number(program.saturday_hours||0),Number(program.sunday_hours||0)];
-        return byDay[dayIndex] || 0;
+        const dayMap = [
+          { hours: Number(program.monday_hours||0), start: program.monday_start, end: program.monday_end, breakMin: Number(program.monday_break_minutes ?? program.break_minutes ?? 0) },
+          { hours: Number(program.tuesday_hours||0), start: program.tuesday_start, end: program.tuesday_end, breakMin: Number(program.tuesday_break_minutes ?? program.break_minutes ?? 0) },
+          { hours: Number(program.wednesday_hours||0), start: program.wednesday_start, end: program.wednesday_end, breakMin: Number(program.wednesday_break_minutes ?? program.break_minutes ?? 0) },
+          { hours: Number(program.thursday_hours||0), start: program.thursday_start, end: program.thursday_end, breakMin: Number(program.thursday_break_minutes ?? program.break_minutes ?? 0) },
+          { hours: Number(program.friday_hours||0), start: program.friday_start, end: program.friday_end, breakMin: Number(program.friday_break_minutes ?? program.break_minutes ?? 0) },
+          { hours: Number(program.saturday_hours||0), start: program.saturday_start, end: program.saturday_end, breakMin: Number(program.saturday_break_minutes ?? program.break_minutes ?? 0) },
+          { hours: Number(program.sunday_hours||0), start: program.sunday_start, end: program.sunday_end, breakMin: Number(program.sunday_break_minutes ?? program.break_minutes ?? 0) }
+        ];
+        const selected = dayMap[dayIndex] || dayMap[0];
+        const fromSchedule = durationHoursFromSchedule(selected.start, selected.end, selected.breakMin);
+        return fromSchedule > 0 ? fromSchedule : selected.hours;
       }
       function resolveRulesForDate(dateValue) {
         const program = programForDate(dateValue);
@@ -220,27 +284,60 @@
       }
 
       function collectProgramPayload() {
-        return { week_start: isoWeekStart(id('programWeekStart').value || nowDateISO()), break_enabled: id('programBreakEnabled').value==='true', break_minutes:Number(id('programBreakMinutes').value||0), monday_hours:Number(id('hoursMon').value||0), tuesday_hours:Number(id('hoursTue').value||0), wednesday_hours:Number(id('hoursWed').value||0), thursday_hours:Number(id('hoursThu').value||0), friday_hours:Number(id('hoursFri').value||0), saturday_hours:Number(id('hoursSat').value||0), sunday_hours:Number(id('hoursSun').value||0) };
+        return {
+          week_start: isoWeekStart(id('programWeekStart').value || nowDateISO()),
+          break_enabled: id('programBreakEnabled').value==='true',
+          break_minutes:Number(id('programBreakMinutes').value||0),
+          monday_start:id('startMon').value, monday_end:id('endMon').value, monday_break_minutes:Number(id('breakMon').value||0), monday_hours:Number(id('hoursMon').value||0),
+          tuesday_start:id('startTue').value, tuesday_end:id('endTue').value, tuesday_break_minutes:Number(id('breakTue').value||0), tuesday_hours:Number(id('hoursTue').value||0),
+          wednesday_start:id('startWed').value, wednesday_end:id('endWed').value, wednesday_break_minutes:Number(id('breakWed').value||0), wednesday_hours:Number(id('hoursWed').value||0),
+          thursday_start:id('startThu').value, thursday_end:id('endThu').value, thursday_break_minutes:Number(id('breakThu').value||0), thursday_hours:Number(id('hoursThu').value||0),
+          friday_start:id('startFri').value, friday_end:id('endFri').value, friday_break_minutes:Number(id('breakFri').value||0), friday_hours:Number(id('hoursFri').value||0),
+          saturday_start:id('startSat').value, saturday_end:id('endSat').value, saturday_break_minutes:Number(id('breakSat').value||0), saturday_hours:Number(id('hoursSat').value||0),
+          sunday_start:id('startSun').value, sunday_end:id('endSun').value, sunday_break_minutes:Number(id('breakSun').value||0), sunday_hours:Number(id('hoursSun').value||0)
+        };
       }
       function fillProgramForm(p) {
         if (!p) return;
         id('programWeekStart').value = p.week_start; id('programBreakEnabled').value = String(Boolean(p.break_enabled)); id('programBreakMinutes').value = Number(p.break_minutes||0);
-        id('hoursMon').value = Number(p.monday_hours||0); id('hoursTue').value = Number(p.tuesday_hours||0); id('hoursWed').value = Number(p.wednesday_hours||0); id('hoursThu').value = Number(p.thursday_hours||0); id('hoursFri').value = Number(p.friday_hours||0); id('hoursSat').value = Number(p.saturday_hours||0); id('hoursSun').value = Number(p.sunday_hours||0);
+        id('startMon').value = p.monday_start || ''; id('endMon').value = p.monday_end || ''; id('breakMon').value = Number(p.monday_break_minutes ?? p.break_minutes ?? 0); id('hoursMon').value = Number(p.monday_hours||0);
+        id('startTue').value = p.tuesday_start || ''; id('endTue').value = p.tuesday_end || ''; id('breakTue').value = Number(p.tuesday_break_minutes ?? p.break_minutes ?? 0); id('hoursTue').value = Number(p.tuesday_hours||0);
+        id('startWed').value = p.wednesday_start || ''; id('endWed').value = p.wednesday_end || ''; id('breakWed').value = Number(p.wednesday_break_minutes ?? p.break_minutes ?? 0); id('hoursWed').value = Number(p.wednesday_hours||0);
+        id('startThu').value = p.thursday_start || ''; id('endThu').value = p.thursday_end || ''; id('breakThu').value = Number(p.thursday_break_minutes ?? p.break_minutes ?? 0); id('hoursThu').value = Number(p.thursday_hours||0);
+        id('startFri').value = p.friday_start || ''; id('endFri').value = p.friday_end || ''; id('breakFri').value = Number(p.friday_break_minutes ?? p.break_minutes ?? 0); id('hoursFri').value = Number(p.friday_hours||0);
+        id('startSat').value = p.saturday_start || ''; id('endSat').value = p.saturday_end || ''; id('breakSat').value = Number(p.saturday_break_minutes ?? p.break_minutes ?? 0); id('hoursSat').value = Number(p.saturday_hours||0);
+        id('startSun').value = p.sunday_start || ''; id('endSun').value = p.sunday_end || ''; id('breakSun').value = Number(p.sunday_break_minutes ?? p.break_minutes ?? 0); id('hoursSun').value = Number(p.sunday_hours||0);
+      }
+      function autoFillHoursFromContract() {
+        const dayConfig = [
+          ['startMon', 'endMon', 'breakMon', 'hoursMon'],
+          ['startTue', 'endTue', 'breakTue', 'hoursTue'],
+          ['startWed', 'endWed', 'breakWed', 'hoursWed'],
+          ['startThu', 'endThu', 'breakThu', 'hoursThu'],
+          ['startFri', 'endFri', 'breakFri', 'hoursFri'],
+          ['startSat', 'endSat', 'breakSat', 'hoursSat'],
+          ['startSun', 'endSun', 'breakSun', 'hoursSun']
+        ];
+        dayConfig.forEach(([startId, endId, breakId, hoursId])=>{
+          const computed = durationHoursFromSchedule(id(startId).value, id(endId).value, id(breakId).value);
+          if (computed > 0) id(hoursId).value = computed;
+        });
       }
       function saveProgram() {
+        autoFillHoursFromContract();
         const payload = collectProgramPayload();
         const programs = getPrograms().filter((p)=>p.week_start !== payload.week_start);
         programs.push(payload);
         setPrograms(programs);
-        showProgramMsg(`Programma settimana ${payload.week_start} salvato localmente.`, 'ok');
+        showProgramMsg(`Contratto settimana ${payload.week_start} salvato localmente.`, 'ok');
       }
       function loadProgramBySelectedWeek() {
         const weekStart = isoWeekStart(id('programWeekStart').value || nowDateISO());
         id('programWeekStart').value = weekStart;
         const found = getPrograms().find((p)=>p.week_start === weekStart);
-        if (!found) { showProgramMsg('Nessun programma trovato per questa settimana.', 'err'); return; }
+        if (!found) { showProgramMsg('Nessun contratto trovato per questa settimana.', 'err'); return; }
         fillProgramForm(found);
-        showProgramMsg(`Programma caricato per ${weekStart}.`, 'ok');
+        showProgramMsg(`Contratto caricato per ${weekStart}.`, 'ok');
       }
 
       function nowLocalDateAndTime() { const n = new Date(); return { date:`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`, time:`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`}; }
@@ -311,6 +408,7 @@
         id('saveProfile').addEventListener('click', saveProfile);
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
+        [['startMon','endMon','breakMon'],['startTue','endTue','breakTue'],['startWed','endWed','breakWed'],['startThu','endThu','breakThu'],['startFri','endFri','breakFri'],['startSat','endSat','breakSat'],['startSun','endSun','breakSun']].forEach((ids)=>ids.forEach((fieldId)=>id(fieldId).addEventListener('change', autoFillHoursFromContract)));
         id('clockInBtn').addEventListener('click', clockInNow);
         id('clockOutBtn').addEventListener('click', clockOutNow);
         id('editPunchBtn').addEventListener('click', ()=>id('manualEditBox').classList.toggle('hidden'));
