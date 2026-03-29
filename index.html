@@ -9,9 +9,18 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
     <title>Timbrature Locale</title>
     <style>
-      :root { --bg:#f4f6f8; --card:#fff; --line:#d8dde3; --text:#1e293b; --primary:#2563eb; --secondary:#475569; --ok:#047857; --error:#b91c1c; }
+      :root { --bg:#e0ecff; --card:#fff; --line:#d8dde3; --text:#1e293b; --primary:#2563eb; --secondary:#475569; --ok:#047857; --error:#b91c1c; }
       * { box-sizing: border-box; }
-      body { margin:0; font-family:Inter,Arial,sans-serif; background:var(--bg); color:var(--text); }
+      body {
+        margin:0;
+        font-family:Inter,Arial,sans-serif;
+        background:
+          radial-gradient(circle at 15% 10%, #dbeafe 0%, transparent 42%),
+          radial-gradient(circle at 85% 15%, #e9d5ff 0%, transparent 38%),
+          linear-gradient(160deg, #f0f9ff 0%, var(--bg) 48%, #f5f3ff 100%);
+        background-attachment: fixed;
+        color:var(--text);
+      }
       .container { max-width:1080px; margin:0 auto; padding:16px 12px 88px; }
       .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
       .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
