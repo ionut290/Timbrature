@@ -1,6 +1,35 @@
 <script>
   let currentUser = null;
   let hasClockInForToday = false;
+  let liveTicker = null;
+  let latestMonthRows = [];
+  const WEEK_CONTRACT_KEY = 'timbrature.weekly.contract';
+  const CONTRACT_PRESETS = {
+    EDILIZIA: {
+      label: 'Edilizia industria',
+      levels: {
+        OP1: { label: 'Operaio 1° livello', hourlyRate: 9.8 },
+        OP2: { label: 'Operaio 2° livello', hourlyRate: 11.2 },
+        OP3: { label: 'Operaio 3° livello', hourlyRate: 12.7 }
+      }
+    },
+    METALMECCANICO: {
+      label: 'Metalmeccanico industria',
+      levels: {
+        D1: { label: 'D1', hourlyRate: 10.9 },
+        C2: { label: 'C2', hourlyRate: 12.4 },
+        B1: { label: 'B1', hourlyRate: 15.2 }
+      }
+    },
+    LOGISTICA: {
+      label: 'Logistica',
+      levels: {
+        '6J': { label: '6J', hourlyRate: 9.4 },
+        '5': { label: '5° livello', hourlyRate: 10.6 },
+        '4': { label: '4° livello', hourlyRate: 11.9 }
+      }
+    }
+  };
 
   function id(x) { return document.getElementById(x); }
 
@@ -22,6 +51,79 @@
   function showMsg(message, type = 'ok') {
     id('esito').className = `msg ${type}`;
     id('esito').textContent = message;
+  }
+  function readWeeklyContract() {
+    try {
+      return JSON.parse(localStorage.getItem(WEEK_CONTRACT_KEY) || 'null') || null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function writeWeeklyContract(value) {
+    localStorage.setItem(WEEK_CONTRACT_KEY, JSON.stringify(value));
+  }
+  function getPresetRate(template, level) {
+    return CONTRACT_PRESETS[template]?.levels?.[level] || null;
+  }
+  function getEffectiveHourlyRate() {
+    const manualRate = Number(id('hourlyRate').value || 0);
+    if (manualRate > 0) return manualRate;
+    return Number(getPresetRate(id('contractTemplate').value, id('contractLevel').value)?.hourlyRate || 0);
+  }
+  function parseTimeToMinutes(hhmm) {
+    if (!hhmm) return null;
+    const [h, m] = String(hhmm).split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+  }
+  function buildContractTemplateOptions() {
+    id('contractTemplate').innerHTML = Object.entries(CONTRACT_PRESETS)
+      .map(([key, value]) => `<option value="${key}">${value.label}</option>`)
+      .join('');
+  }
+  function buildContractLevelOptions() {
+    const selectedTemplate = id('contractTemplate').value;
+    const levels = CONTRACT_PRESETS[selectedTemplate]?.levels || {};
+    const prev = id('contractLevel').value;
+    id('contractLevel').innerHTML = Object.entries(levels)
+      .map(([key, value]) => `<option value="${key}">${value.label}</option>`)
+      .join('');
+    if (levels[prev]) id('contractLevel').value = prev;
+    updateContractHint();
+  }
+  function updateContractHint() {
+    const preset = getPresetRate(id('contractTemplate').value, id('contractLevel').value);
+    if (!preset) {
+      id('contractHint').textContent = 'Seleziona contratto e livello.';
+      return;
+    }
+    id('contractHint').textContent = `Paga suggerita: € ${Number(preset.hourlyRate).toFixed(2)}/h. Se paghi diversamente, imposta la paga manuale.`;
+  }
+  function saveWeeklyContract() {
+    const payload = {
+      template: id('contractTemplate').value,
+      level: id('contractLevel').value,
+      employmentType: id('contractEmploymentType').value,
+      hourlyRate: Number(id('hourlyRate').value || 0)
+    };
+    writeWeeklyContract(payload);
+    showMsg('Contratto settimanale salvato su questo dispositivo.', 'ok');
+    updateLiveEarnings();
+  }
+  function loadWeeklyContract(silent = false) {
+    const contract = readWeeklyContract();
+    if (!contract) {
+      if (!silent) showMsg('Nessun contratto settimanale salvato.', 'err');
+      return;
+    }
+    id('contractTemplate').value = contract.template || id('contractTemplate').value;
+    buildContractLevelOptions();
+    id('contractLevel').value = contract.level || id('contractLevel').value;
+    id('contractEmploymentType').value = contract.employmentType || 'IND';
+    id('hourlyRate').value = Number(contract.hourlyRate || 0);
+    updateContractHint();
+    updateLiveEarnings();
+    showMsg('Contratto settimanale caricato.', 'ok');
   }
 
   function setUserBox(user) {
@@ -96,10 +198,33 @@
             <td data-label="Straordinario">${r.stra || 0}</td>
             <td data-label="Stato">${r.stato || ''}</td>
           </tr>`).join('');
+        latestMonthRows = rows;
+        updateLiveEarnings(rows);
         if (typeof onDone === 'function') onDone(rows);
       })
       .withFailureHandler((e) => showMsg(e.message || String(e), 'err'))
       .getMyMonthData(month);
+  }
+  function computeTodayWorkedHours() {
+    const entrata = parseTimeToMinutes(id('entrata').value);
+    if (entrata == null) return 0;
+    const uscita = parseTimeToMinutes(id('uscita').value || nowTimeHHMM());
+    if (uscita == null || uscita < entrata) return 0;
+    const pausa = Math.max(Number(id('pausa').value || 0), 0);
+    return Math.max((uscita - entrata - pausa) / 60, 0);
+  }
+  function updateLiveEarnings(rowsOverride) {
+    const monthRows = Array.isArray(rowsOverride) ? rowsOverride : latestMonthRows;
+    const rate = getEffectiveHourlyRate();
+    const todayWorked = computeTodayWorkedHours();
+    const dayEarn = +(todayWorked * rate).toFixed(2);
+    id('liveWorkedHours').textContent = `Ore oggi: ${todayWorked.toFixed(2)}`;
+    id('liveDayEarnings').textContent = `Guadagno oggi: € ${dayEarn.toFixed(2)}`;
+    const monthTotal = monthRows.reduce((sum, row) => sum + (Number(row.ore || 0) * rate), 0);
+    const today = id('data').value || nowDateISO();
+    const hasTodayRow = monthRows.some((r) => String(r.data || '') === today);
+    const total = hasTodayRow ? monthTotal + (dayEarn - (Number(monthRows.find((r)=>String(r.data||'')===today)?.ore || 0) * rate)) : monthTotal + dayEarn;
+    id('liveTotalEarnings').textContent = `Guadagno totale mese (live): € ${Number(total).toFixed(2)}`;
   }
 
   function detectTodayPunchState(rows) {
@@ -119,6 +244,7 @@
     id('data').value = nowDateISO();
     id('entrata').value = nowTimeHHMM();
     id('uscita').value = '';
+    id('note').value = id('note').value || `Contratto ${id('contractTemplate').value || ''} ${id('contractLevel').value || ''}`.trim();
     setPunchButtons(true);
     saveRecord('BOZZA');
   }
@@ -172,6 +298,18 @@
   window.onload = () => {
     id('data').value = nowDateISO();
     setPunchButtons(false);
+    buildContractTemplateOptions();
+    buildContractLevelOptions();
+    id('contractTemplate').addEventListener('change', buildContractLevelOptions);
+    id('contractLevel').addEventListener('change', updateContractHint);
+    id('hourlyRate').addEventListener('input', updateLiveEarnings);
+    ['entrata', 'uscita', 'pausa'].forEach((field) => id(field).addEventListener('change', updateLiveEarnings));
+    loadWeeklyContract(true);
     loadDashboard();
+    if (liveTicker) clearInterval(liveTicker);
+    liveTicker = setInterval(updateLiveEarnings, 1000);
   };
+
+  window.saveWeeklyContract = saveWeeklyContract;
+  window.loadWeeklyContract = loadWeeklyContract;
 </script>

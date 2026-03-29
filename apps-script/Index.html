@@ -11,6 +11,32 @@
       <div class="card" id="userBox"></div>
 
       <div class="card">
+        <h2>Contratto settimanale</h2>
+        <div class="grid">
+          <label>Contratto
+            <select id="contractTemplate"></select>
+          </label>
+          <label>Livello
+            <select id="contractLevel"></select>
+          </label>
+          <label>Tipologia rapporto
+            <select id="contractEmploymentType">
+              <option value="IND">Indeterminato</option>
+              <option value="DET">Determinato</option>
+            </select>
+          </label>
+          <label>Paga oraria manuale (€)
+            <input type="number" id="hourlyRate" min="0" step="0.01" value="0">
+          </label>
+        </div>
+        <p id="contractHint" class="small"></p>
+        <div class="inline-actions">
+          <button type="button" onclick="saveWeeklyContract()">Salva contratto</button>
+          <button type="button" class="secondary" onclick="loadWeeklyContract()">Carica contratto</button>
+        </div>
+      </div>
+
+      <div class="card">
         <h2>Nuova timbratura / giornata</h2>
         <div class="actions punch-actions">
           <button id="clockInBtn" class="clock-in" type="button" onclick="clockIn()">Entrata</button>
@@ -42,6 +68,9 @@
           </label>
         </div>
 
+        <p id="liveWorkedHours" class="small">Ore oggi: 0.00</p>
+        <p id="liveDayEarnings" class="small">Guadagno oggi: € 0.00</p>
+        <p id="liveTotalEarnings" class="small">Guadagno totale mese (live): € 0.00</p>
         <p id="esito" class="msg"></p>
       </div>
 

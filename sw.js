@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timbrature-cache-v1';
+const CACHE_NAME = 'timbrature-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -27,11 +27,24 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const isDocumentRequest = event.request.mode === 'navigate' || (event.request.headers.get('accept') || '').includes('text/html');
+
+  if (isDocumentRequest) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html')))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
-
       return fetch(event.request)
         .then((networkResponse) => {
           const isHttp = event.request.url.startsWith('http');
