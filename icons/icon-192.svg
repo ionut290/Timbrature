@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-label="Timbrature icon">
+  <rect width="192" height="192" rx="28" fill="#2563eb"/>
+  <rect x="44" y="34" width="104" height="124" rx="12" fill="#ffffff"/>
+  <rect x="60" y="58" width="72" height="10" rx="5" fill="#93c5fd"/>
+  <rect x="60" y="80" width="46" height="8" rx="4" fill="#cbd5e1"/>
+  <rect x="60" y="96" width="58" height="8" rx="4" fill="#cbd5e1"/>
+  <circle cx="123" cy="126" r="20" fill="#2563eb"/>
+  <path d="M123 114v13h10" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>
