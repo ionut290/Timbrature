@@ -284,7 +284,6 @@
         }
       }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   </head>
   <body>
     <div class="container">
@@ -567,15 +566,11 @@
       if (!SUPABASE_URL || SUPABASE_URL.includes('INSERISCI_')) missingSupabaseConfig.push('SUPABASE_URL');
       if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('INSERISCI_')) missingSupabaseConfig.push('SUPABASE_ANON_KEY');
       const isCloudConfigured = missingSupabaseConfig.length === 0;
-      const supabaseClient = isCloudConfigured
-        ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-          auth: {
-            persistSession: true,
-            autoRefreshToken: true,
-            detectSessionInUrl: true
-          }
-        })
-        : null;
+      const SUPABASE_SDK_CANDIDATES = [
+        'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+        'https://unpkg.com/@supabase/supabase-js@2'
+      ];
+      let supabaseClient = null;
 
       let currentUser = null;
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
@@ -586,6 +581,30 @@
       let menuOpen = false;
 
       function id(x) { return document.getElementById(x); }
+
+      function loadExternalScript(src) {
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = src;
+          script.async = true;
+          script.onload = () => resolve(true);
+          script.onerror = () => reject(new Error(`Impossibile caricare ${src}`));
+          document.head.appendChild(script);
+        });
+      }
+
+      async function ensureSupabaseSdk() {
+        if (window.supabase?.createClient) return true;
+        for (const src of SUPABASE_SDK_CANDIDATES) {
+          try {
+            await loadExternalScript(src);
+            if (window.supabase?.createClient) return true;
+          } catch (_) {
+            // prova URL successivo
+          }
+        }
+        return false;
+      }
 
       function showMsg(message, type = 'ok') {
         id('esito').className = `msg ${type}`;
@@ -1608,6 +1627,21 @@
         document.querySelectorAll('[data-menu-target]').forEach((btn) => {
           btn.addEventListener('click', () => setMenuSection(btn.dataset.menuTarget));
         });
+
+        if (isCloudConfigured) {
+          const hasSdk = await ensureSupabaseSdk();
+          if (!hasSdk) {
+            showAuthMsg('Login non disponibile: libreria Supabase non caricata (connessione mobile/CDN bloccato). Riprova con rete diversa o disattiva blocchi contenuti.', 'err');
+          } else {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+              auth: {
+                persistSession: true,
+                autoRefreshToken: true,
+                detectSessionInUrl: true
+              }
+            });
+          }
+        }
 
         if (supabaseClient) {
           supabaseClient.auth.onAuthStateChange(async (event) => {

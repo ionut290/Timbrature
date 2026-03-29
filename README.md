@@ -6,6 +6,26 @@ Questa versione usa **Supabase** per avere:
 - dati separati per ogni account,
 - salvataggio in cloud (non più solo browser locale).
 
+## Possiamo sostituire Supabase con Firebase (o qualcosa di più semplice)?
+
+Sì, ma con livelli di sforzo diversi:
+
+1. **Più semplice (consigliato ora): resta su Supabase**
+   - L'app è già pronta, con login, policy RLS e tabelle SQL.
+   - Per cambiare progetto cloud rapidamente senza modificare codice puoi usare:
+     `?supabase_url=https://TUO-PROGETTO.supabase.co&supabase_key=TUO_ANON_KEY`
+
+2. **Firebase al posto di Supabase: fattibile ma non “plug & play”**
+   - Richiede refactor della parte auth (email/password, Google OAuth),
+     storage dati (Firestore/Realtime DB) e regole di sicurezza.
+   - Le query SQL e le policy RLS attuali non si possono riusare direttamente.
+
+3. **Versione super-semplice senza cloud**
+   - Possiamo rimuovere auth e salvare tutto in `localStorage` nel browser.
+   - È veloce da implementare, ma i dati restano su un solo dispositivo/browser.
+
+Se vuoi, nel prossimo step possiamo fare la migrazione guidata a Firebase oppure creare una modalità locale semplificata.
+
 ## 1) Crea progetto Supabase
 
 1. Vai su [https://supabase.com](https://supabase.com) e crea un nuovo progetto.
