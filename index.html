@@ -58,6 +58,20 @@
       .timbratura-head h2 { margin:0; }
       .welcome-box { margin:0; max-width:520px; font-size:13px; line-height:1.4; color:#0f172a; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px; }
       .segments-box { margin-top:10px; border:1px solid #dbeafe; background:#f8fafc; border-radius:10px; padding:10px; }
+      .split-top { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+      .split-summary { margin:0; font-size:13px; color:#334155; }
+      .month-totals { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 6px; }
+      .month-pill { background:#ecfeff; border:1px solid #bae6fd; color:#0f172a; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:700; }
+      .calendar-grid { margin-top:10px; display:grid; grid-template-columns:repeat(7, minmax(32px,1fr)); gap:6px; }
+      .calendar-head { text-align:center; font-size:12px; font-weight:700; color:#475569; padding:3px 0; }
+      .calendar-day { min-height:60px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--text); padding:6px; text-align:left; display:flex; flex-direction:column; gap:4px; cursor:pointer; }
+      .calendar-day.empty { background:#f8fafc; cursor:default; }
+      .calendar-day.active { border-color:#2563eb; box-shadow:0 0 0 2px #bfdbfe inset; }
+      .calendar-day .day-num { font-size:12px; font-weight:700; }
+      .calendar-day .day-hours { font-size:11px; color:#475569; }
+      .day-summary-card { margin-top:12px; border:1px solid #dbeafe; border-radius:10px; background:#f8fafc; padding:10px; }
+      .summary-column { display:grid; gap:6px; }
+      .summary-line { font-size:13px; color:#1e293b; }
       .segments-list { margin:8px 0 0; padding-left:18px; font-size:13px; color:#334155; }
       .segments-list li { margin-bottom:3px; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
@@ -205,16 +219,24 @@
           </div>
           <div class="segments-box">
             <p class="small"><strong>Suddivisione giornata su più cantieri</strong></p>
-            <div class="grid">
-              <label>Nuovo cantiere
-                <input type="text" id="nextCantiere" placeholder="Nuovo cantiere" />
-              </label>
-              <label>Nuovo caposquadra
-                <input type="text" id="nextCaposquadra" placeholder="Nuovo caposquadra" />
-              </label>
+            <div class="split-top">
+              <button type="button" class="secondary" id="splitCantiereBtn">Cambia cantiere</button>
+              <p id="splitSummaryText" class="split-summary">Cantieri di oggi: -</p>
             </div>
-            <div class="actions">
-              <button type="button" class="secondary" id="splitCantiereBtn">Fine lavoro cantiere attuale / Inizio nuovo cantiere</button>
+            <div class="setup-box hidden" id="splitCantiereForm">
+              <div class="grid">
+                <label>Nuovo cantiere
+                  <input type="text" id="nextCantiere" placeholder="Nuovo cantiere" />
+                </label>
+                <label>Nuovo caposquadra
+                  <input type="text" id="nextCaposquadra" placeholder="Nuovo caposquadra" />
+                </label>
+              </div>
+              <div class="actions">
+                <button type="button" class="secondary" id="cancelSplitCantiereBtn">Annulla</button>
+                <button type="button" id="confirmSplitCantiereBtn">Conferma cambio cantiere</button>
+                <button type="button" class="secondary" id="correctTodaySegmentsBtn">Correggi ore/cantieri di oggi</button>
+              </div>
             </div>
             <ol id="segmentsList" class="segments-list"></ol>
           </div>
@@ -275,10 +297,15 @@
         <div class="card hidden" id="storicoCard">
           <h2>Storico mese</h2>
           <div class="inline-actions">
-            <input type="month" id="mese"><button onclick="loadMyMonth()">Ricarica</button><button class="secondary" onclick="exportData()">Esporta backup JSON</button>
+            <input type="month" id="mese"><button onclick="loadMyMonth()">Ricarica</button><button class="secondary" onclick="exportExcel()">Esporta Excel</button>
           </div>
-          <div class="table-wrap">
-            <table><thead><tr><th>Data</th><th>Entrata</th><th>Uscita</th><th>Pausa</th><th>Causale</th><th>Cantiere</th><th>Caposquadra</th><th>Contratto</th><th>Pioggia/CIS</th><th>Ore</th><th>Ordinarie</th><th>Straordinario</th><th>Ore per cantiere</th><th>Stato</th><th>Azioni</th></tr></thead><tbody id="myRows"></tbody></table>
+          <div class="month-totals">
+            <span class="month-pill" id="monthWorkedHours">Ore lavorate mese: 0.00</span>
+            <span class="month-pill" id="monthOvertimeHours">Straordinari mese: 0.00</span>
+          </div>
+          <div id="monthCalendar" class="calendar-grid"></div>
+          <div id="selectedDaySummary" class="day-summary-card">
+            <p class="small">Clicca su un giorno del calendario per vedere il riepilogo in colonna.</p>
           </div>
         </div>
       </div>
@@ -295,6 +322,7 @@
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
       let liveClockTimer = null;
       let todaySegments = [];
+      let selectedMonthDay = '';
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -465,6 +493,8 @@
         if (!rows.length) return '-';
         return rows.map((entry) => `${entry.cantiere}: ${entry.hours.toFixed(2)}h`).join(' | ');
       }
+      function closeSplitCantiereForm() { id('splitCantiereForm').classList.add('hidden'); }
+      function openSplitCantiereForm() { id('splitCantiereForm').classList.remove('hidden'); }
       function updateServiceTotals() {
         const entrataMin = parseTimeToMinutes(id('entrata').value);
         const uscitaMin = parseTimeToMinutes(id('uscita').value);
@@ -478,7 +508,9 @@
         const worked = computeHours(id('entrata').value, id('uscita').value || nowLocalDateAndTime().time, Number(id('pausa').value || 0), id('causale').value, resolveRulesForDate(id('data').value || nowDateISO()).rules).worked;
         id('serviceTotal').textContent = `Totale ore in servizio: ${minutesToHHMM(serviceMin)}`;
         id('serviceSubTotal').textContent = `Totale ore lavorate: ${Number(worked || 0).toFixed(2)}`;
-        id('serviceCantiereTotals').textContent = `Ore per cantiere: ${formatHoursByCantiere(todaySegments)}`;
+        const cantiereText = formatHoursByCantiere(todaySegments);
+        id('serviceCantiereTotals').textContent = `Ore per cantiere: ${cantiereText}`;
+        id('splitSummaryText').textContent = `Cantieri di oggi: ${cantiereText}`;
       }
       function refreshPunchSummary() {
         id('summaryEntryTime').textContent = id('entrata').value || '--:--';
@@ -592,8 +624,13 @@
         id('caposquadra').value = nextCaposquadra;
         id('nextCantiere').value = '';
         id('nextCaposquadra').value = '';
+        closeSplitCantiereForm();
         upsertRecord(collectPayload('IN_SERVIZIO'), `Fine lavoro cantiere precedente alle ${n.time}, avviato nuovo cantiere.`);
         setPunchStatus('IN_SERVIZIO', id('entrata').value);
+      }
+      function correctTodaySegments() {
+        const today = id('data').value || nowDateISO();
+        correctSegmentsByDate(today);
       }
       function clockOutNow() {
         if (!id('entrata').value) { showMsg('Prima devi timbrare l’entrata.', 'err'); return; }
@@ -669,15 +706,55 @@
         loadMyMonth();
       }
       function normalizeMonthValue(monthValue) { return /^\d{4}-\d{2}$/.test(String(monthValue||'').trim()) ? monthValue : currentMonthValueUTC(); }
+      function renderMonthCalendar(month, rows) {
+        const [year, monthIndex] = month.split('-').map(Number);
+        const firstDay = new Date(year, monthIndex - 1, 1);
+        const totalDays = new Date(year, monthIndex, 0).getDate();
+        const startOffset = (firstDay.getDay() + 6) % 7;
+        const mapByDate = Object.fromEntries(rows.map((r)=>[r.data, r]));
+        const cal = id('monthCalendar');
+        const headers = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'].map((d)=>`<div class="calendar-head">${d}</div>`).join('');
+        const cells = [];
+        for (let i = 0; i < startOffset; i += 1) cells.push('<button type="button" class="calendar-day empty" disabled></button>');
+        for (let day = 1; day <= totalDays; day += 1) {
+          const date = `${year}-${String(monthIndex).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+          const row = mapByDate[date];
+          const worked = Number(row?.ore || 0).toFixed(2);
+          const activeClass = selectedMonthDay === date ? 'active' : '';
+          cells.push(`<button type="button" class="calendar-day ${activeClass}" onclick="showDaySummary('${date}')"><span class="day-num">${day}</span><span class="day-hours">${row ? `${worked}h` : '-'}</span></button>`);
+        }
+        cal.innerHTML = headers + cells.join('');
+      }
+      function showDaySummary(dateValue) {
+        selectedMonthDay = dateValue;
+        const record = getRecords().find((r)=>r.data === dateValue);
+        if (!record) {
+          id('selectedDaySummary').innerHTML = `<p class="small">${dateValue}: nessuna timbratura.</p>`;
+          const month = normalizeMonthValue(id('mese').value);
+          const rows = getRecords().filter((r)=> String(r.data||'').startsWith(month));
+          renderMonthCalendar(month, rows);
+          return;
+        }
+        const cantiereHours = Array.isArray(record.cantiereHours) ? record.cantiereHours : computeHoursByCantiere(record.segments);
+        const perCantiere = cantiereHours.length
+          ? cantiereHours.map((entry)=>`<div class="summary-line"><strong>${entry.cantiere}</strong>: ${Number(entry.hours || 0).toFixed(2)}h</div>`).join('')
+          : '<div class="summary-line">Nessun dettaglio cantiere</div>';
+        id('selectedDaySummary').innerHTML = `<h3>Riepilogo ${dateValue}</h3><div class="summary-column"><div class="summary-line"><strong>Entrata:</strong> ${record.entrata || '-'}</div><div class="summary-line"><strong>Uscita:</strong> ${record.uscita || '-'}</div><div class="summary-line"><strong>Pausa:</strong> ${record.pausa || 0} min</div><div class="summary-line"><strong>Causale:</strong> ${record.causale || '-'}</div><div class="summary-line"><strong>Ore lavorate:</strong> ${Number(record.ore || 0).toFixed(2)}</div><div class="summary-line"><strong>Ordinarie:</strong> ${Number(record.ord || 0).toFixed(2)}</div><div class="summary-line"><strong>Straordinario:</strong> ${Number(record.stra || 0).toFixed(2)}</div><div class="summary-line"><strong>Stato:</strong> ${record.stato || '-'}</div><div class="summary-line"><strong>Dettaglio cantieri:</strong></div>${perCantiere}<div class="inline-actions"><button type="button" class="secondary" onclick="correctSegmentsByDate('${record.data}')">Correggi cantieri</button> <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${record.data}')">Elimina</button></div></div>`;
+        const month = normalizeMonthValue(id('mese').value);
+        const rows = getRecords().filter((r)=> String(r.data||'').startsWith(month));
+        renderMonthCalendar(month, rows);
+      }
       function loadMyMonth() {
         const month = normalizeMonthValue(id('mese').value);
         id('mese').value = month;
         const rows = getRecords().filter((r)=> String(r.data||'').startsWith(month));
-        id('myRows').innerHTML = rows.map((r)=>{
-          const cantiereHours = Array.isArray(r.cantiereHours) ? r.cantiereHours : computeHoursByCantiere(r.segments);
-          const cantiereHoursText = cantiereHours.length ? cantiereHours.map((entry)=>`${entry.cantiere}: ${Number(entry.hours || 0).toFixed(2)}h`).join('<br>') : '-';
-          return `<tr><td>${r.data||''}</td><td>${r.entrata||''}</td><td>${r.uscita||''}</td><td>${r.pausa||0}</td><td>${r.causale||''}</td><td>${r.cantiere||''}</td><td>${r.caposquadra||''}</td><td>${r.contratto||''}</td><td>${r.meteoGestione||''}</td><td>${r.ore||0}</td><td>${r.ord||0}</td><td>${r.stra||0}</td><td>${cantiereHoursText}</td><td>${r.stato||''}</td><td><button type="button" class="secondary" onclick="correctSegmentsByDate('${r.data}')">Correggi cantieri</button> <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${r.data}')">Elimina</button></td></tr>`;
-        }).join('');
+        const totalWorked = rows.reduce((acc, row)=>acc + Number(row.ore || 0), 0);
+        const totalStra = rows.reduce((acc, row)=>acc + Number(row.stra || 0), 0);
+        id('monthWorkedHours').textContent = `Ore lavorate mese: ${totalWorked.toFixed(2)}`;
+        id('monthOvertimeHours').textContent = `Straordinari mese: ${totalStra.toFixed(2)}`;
+        renderMonthCalendar(month, rows);
+        if (selectedMonthDay && String(selectedMonthDay).startsWith(month)) showDaySummary(selectedMonthDay);
+        else id('selectedDaySummary').innerHTML = '<p class="small">Clicca su un giorno del calendario per vedere il riepilogo in colonna.</p>';
       }
       function deleteTimbraturaByDate(dataRecord) {
         if (!window.confirm(`Confermi l'eliminazione della timbratura del ${dataRecord}?`)) return;
@@ -686,10 +763,28 @@
         loadTodayPunch();
         loadMyMonth();
       }
-      function exportData() {
-        const blob = new Blob([JSON.stringify({ profile:getProfile(), programs:getPrograms(), records:getRecords() }, null, 2)], { type:'application/json' });
+      function exportExcel() {
+        const records = getRecords().slice().sort((a,b)=>a.data > b.data ? 1 : -1);
+        const header = ['Data', 'Entrata', 'Uscita', 'Pausa', 'Causale', 'Cantiere', 'Caposquadra', 'Ore', 'Ordinarie', 'Straordinario', 'Stato'];
+        const lines = [header.join(';')];
+        records.forEach((r)=>{
+          lines.push([
+            r.data || '',
+            r.entrata || '',
+            r.uscita || '',
+            Number(r.pausa || 0),
+            r.causale || '',
+            (r.cantiere || '').replaceAll(';', ','),
+            (r.caposquadra || '').replaceAll(';', ','),
+            Number(r.ore || 0).toFixed(2),
+            Number(r.ord || 0).toFixed(2),
+            Number(r.stra || 0).toFixed(2),
+            r.stato || ''
+          ].join(';'));
+        });
+        const blob = new Blob([`\ufeff${lines.join('\n')}`], { type:'application/vnd.ms-excel;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href=url; a.download=`timbrature-local-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+        const a = document.createElement('a'); a.href=url; a.download=`timbrature-${new Date().toISOString().slice(0,10)}.xls`; a.click();
         URL.revokeObjectURL(url);
       }
 
@@ -719,7 +814,10 @@
         });
         id('confirmClockInSetupBtn').addEventListener('click', clockInNow);
         id('cancelClockInSetupBtn').addEventListener('click', closeClockInSetup);
-        id('splitCantiereBtn').addEventListener('click', splitCantiere);
+        id('splitCantiereBtn').addEventListener('click', openSplitCantiereForm);
+        id('cancelSplitCantiereBtn').addEventListener('click', closeSplitCantiereForm);
+        id('confirmSplitCantiereBtn').addEventListener('click', splitCantiere);
+        id('correctTodaySegmentsBtn').addEventListener('click', correctTodaySegments);
         id('clockOutBtn').addEventListener('click', ()=> {
           if (id('clockOutBtn').textContent.toLowerCase().includes('correggi')) { correctTimeField('uscita', 'uscita', 'COMPLETATA'); return; }
           clockOutNow();
@@ -736,9 +834,10 @@
 
       window.onload = init;
       window.loadMyMonth = loadMyMonth;
-      window.exportData = exportData;
+      window.exportExcel = exportExcel;
       window.deleteTimbraturaByDate = deleteTimbraturaByDate;
       window.correctSegmentsByDate = correctSegmentsByDate;
+      window.showDaySummary = showDaySummary;
     </script>
   </body>
 </html>
