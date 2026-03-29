@@ -186,6 +186,15 @@ where table_schema = 'public' and table_name = 'timbrature_records';
 3. Fai login e inserisci le timbrature.
 4. Ogni utente vedrà solo i propri dati nello storico.
 
+## Login con Google (opzionale)
+
+La schermata di accesso include anche **“Accedi con Google”**. Per abilitarlo:
+
+1. Vai su **Supabase Dashboard → Authentication → Providers → Google**.
+2. Abilita il provider e configura **Client ID** / **Client Secret** di Google OAuth.
+3. In **Authentication → URL Configuration** aggiungi i callback URL del tuo dominio (es. Netlify e localhost).
+4. Salva e prova il pulsante “Accedi con Google” nell’app.
+
 ## Accesso da più dispositivi contemporaneamente
 
 Per permettere allo stesso utente di restare connesso su più dispositivi nello stesso momento:
