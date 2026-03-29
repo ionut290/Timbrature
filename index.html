@@ -54,6 +54,12 @@
       .contract-row { display:grid; grid-template-columns:minmax(120px, 1.1fr) repeat(4, minmax(90px, 1fr)); gap:8px; align-items:end; }
       .contract-row label { font-size:12px; }
       .contract-row .day-name { font-weight:700; font-size:13px; padding-bottom:11px; }
+      .timbratura-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+      .timbratura-head h2 { margin:0; }
+      .welcome-box { margin:0; max-width:520px; font-size:13px; line-height:1.4; color:#0f172a; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px; }
+      .segments-box { margin-top:10px; border:1px solid #dbeafe; background:#f8fafc; border-radius:10px; padding:10px; }
+      .segments-list { margin:8px 0 0; padding-left:18px; font-size:13px; color:#334155; }
+      .segments-list li { margin-bottom:3px; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
     </style>
@@ -82,6 +88,9 @@
           <div class="grid">
             <label>Nome
               <input type="text" id="nome" placeholder="Mario Rossi" />
+            </label>
+            <label>Azienda
+              <input type="text" id="azienda" placeholder="Nome azienda" />
             </label>
             <label>Email (opzionale)
               <input type="email" id="email" placeholder="mario@azienda.it" />
@@ -166,7 +175,10 @@
         </div>
 
         <div class="card" id="timbratureCard">
-          <h2>Nuova timbratura / giornata</h2>
+          <div class="timbratura-head">
+            <h2>Nuova timbratura / giornata</h2>
+            <p class="welcome-box" id="welcomeText"></p>
+          </div>
           <div class="inline-actions">
             <button id="clockInBtn" class="btn-green" type="button">Timbra entrata</button>
             <button id="clockOutBtn" class="btn-red" type="button" disabled>Timbra uscita</button>
@@ -191,18 +203,33 @@
               <button type="button" id="confirmClockInSetupBtn">Conferma entrata</button>
             </div>
           </div>
+          <div class="segments-box">
+            <p class="small"><strong>Suddivisione giornata su più cantieri</strong></p>
+            <div class="grid">
+              <label>Nuovo cantiere
+                <input type="text" id="nextCantiere" placeholder="Nuovo cantiere" />
+              </label>
+              <label>Nuovo caposquadra
+                <input type="text" id="nextCaposquadra" placeholder="Nuovo caposquadra" />
+              </label>
+            </div>
+            <div class="actions">
+              <button type="button" class="secondary" id="splitCantiereBtn">Fine lavoro cantiere attuale / Inizio nuovo cantiere</button>
+            </div>
+            <ol id="segmentsList" class="segments-list"></ol>
+          </div>
           <div class="punch-dashboard">
             <p id="liveDateLarge" class="live-date">--</p>
             <p id="liveTimeLarge" class="live-time">--:--:--</p>
             <div class="punch-row">
               <span><strong>Entrata:</strong> <span id="summaryEntryTime">--:--</span></span>
-              <span><strong>Cantiere:</strong> <span id="summaryEntryCantiere">-</span></span>
-              <span><strong>Caposquadra:</strong> <span id="summaryEntryCapo">-</span></span>
+              <span><strong>Uscita:</strong> <span id="summaryExitTime">--:--</span></span>
+              <span><strong>Ore servizio:</strong> <span id="summaryEntryCantiere">-</span></span>
             </div>
             <div class="punch-row">
-              <span><strong>Uscita:</strong> <span id="summaryExitTime">--:--</span></span>
-              <span><strong>Cantiere:</strong> <span id="summaryExitCantiere">-</span></span>
-              <span><strong>Caposquadra:</strong> <span id="summaryExitCapo">-</span></span>
+              <span><strong>Cantiere attuale:</strong> <span id="summaryExitCantiere">-</span></span>
+              <span><strong>Caposquadra attuale:</strong> <span id="summaryExitCapo">-</span></span>
+              <span></span>
             </div>
             <p id="serviceTotal" class="service-total">Totale ore in servizio: 00:00</p>
             <p id="serviceSubTotal" class="service-subtotal">Totale ore lavorate: 0.00</p>
@@ -222,6 +249,19 @@
               <label>Note<textarea id="note" rows="2"></textarea></label>
               <label>Cantiere<input type="text" id="cantiere" /></label>
               <label>Caposquadra<input type="text" id="caposquadra" /></label>
+              <label>Tipo contratto
+                <select id="contratto">
+                  <option value="DET">Determinato</option>
+                  <option value="IND">Indeterminato</option>
+                </select>
+              </label>
+              <label>Pioggia / CIS
+                <select id="meteoGestione">
+                  <option value="">Nessuna segnalazione</option>
+                  <option value="PIO_NON_PAGATO">Pioggia - a casa non pagato</option>
+                  <option value="CIS">Lavorazione in CIS</option>
+                </select>
+              </label>
             </div>
             <div class="actions">
               <button class="secondary" id="saveDraftBtn" type="button">Salva bozza</button>
@@ -237,7 +277,7 @@
             <input type="month" id="mese"><button onclick="loadMyMonth()">Ricarica</button><button class="secondary" onclick="exportData()">Esporta backup JSON</button>
           </div>
           <div class="table-wrap">
-            <table><thead><tr><th>Data</th><th>Entrata</th><th>Uscita</th><th>Pausa</th><th>Causale</th><th>Cantiere</th><th>Caposquadra</th><th>Ore</th><th>Ordinarie</th><th>Straordinario</th><th>Stato</th><th>Azioni</th></tr></thead><tbody id="myRows"></tbody></table>
+            <table><thead><tr><th>Data</th><th>Entrata</th><th>Uscita</th><th>Pausa</th><th>Causale</th><th>Cantiere</th><th>Caposquadra</th><th>Contratto</th><th>Pioggia/CIS</th><th>Ore</th><th>Ordinarie</th><th>Straordinario</th><th>Stato</th><th>Azioni</th></tr></thead><tbody id="myRows"></tbody></table>
           </div>
         </div>
       </div>
@@ -253,6 +293,7 @@
       let menuOpen = false;
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
       let liveClockTimer = null;
+      let todaySegments = [];
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -288,8 +329,14 @@
       function setPrograms(v) { writeJSON(PROGRAMS_KEY, v); }
       function getRecords() { return readJSON(RECORDS_KEY, []); }
       function setRecords(v) { writeJSON(RECORDS_KEY, v); }
-      function getProfile() { return readJSON(PROFILE_KEY, { nome:'', email:'' }); }
+      function getProfile() { return readJSON(PROFILE_KEY, { nome:'', azienda:'', email:'' }); }
       function setProfile(v) { writeJSON(PROFILE_KEY, v); }
+      function updateWelcomeMessage() {
+        const profile = getProfile();
+        const nome = profile.nome || 'collega';
+        const azienda = profile.azienda || 'la tua azienda';
+        id('welcomeText').textContent = `Ben tornato "${nome}", ti auguriamo una buona giornata insieme ai tuoi colleghi di "${azienda}".`;
+      }
 
       function programForDate(dateValue) {
         const selectedWeekStart = isoWeekStart(dateValue || nowDateISO());
@@ -317,13 +364,15 @@
       }
 
       function saveProfile() {
-        const profile = { nome: id('nome').value.trim(), email: id('email').value.trim() };
+        const profile = { nome: id('nome').value.trim(), azienda: id('azienda').value.trim(), email: id('email').value.trim() };
         setProfile(profile);
+        updateWelcomeMessage();
         showProfileMsg('Profilo salvato sul dispositivo.', 'ok');
       }
       function loadProfileUI() {
         const p = getProfile();
         id('nome').value = p.nome || '';
+        id('azienda').value = p.azienda || '';
         id('email').value = p.email || '';
       }
 
@@ -412,11 +461,11 @@
       }
       function refreshPunchSummary() {
         id('summaryEntryTime').textContent = id('entrata').value || '--:--';
-        id('summaryEntryCantiere').textContent = id('cantiere').value || '-';
-        id('summaryEntryCapo').textContent = id('caposquadra').value || '-';
         id('summaryExitTime').textContent = id('uscita').value || '--:--';
-        id('summaryExitCantiere').textContent = id('uscita').value ? (id('cantiere').value || '-') : '-';
-        id('summaryExitCapo').textContent = id('uscita').value ? (id('caposquadra').value || '-') : '-';
+        id('summaryEntryCantiere').textContent = minutesToHHMM(Math.max((parseTimeToMinutes(id('uscita').value) ?? parseTimeToMinutes(nowLocalDateAndTime().time) ?? 0) - (parseTimeToMinutes(id('entrata').value) ?? 0), 0));
+        id('summaryExitCantiere').textContent = id('cantiere').value || '-';
+        id('summaryExitCapo').textContent = id('caposquadra').value || '-';
+        renderSegmentsList();
         updateServiceTotals();
       }
       function setBtnState(btnId, label, disabled, extraClass='', muted=false) {
@@ -452,11 +501,26 @@
         id('serviceStatus').textContent='Non in servizio.';
         refreshPunchSummary();
       }
-      function collectPayload(stato) { return { data:id('data').value || nowDateISO(), entrata:id('entrata').value, uscita:id('uscita').value, pausaMinuti:Number(id('pausa').value||0), causale:id('causale').value, note:id('note').value, cantiere:id('cantiere').value.trim(), caposquadra:id('caposquadra').value.trim(), stato }; }
+      function collectPayload(stato) {
+        return {
+          data:id('data').value || nowDateISO(),
+          entrata:id('entrata').value,
+          uscita:id('uscita').value,
+          pausaMinuti:Number(id('pausa').value||0),
+          causale:id('causale').value,
+          note:id('note').value,
+          cantiere:id('cantiere').value.trim(),
+          caposquadra:id('caposquadra').value.trim(),
+          contratto:id('contratto').value,
+          meteoGestione:id('meteoGestione').value,
+          segments: todaySegments,
+          stato
+        };
+      }
       function upsertRecord(payload, customMessage='') {
         const profile = getProfile();
         const calc = computeHours(payload.entrata, payload.uscita, payload.pausaMinuti, payload.causale, resolveRulesForDate(payload.data).rules);
-        const row = { nome: profile.nome || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, updated_at:new Date().toISOString() };
+        const row = { nome: profile.nome || '', azienda: profile.azienda || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, contratto:payload.contratto || 'DET', meteoGestione:payload.meteoGestione || '', segments: payload.segments || [], ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, updated_at:new Date().toISOString() };
         const records = getRecords().filter((r)=>r.data !== payload.data);
         records.push(row);
         records.sort((a,b)=>a.data > b.data ? 1 : -1);
@@ -480,17 +544,51 @@
         id('causale').value=id('clockInTipoLavoro').value || 'LAV';
         id('cantiere').value=id('clockInCantiere').value.trim();
         id('caposquadra').value=id('clockInCaposquadra').value.trim();
+        todaySegments = [{ start:n.time, end:'', cantiere:id('cantiere').value, caposquadra:id('caposquadra').value }];
         const r = upsertRecord(collectPayload('IN_SERVIZIO'), `Entrata registrata alle ${n.time}. In servizio.`);
         closeClockInSetup();
         if (r) setPunchStatus('IN_SERVIZIO', n.time);
       }
-      function clockOutNow() { if (!id('entrata').value) { showMsg('Prima devi timbrare l’entrata.', 'err'); return; } const n = nowLocalDateAndTime(); id('data').value = id('data').value || n.date; id('uscita').value=n.time; const r = upsertRecord(collectPayload('COMPLETATA'), `Uscita registrata alle ${n.time}.`); if (r) setPunchStatus('COMPLETATA', id('entrata').value, n.time); }
+      function closeCurrentSegment(endTime) {
+        if (!todaySegments.length) return;
+        const lastIndex = todaySegments.length - 1;
+        todaySegments[lastIndex] = { ...todaySegments[lastIndex], end: endTime };
+      }
+      function renderSegmentsList() {
+        id('segmentsList').innerHTML = todaySegments.map((seg)=>`<li>${seg.start || '--:--'} - ${seg.end || 'in corso'} | ${seg.cantiere || 'Cantiere non indicato'} | ${seg.caposquadra || 'Caposquadra non indicato'}</li>`).join('');
+      }
+      function splitCantiere() {
+        if (!id('entrata').value) { showMsg('Prima devi timbrare l’entrata.', 'err'); return; }
+        if (id('uscita').value) { showMsg('La giornata è già chiusa. Inizia una nuova entrata.', 'err'); return; }
+        const nextCantiere = id('nextCantiere').value.trim();
+        const nextCaposquadra = id('nextCaposquadra').value.trim();
+        if (!nextCantiere || !nextCaposquadra) { showMsg('Inserisci nuovo cantiere e nuovo caposquadra per cambiare attività.', 'err'); return; }
+        const n = nowLocalDateAndTime();
+        closeCurrentSegment(n.time);
+        todaySegments.push({ start:n.time, end:'', cantiere:nextCantiere, caposquadra:nextCaposquadra });
+        id('cantiere').value = nextCantiere;
+        id('caposquadra').value = nextCaposquadra;
+        id('nextCantiere').value = '';
+        id('nextCaposquadra').value = '';
+        upsertRecord(collectPayload('IN_SERVIZIO'), `Fine lavoro cantiere precedente alle ${n.time}, avviato nuovo cantiere.`);
+        setPunchStatus('IN_SERVIZIO', id('entrata').value);
+      }
+      function clockOutNow() {
+        if (!id('entrata').value) { showMsg('Prima devi timbrare l’entrata.', 'err'); return; }
+        const n = nowLocalDateAndTime();
+        id('data').value = id('data').value || n.date;
+        id('uscita').value=n.time;
+        closeCurrentSegment(n.time);
+        const r = upsertRecord(collectPayload('COMPLETATA'), `Uscita registrata alle ${n.time}.`);
+        if (r) setPunchStatus('COMPLETATA', id('entrata').value, n.time);
+      }
       function loadTodayPunch() {
         const today = nowDateISO();
         id('data').value = today;
         const found = getRecords().find((r)=>r.data === today);
-        if (!found) { id('entrata').value=''; id('uscita').value=''; id('pausa').value=0; id('causale').value='LAV'; id('note').value=''; id('cantiere').value=''; id('caposquadra').value=''; setPunchStatus('NONE'); return; }
-        id('entrata').value=found.entrata||''; id('uscita').value=found.uscita||''; id('pausa').value=found.pausa||0; id('causale').value=found.causale||'LAV'; id('note').value=found.note||''; id('cantiere').value=found.cantiere||''; id('caposquadra').value=found.caposquadra||'';
+        if (!found) { id('entrata').value=''; id('uscita').value=''; id('pausa').value=0; id('causale').value='LAV'; id('note').value=''; id('cantiere').value=''; id('caposquadra').value=''; id('contratto').value='DET'; id('meteoGestione').value=''; todaySegments = []; setPunchStatus('NONE'); return; }
+        id('entrata').value=found.entrata||''; id('uscita').value=found.uscita||''; id('pausa').value=found.pausa||0; id('causale').value=found.causale||'LAV'; id('note').value=found.note||''; id('cantiere').value=found.cantiere||''; id('caposquadra').value=found.caposquadra||''; id('contratto').value=found.contratto||'DET'; id('meteoGestione').value=found.meteoGestione||'';
+        todaySegments = Array.isArray(found.segments) ? found.segments : (found.entrata ? [{ start:found.entrata, end:found.uscita || '', cantiere:found.cantiere || '', caposquadra:found.caposquadra || '' }] : []);
         if (found.stato === 'COMPLETATA') setPunchStatus('COMPLETATA', found.entrata, found.uscita); else if (found.entrata) setPunchStatus('IN_SERVIZIO', found.entrata); else setPunchStatus('NONE');
       }
       function correctTimeField(fieldId, label, completedStatus='IN_SERVIZIO') {
@@ -508,7 +606,7 @@
         const month = normalizeMonthValue(id('mese').value);
         id('mese').value = month;
         const rows = getRecords().filter((r)=> String(r.data||'').startsWith(month));
-        id('myRows').innerHTML = rows.map((r)=>`<tr><td>${r.data||''}</td><td>${r.entrata||''}</td><td>${r.uscita||''}</td><td>${r.pausa||0}</td><td>${r.causale||''}</td><td>${r.cantiere||''}</td><td>${r.caposquadra||''}</td><td>${r.ore||0}</td><td>${r.ord||0}</td><td>${r.stra||0}</td><td>${r.stato||''}</td><td><button type="button" class="secondary" onclick="deleteTimbraturaByDate('${r.data}')">Elimina</button></td></tr>`).join('');
+        id('myRows').innerHTML = rows.map((r)=>`<tr><td>${r.data||''}</td><td>${r.entrata||''}</td><td>${r.uscita||''}</td><td>${r.pausa||0}</td><td>${r.causale||''}</td><td>${r.cantiere||''}</td><td>${r.caposquadra||''}</td><td>${r.contratto||''}</td><td>${r.meteoGestione||''}</td><td>${r.ore||0}</td><td>${r.ord||0}</td><td>${r.stra||0}</td><td>${r.stato||''}</td><td><button type="button" class="secondary" onclick="deleteTimbraturaByDate('${r.data}')">Elimina</button></td></tr>`).join('');
       }
       function deleteTimbraturaByDate(dataRecord) {
         if (!window.confirm(`Confermi l'eliminazione della timbratura del ${dataRecord}?`)) return;
@@ -532,6 +630,7 @@
         id('mese').value = currentMonthValueUTC();
         id('programWeekStart').value = isoWeekStart(nowDateISO());
         loadProfileUI();
+        updateWelcomeMessage();
         loadTodayPunch();
         loadMyMonth();
 
@@ -549,6 +648,7 @@
         });
         id('confirmClockInSetupBtn').addEventListener('click', clockInNow);
         id('cancelClockInSetupBtn').addEventListener('click', closeClockInSetup);
+        id('splitCantiereBtn').addEventListener('click', splitCantiere);
         id('clockOutBtn').addEventListener('click', ()=> {
           if (id('clockOutBtn').textContent.toLowerCase().includes('correggi')) { correctTimeField('uscita', 'uscita', 'COMPLETATA'); return; }
           clockOutNow();
