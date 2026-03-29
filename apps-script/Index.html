@@ -12,17 +12,21 @@
 
       <div class="card">
         <h2>Nuova timbratura / giornata</h2>
+        <div class="actions punch-actions">
+          <button id="clockInBtn" class="clock-in" type="button" onclick="clockIn()">Entrata</button>
+          <button id="clockOutBtn" class="clock-out" type="button" onclick="clockOut()" disabled>Uscita</button>
+        </div>
         <div class="grid">
           <label>Data
-            <input type="date" id="data">
+            <input type="date" id="data" readonly>
           </label>
 
           <label>Entrata
-            <input type="time" id="entrata">
+            <input type="time" id="entrata" readonly>
           </label>
 
           <label>Uscita
-            <input type="time" id="uscita">
+            <input type="time" id="uscita" readonly>
           </label>
 
           <label>Pausa (minuti)
@@ -36,11 +40,6 @@
           <label>Note
             <textarea id="note" rows="2" placeholder="Aggiungi dettagli se necessario"></textarea>
           </label>
-        </div>
-
-        <div class="actions">
-          <button class="secondary" onclick="saveRecord('BOZZA')">Salva bozza</button>
-          <button onclick="saveRecord('INVIATO')">Invia al responsabile</button>
         </div>
 
         <p id="esito" class="msg"></p>

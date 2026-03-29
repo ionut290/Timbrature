@@ -915,7 +915,12 @@
 
         id('registerBtn').disabled = true;
         try {
-          const { data, error } = await supabaseClient.auth.signUp({ email, password });
+          const emailRedirectTo = buildOAuthRedirectUrl();
+          const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo }
+          });
           if (error) {
             showAuthMsg(`Registrazione fallita: ${error.message}`, 'err');
             return;
@@ -928,7 +933,7 @@
             return;
           }
 
-          showAuthMsg('Registrazione completata. Se non entri subito, disattiva "Confirm email" in Supabase (Authentication → Providers → Email).', 'ok');
+          showAuthMsg(`Registrazione completata. Controlla la mail e conferma l'account. Se il link apre localhost:3000, imposta Site URL/Redirect URLs in Supabase uguali a ${emailRedirectTo}.`, 'ok');
         } catch (error) {
           const message = error?.message || 'Errore di rete durante la registrazione.';
           showAuthMsg(`Registrazione fallita: ${message}`, 'err');

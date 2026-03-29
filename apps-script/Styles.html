@@ -78,6 +78,21 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
+  .punch-actions {
+    margin-top: 0;
+    margin-bottom: 10px;
+  }
+  .clock-in {
+    background: #16a34a;
+  }
+  .clock-out {
+    background: #dc2626;
+  }
+  .clock-out:disabled,
+  .clock-in:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
 
   .inline-actions {
     display: flex;

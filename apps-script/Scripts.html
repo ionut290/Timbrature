@@ -1,7 +1,23 @@
 <script>
   let currentUser = null;
+  let hasClockInForToday = false;
 
   function id(x) { return document.getElementById(x); }
+
+  function nowDateISO() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function nowTimeHHMM() {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  }
+
+  function setPunchButtons(inProgress) {
+    hasClockInForToday = !!inProgress;
+    id('clockInBtn').disabled = hasClockInForToday;
+    id('clockOutBtn').disabled = !hasClockInForToday;
+  }
 
   function showMsg(message, type = 'ok') {
     id('esito').className = `msg ${type}`;
@@ -33,7 +49,7 @@
           id('managerBox').hidden = false;
         }
 
-        loadMyMonth();
+        loadMyMonth(() => detectTodayPunchState());
         if (!id('managerBox').hidden) loadPending();
       })
       .withFailureHandler((e) => showMsg(e.message || String(e), 'err'))
@@ -52,18 +68,19 @@
     };
   }
 
-  function saveRecord(stato) {
+  function saveRecord(stato, onDone) {
     google.script.run
       .withSuccessHandler((res) => {
         showMsg(`Salvato. Ore: ${res.calcolo.worked}, Ordinarie: ${res.calcolo.ord}, Straordinario: ${res.calcolo.stra}`, 'ok');
-        loadMyMonth();
+        loadMyMonth(() => detectTodayPunchState());
         if (!id('managerBox').hidden) loadPending();
+        if (typeof onDone === 'function') onDone(res);
       })
       .withFailureHandler((e) => showMsg(e.message || String(e), 'err'))
       .createOrUpdateDay(collectPayload(stato));
   }
 
-  function loadMyMonth() {
+  function loadMyMonth(onDone) {
     const month = id('mese').value;
     google.script.run
       .withSuccessHandler((rows) => {
@@ -79,9 +96,40 @@
             <td data-label="Straordinario">${r.stra || 0}</td>
             <td data-label="Stato">${r.stato || ''}</td>
           </tr>`).join('');
+        if (typeof onDone === 'function') onDone(rows);
       })
       .withFailureHandler((e) => showMsg(e.message || String(e), 'err'))
       .getMyMonthData(month);
+  }
+
+  function detectTodayPunchState(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const today = id('data').value || nowDateISO();
+    const todayRow = list.find((r) => String(r.data || '') === today);
+
+    if (todayRow?.entrata) id('entrata').value = todayRow.entrata;
+    if (todayRow?.uscita) id('uscita').value = todayRow.uscita;
+    if (!todayRow?.entrata) id('entrata').value = '';
+    if (!todayRow?.uscita) id('uscita').value = '';
+
+    setPunchButtons(Boolean(todayRow?.entrata && !todayRow?.uscita));
+  }
+
+  function clockIn() {
+    id('data').value = nowDateISO();
+    id('entrata').value = nowTimeHHMM();
+    id('uscita').value = '';
+    setPunchButtons(true);
+    saveRecord('BOZZA');
+  }
+
+  function clockOut() {
+    if (!hasClockInForToday) {
+      showMsg('Prima premi Entrata.', 'err');
+      return;
+    }
+    id('uscita').value = nowTimeHHMM();
+    saveRecord('INVIATO', () => setPunchButtons(false));
   }
 
   function loadPending() {
@@ -121,5 +169,9 @@
       .approveRecord(idRecord, approved, motivo);
   }
 
-  window.onload = loadDashboard;
+  window.onload = () => {
+    id('data').value = nowDateISO();
+    setPunchButtons(false);
+    loadDashboard();
+  };
 </script>
