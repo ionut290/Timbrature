@@ -64,6 +64,8 @@
       .menu-link.active { background:var(--primary); color:#fff; }
       .week-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:10px; }
       .contract-grid { margin-top:10px; display:grid; gap:8px; }
+      .contract-meta { margin-top:10px; border:1px solid #bfdbfe; background:#f8fbff; border-radius:10px; padding:10px; }
+      .contract-meta-title { margin:0 0 8px; font-size:14px; font-weight:700; color:#1e3a8a; }
       .contract-row { display:grid; grid-template-columns:minmax(120px, 1.1fr) repeat(4, minmax(90px, 1fr)); gap:8px; align-items:end; }
       .contract-row label { font-size:12px; }
       .contract-row .day-name { font-weight:700; font-size:13px; padding-bottom:11px; }
@@ -132,17 +134,33 @@
 
         <div class="card hidden" id="programCard">
           <h2>Impostazioni contratto</h2>
+          <div class="contract-meta">
+            <p class="contract-meta-title">Contratto settimanale</p>
+            <div class="grid">
+              <label>Contratto
+                <select id="contractTemplate"></select>
+              </label>
+              <label>Livello
+                <select id="contractLevel"></select>
+              </label>
+              <label>Tipologia rapporto
+                <select id="contractEmploymentType">
+                  <option value="IND">Indeterminato</option>
+                  <option value="DET">Determinato</option>
+                </select>
+              </label>
+              <label>Paga oraria manuale (€)
+                <input type="number" id="hourlyRate" min="0" step="0.01" value="0" />
+              </label>
+            </div>
+            <p id="contractMetaHint" class="small">Se lasci 0, la paga oraria viene calcolata dal contratto scelto.</p>
+          </div>
           <div class="grid">
             <label>Pause abilitate nel contratto?
               <select id="programBreakEnabled"><option value="true">Sì</option><option value="false">No</option></select>
             </label>
             <label>Pausa standard (fallback, minuti)
               <input type="number" id="programBreakMinutes" min="0" value="0" />
-            </label>
-          </div>
-          <div class="grid">
-            <label>Paga oraria (€)
-              <input type="number" id="hourlyRate" min="0" step="0.01" value="0" />
             </label>
             <label>Maggiorazione notturno (%)
               <input type="number" id="nightBonusPercent" min="0" step="0.1" value="0" />
@@ -341,6 +359,35 @@
       const RECORDS_KEY = 'timbrature.local.records';
       const PROGRAMS_KEY = 'timbrature.local.programs';
       const menuPanelIds = ['timbratureCard', 'programCard', 'storicoCard', 'userBox'];
+      const CONTRACT_PRESETS = {
+        EDILIZIA: {
+          label: 'Edilizia industria',
+          levels: {
+            OP1: { label: 'Operaio 1° livello', hourlyRate: 9.8, overtimeBonusPercent: 25, nightBonusPercent: 15 },
+            OP2: { label: 'Operaio 2° livello', hourlyRate: 11.2, overtimeBonusPercent: 25, nightBonusPercent: 15 },
+            OP3: { label: 'Operaio 3° livello', hourlyRate: 12.7, overtimeBonusPercent: 25, nightBonusPercent: 15 },
+            OP4: { label: 'Operaio 4° livello', hourlyRate: 14.3, overtimeBonusPercent: 30, nightBonusPercent: 20 }
+          }
+        },
+        METALMECCANICO: {
+          label: 'Metalmeccanico industria',
+          levels: {
+            D1: { label: 'D1', hourlyRate: 10.9, overtimeBonusPercent: 25, nightBonusPercent: 15 },
+            C2: { label: 'C2', hourlyRate: 12.4, overtimeBonusPercent: 25, nightBonusPercent: 20 },
+            C3: { label: 'C3', hourlyRate: 13.6, overtimeBonusPercent: 30, nightBonusPercent: 20 },
+            B1: { label: 'B1', hourlyRate: 15.2, overtimeBonusPercent: 30, nightBonusPercent: 25 }
+          }
+        },
+        LOGISTICA: {
+          label: 'Logistica trasporto merci',
+          levels: {
+            '6J': { label: '6J', hourlyRate: 9.4, overtimeBonusPercent: 25, nightBonusPercent: 20 },
+            '5': { label: '5° livello', hourlyRate: 10.6, overtimeBonusPercent: 25, nightBonusPercent: 20 },
+            '4': { label: '4° livello', hourlyRate: 11.9, overtimeBonusPercent: 30, nightBonusPercent: 20 },
+            '3': { label: '3° livello', hourlyRate: 13.2, overtimeBonusPercent: 30, nightBonusPercent: 25 }
+          }
+        }
+      };
       let activeMenuPanel = 'timbratureCard';
       let menuOpen = false;
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
@@ -356,6 +403,17 @@
       const showMsg = (m, t='ok') => { id('esito').className = `msg ${t}`; id('esito').textContent = m; };
       const showProgramMsg = (m, t='ok') => { id('programEsito').className = `msg ${t}`; id('programEsito').textContent = m; };
       const showProfileMsg = (m, t='ok') => { id('profileEsito').className = `msg ${t}`; id('profileEsito').textContent = m; };
+      function getPresetRate(templateKey, levelKey) {
+        const preset = CONTRACT_PRESETS[templateKey];
+        if (!preset) return null;
+        return preset.levels?.[levelKey] || null;
+      }
+      function effectiveProgramHourlyRate(program) {
+        const manual = Number(program?.hourly_rate || 0);
+        if (manual > 0) return manual;
+        const preset = getPresetRate(program?.contract_template, program?.contract_level);
+        return Number(preset?.hourlyRate || 0);
+      }
 
       function parseTimeToMinutes(hhmm) { if (!hhmm) return null; const [h,m] = String(hhmm).split(':').map(Number); return Number.isNaN(h)||Number.isNaN(m) ? null : h*60+m; }
       function durationHoursFromSchedule(startTime, endTime, breakMinutes) {
@@ -434,11 +492,17 @@
       }
 
       function collectProgramPayload() {
+        const selectedTemplate = id('contractTemplate').value;
+        const selectedLevel = id('contractLevel').value;
+        const manualHourly = Number(id('hourlyRate').value || 0);
         return {
           week_start: isoWeekStart(nowDateISO()),
+          contract_template: selectedTemplate,
+          contract_level: selectedLevel,
+          contract_employment_type: id('contractEmploymentType').value || 'IND',
           break_enabled: id('programBreakEnabled').value==='true',
           break_minutes:Number(id('programBreakMinutes').value||0),
-          hourly_rate:Number(id('hourlyRate').value||0),
+          hourly_rate: manualHourly,
           night_bonus_percent:Number(id('nightBonusPercent').value||0),
           overtime_bonus_percent:Number(id('overtimeBonusPercent').value||0),
           monday_start:id('startMon').value, monday_end:id('endMon').value, monday_break_minutes:Number(id('breakMon').value||0), monday_hours:Number(id('hoursMon').value||0),
@@ -452,6 +516,10 @@
       }
       function fillProgramForm(p) {
         if (!p) return;
+        id('contractTemplate').value = p.contract_template || Object.keys(CONTRACT_PRESETS)[0];
+        buildContractLevelsOptions();
+        id('contractLevel').value = p.contract_level || id('contractLevel').value;
+        id('contractEmploymentType').value = p.contract_employment_type || 'IND';
         id('programBreakEnabled').value = String(Boolean(p.break_enabled)); id('programBreakMinutes').value = Number(p.break_minutes||0);
         id('hourlyRate').value = Number(p.hourly_rate || 0);
         id('nightBonusPercent').value = Number(p.night_bonus_percent || 0);
@@ -463,6 +531,35 @@
         id('startFri').value = p.friday_start || ''; id('endFri').value = p.friday_end || ''; id('breakFri').value = Number(p.friday_break_minutes ?? p.break_minutes ?? 0); id('hoursFri').value = Number(p.friday_hours||0);
         id('startSat').value = p.saturday_start || ''; id('endSat').value = p.saturday_end || ''; id('breakSat').value = Number(p.saturday_break_minutes ?? p.break_minutes ?? 0); id('hoursSat').value = Number(p.saturday_hours||0);
         id('startSun').value = p.sunday_start || ''; id('endSun').value = p.sunday_end || ''; id('breakSun').value = Number(p.sunday_break_minutes ?? p.break_minutes ?? 0); id('hoursSun').value = Number(p.sunday_hours||0);
+      }
+      function buildContractTemplateOptions() {
+        id('contractTemplate').innerHTML = Object.entries(CONTRACT_PRESETS)
+          .map(([key, cfg]) => `<option value="${key}">${cfg.label}</option>`)
+          .join('');
+      }
+      function buildContractLevelsOptions() {
+        const templateKey = id('contractTemplate').value;
+        const preset = CONTRACT_PRESETS[templateKey];
+        const previous = id('contractLevel').value;
+        const levels = Object.entries(preset?.levels || {});
+        id('contractLevel').innerHTML = levels.map(([key, level])=>`<option value="${key}">${level.label}</option>`).join('');
+        if (levels.some(([key]) => key === previous)) id('contractLevel').value = previous;
+        updateContractHintAndRates();
+      }
+      function updateContractHintAndRates() {
+        const templateKey = id('contractTemplate').value;
+        const levelKey = id('contractLevel').value;
+        const preset = CONTRACT_PRESETS[templateKey];
+        const level = preset?.levels?.[levelKey];
+        if (!level) {
+          id('contractMetaHint').textContent = 'Seleziona contratto e livello.';
+          return;
+        }
+        id('contractMetaHint').textContent = `${preset.label} • ${level.label} → paga base suggerita € ${Number(level.hourlyRate).toFixed(2)}/h`;
+        if (Number(id('hourlyRate').value || 0) <= 0) {
+          id('overtimeBonusPercent').value = Number(level.overtimeBonusPercent || 0);
+          id('nightBonusPercent').value = Number(level.nightBonusPercent || 0);
+        }
       }
       function autoFillHoursFromContract() {
         const dayConfig = [
@@ -495,7 +592,7 @@
       }
 
       function calculateRecordEarnings(record, program) {
-        const safeHourlyRate = Math.max(Number(program?.hourly_rate || 0), 0);
+        const safeHourlyRate = Math.max(effectiveProgramHourlyRate(program), 0);
         const overtimeBonus = Math.max(Number(program?.overtime_bonus_percent || 0), 0) / 100;
         const nightBonus = Math.max(Number(program?.night_bonus_percent || 0), 0) / 100;
         const ordinaryHours = Math.max(Number(record?.ord || 0), 0);
@@ -563,7 +660,9 @@
         const todayCalc = computeHours(id('entrata').value, id('uscita').value || nowLocalDateAndTime().time, Number(id('pausa').value || 0), id('causale').value, resolveRulesForDate(id('data').value || nowDateISO()).rules);
         const todayEarnings = calculateRecordEarnings({ ord: todayCalc.ord, stra: todayCalc.stra, nightHours: 0 }, program);
         id('serviceDayEarnings').textContent = `Guadagno giornata: € ${todayEarnings.toFixed(2)}`;
-        const totalEarnings = calculateCumulativeEarnings(getRecords(), program);
+        const currentDate = id('data').value || nowDateISO();
+        const completedRecords = getRecords().filter((row)=>row.data !== currentDate);
+        const totalEarnings = +(calculateCumulativeEarnings(completedRecords, program) + todayEarnings).toFixed(2);
         id('serviceTotalEarnings').textContent = `Fino adesso hai guadagnato circa: € ${totalEarnings.toFixed(2)}`;
       }
       function refreshPunchSummary() {
@@ -652,6 +751,8 @@
         id('causale').value=id('clockInTipoLavoro').value || 'LAV';
         id('cantiere').value=id('clockInCantiere').value.trim();
         id('caposquadra').value=id('clockInCaposquadra').value.trim();
+        const activeProgram = programForDate(n.date);
+        if (activeProgram?.contract_employment_type) id('contratto').value = activeProgram.contract_employment_type;
         todaySegments = [{ start:n.time, end:'', cantiere:id('cantiere').value, caposquadra:id('caposquadra').value }];
         const r = upsertRecord(collectPayload('IN_SERVIZIO'), `Entrata registrata alle ${n.time}. In servizio.`);
         closeClockInSetup();
@@ -868,6 +969,8 @@
         loadTodayPunch();
         loadMyMonth();
 
+        buildContractTemplateOptions();
+        buildContractLevelsOptions();
         id('menuToggleBtn').addEventListener('click', (e)=>{ e.stopPropagation(); setMenuOpen(!menuOpen); });
         id('leftMenu').addEventListener('click', (e)=>e.stopPropagation());
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
@@ -875,6 +978,9 @@
         id('saveProfile').addEventListener('click', saveProfile);
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
+        id('contractTemplate').addEventListener('change', buildContractLevelsOptions);
+        id('contractLevel').addEventListener('change', updateContractHintAndRates);
+        id('hourlyRate').addEventListener('input', updateContractHintAndRates);
         [['startMon','endMon','breakMon'],['startTue','endTue','breakTue'],['startWed','endWed','breakWed'],['startThu','endThu','breakThu'],['startFri','endFri','breakFri'],['startSat','endSat','breakSat'],['startSun','endSun','breakSun']].forEach((ids)=>ids.forEach((fieldId)=>id(fieldId).addEventListener('change', autoFillHoursFromContract)));
         id('clockInBtn').addEventListener('click', ()=> {
           if (id('clockInBtn').textContent.toLowerCase().includes('correggi')) { correctTimeField('entrata', 'entrata'); return; }
