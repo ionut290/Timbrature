@@ -810,6 +810,23 @@
         }
       }
 
+      function buildOAuthRedirectUrl() {
+        try {
+          const current = new URL(window.location.href);
+          const redirect = new URL(`${current.origin}${current.pathname}`);
+          const forwardedParams = ['supabase_url', 'supabase_key'];
+
+          forwardedParams.forEach((param) => {
+            const value = current.searchParams.get(param);
+            if (value) redirect.searchParams.set(param, value);
+          });
+
+          return redirect.toString();
+        } catch (_) {
+          return window.location.origin || window.location.href;
+        }
+      }
+
       function showCloudTargetInfo() {
         // Configurazione cloud preimpostata: la schermata di login resta minimale.
       }
@@ -904,13 +921,19 @@
         const googleBtn = id('googleLoginBtn');
         googleBtn.disabled = true;
         try {
+          const redirectTo = buildOAuthRedirectUrl();
           const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
-              redirectTo: window.location.href
+              redirectTo
             }
           });
           if (error) {
+            const msg = (error.message || '').toLowerCase();
+            if (msg.includes('redirect') && msg.includes('allowed')) {
+              showAuthMsg('Accesso Google fallito: URL di callback non autorizzato. In Supabase aggiungi il dominio in Authentication → URL Configuration.', 'err');
+              return;
+            }
             showAuthMsg(`Accesso Google fallito: ${error.message}`, 'err');
             return;
           }
