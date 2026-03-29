@@ -28,9 +28,19 @@
       .pill { display:inline-block; background:#ecfeff; border:1px solid #bae6fd; color:#075985; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:600; }
       .hidden { display:none; }
       .btn-green { background:#16a34a; }
+      .btn-red { background:#dc2626; }
+      .btn-disabled { background:#94a3b8 !important; color:#fff; }
       .status-line { margin:8px 0 0; font-size:14px; font-weight:600; }
       .status-neutral { color:#334155; }
       .status-ok { color:#047857; }
+      .punch-dashboard { margin-top:14px; border:1px solid #dbeafe; background:#f8fafc; border-radius:12px; padding:14px; }
+      .live-date { font-size:28px; font-weight:800; line-height:1.1; margin:0; color:#0f172a; }
+      .live-time { font-size:40px; font-weight:900; margin:4px 0 12px; letter-spacing:1px; color:#1d4ed8; }
+      .punch-row { display:grid; grid-template-columns:repeat(3, minmax(120px, 1fr)); gap:8px; font-size:14px; color:#334155; margin-bottom:8px; }
+      .punch-row strong { color:#0f172a; }
+      .service-total { margin:4px 0 0; font-size:24px; font-weight:800; color:#047857; }
+      .service-subtotal { margin:2px 0 0; font-size:13px; color:#475569; }
+      .setup-box { margin-top:10px; border:1px solid #bfdbfe; background:#eff6ff; border-radius:10px; padding:10px; }
       .app-shell { position:relative; }
       .top-menu { display:flex; justify-content:flex-end; margin:8px 0 10px; }
       .kebab-btn { width:44px; min-width:44px; padding:0; border-radius:999px; font-size:24px; line-height:1; background:var(--secondary); }
@@ -159,11 +169,44 @@
           <h2>Nuova timbratura / giornata</h2>
           <div class="inline-actions">
             <button id="clockInBtn" class="btn-green" type="button">Timbra entrata</button>
-            <button id="clockOutBtn" class="secondary hidden" type="button">Timbra uscita</button>
-            <button id="editPunchBtn" class="secondary hidden" type="button">Correggi timbratura</button>
+            <button id="clockOutBtn" class="btn-red" type="button" disabled>Timbra uscita</button>
           </div>
           <p id="serviceStatus" class="status-line status-neutral">Non in servizio.</p>
           <p id="dayCompletedText" class="status-line status-ok hidden">Giornata completata, buon riposo.</p>
+          <div class="setup-box hidden" id="clockInSetupBox">
+            <div class="grid">
+              <label>Tipo lavoro
+                <select id="clockInTipoLavoro">
+                  <option value="LAV">LAV - Lavoro ordinario</option>
+                  <option value="TRA">TRA - Trasferta</option>
+                  <option value="SW">SW - Smart working</option>
+                  <option value="FER">FER - Ferie</option>
+                </select>
+              </label>
+              <label>Cantiere<input type="text" id="clockInCantiere" placeholder="Nome cantiere"></label>
+              <label>Caposquadra<input type="text" id="clockInCaposquadra" placeholder="Nome caposquadra"></label>
+            </div>
+            <div class="actions">
+              <button type="button" class="secondary" id="cancelClockInSetupBtn">Annulla</button>
+              <button type="button" id="confirmClockInSetupBtn">Conferma entrata</button>
+            </div>
+          </div>
+          <div class="punch-dashboard">
+            <p id="liveDateLarge" class="live-date">--</p>
+            <p id="liveTimeLarge" class="live-time">--:--:--</p>
+            <div class="punch-row">
+              <span><strong>Entrata:</strong> <span id="summaryEntryTime">--:--</span></span>
+              <span><strong>Cantiere:</strong> <span id="summaryEntryCantiere">-</span></span>
+              <span><strong>Caposquadra:</strong> <span id="summaryEntryCapo">-</span></span>
+            </div>
+            <div class="punch-row">
+              <span><strong>Uscita:</strong> <span id="summaryExitTime">--:--</span></span>
+              <span><strong>Cantiere:</strong> <span id="summaryExitCantiere">-</span></span>
+              <span><strong>Caposquadra:</strong> <span id="summaryExitCapo">-</span></span>
+            </div>
+            <p id="serviceTotal" class="service-total">Totale ore in servizio: 00:00</p>
+            <p id="serviceSubTotal" class="service-subtotal">Totale ore lavorate: 0.00</p>
+          </div>
 
           <div id="manualEditBox" class="hidden">
             <div class="grid">
@@ -209,6 +252,7 @@
       let activeMenuPanel = 'timbratureCard';
       let menuOpen = false;
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
+      let liveClockTimer = null;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -341,10 +385,72 @@
       }
 
       function nowLocalDateAndTime() { const n = new Date(); return { date:`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`, time:`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`}; }
+      function formatDateTimeLarge() {
+        const now = new Date();
+        id('liveDateLarge').textContent = now.toLocaleDateString('it-IT', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+        id('liveTimeLarge').textContent = now.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+      }
+      function minutesToHHMM(totalMinutes) {
+        const safe = Math.max(Math.floor(totalMinutes || 0), 0);
+        const h = String(Math.floor(safe / 60)).padStart(2, '0');
+        const m = String(safe % 60).padStart(2, '0');
+        return `${h}:${m}`;
+      }
+      function updateServiceTotals() {
+        const entrataMin = parseTimeToMinutes(id('entrata').value);
+        const uscitaMin = parseTimeToMinutes(id('uscita').value);
+        let serviceMin = 0;
+        if (entrataMin != null && uscitaMin != null && uscitaMin >= entrataMin) serviceMin = uscitaMin - entrataMin;
+        else if (entrataMin != null) {
+          const n = new Date();
+          const nowMin = n.getHours() * 60 + n.getMinutes();
+          serviceMin = Math.max(nowMin - entrataMin, 0);
+        }
+        const worked = computeHours(id('entrata').value, id('uscita').value || nowLocalDateAndTime().time, Number(id('pausa').value || 0), id('causale').value, resolveRulesForDate(id('data').value || nowDateISO()).rules).worked;
+        id('serviceTotal').textContent = `Totale ore in servizio: ${minutesToHHMM(serviceMin)}`;
+        id('serviceSubTotal').textContent = `Totale ore lavorate: ${Number(worked || 0).toFixed(2)}`;
+      }
+      function refreshPunchSummary() {
+        id('summaryEntryTime').textContent = id('entrata').value || '--:--';
+        id('summaryEntryCantiere').textContent = id('cantiere').value || '-';
+        id('summaryEntryCapo').textContent = id('caposquadra').value || '-';
+        id('summaryExitTime').textContent = id('uscita').value || '--:--';
+        id('summaryExitCantiere').textContent = id('uscita').value ? (id('cantiere').value || '-') : '-';
+        id('summaryExitCapo').textContent = id('uscita').value ? (id('caposquadra').value || '-') : '-';
+        updateServiceTotals();
+      }
+      function setBtnState(btnId, label, disabled, extraClass='', muted=false) {
+        const btn = id(btnId);
+        btn.textContent = label;
+        btn.disabled = Boolean(disabled);
+        btn.classList.toggle('btn-disabled', Boolean(muted));
+        if (extraClass) btn.classList.add(extraClass);
+      }
       function setPunchStatus(status, entryTime='', exitTime='') {
-        if (status === 'IN_SERVIZIO') { id('clockInBtn').classList.add('hidden'); id('clockOutBtn').classList.remove('hidden'); id('editPunchBtn').classList.remove('hidden'); id('dayCompletedText').classList.add('hidden'); id('serviceStatus').className='status-line status-ok'; id('serviceStatus').textContent=`In servizio dalle ${entryTime || id('entrata').value || '--:--'}.`; return; }
-        if (status === 'COMPLETATA') { id('clockInBtn').classList.add('hidden'); id('clockOutBtn').classList.add('hidden'); id('editPunchBtn').classList.remove('hidden'); id('serviceStatus').className='status-line status-ok'; id('serviceStatus').textContent=`Entrata ${entryTime || id('entrata').value || '--:--'} - Uscita ${exitTime || id('uscita').value || '--:--'}.`; id('dayCompletedText').classList.remove('hidden'); return; }
-        id('clockInBtn').classList.remove('hidden'); id('clockOutBtn').classList.add('hidden'); id('editPunchBtn').classList.add('hidden'); id('dayCompletedText').classList.add('hidden'); id('serviceStatus').className='status-line status-neutral'; id('serviceStatus').textContent='Non in servizio.';
+        if (status === 'IN_SERVIZIO') {
+          setBtnState('clockInBtn', 'Correggi entrata', false, 'btn-green', true);
+          setBtnState('clockOutBtn', 'Timbra uscita', false, 'btn-red');
+          id('dayCompletedText').classList.add('hidden');
+          id('serviceStatus').className='status-line status-ok';
+          id('serviceStatus').textContent=`In servizio dalle ${entryTime || id('entrata').value || '--:--'}.`;
+          refreshPunchSummary();
+          return;
+        }
+        if (status === 'COMPLETATA') {
+          setBtnState('clockInBtn', 'Correggi entrata', false, 'btn-green', true);
+          setBtnState('clockOutBtn', 'Correggi uscita', false, 'btn-red', true);
+          id('serviceStatus').className='status-line status-ok';
+          id('serviceStatus').textContent=`Entrata ${entryTime || id('entrata').value || '--:--'} - Uscita ${exitTime || id('uscita').value || '--:--'}.`;
+          id('dayCompletedText').classList.remove('hidden');
+          refreshPunchSummary();
+          return;
+        }
+        setBtnState('clockInBtn', 'Timbra entrata', false, 'btn-green', false);
+        setBtnState('clockOutBtn', 'Timbra uscita', true, 'btn-red');
+        id('dayCompletedText').classList.add('hidden');
+        id('serviceStatus').className='status-line status-neutral';
+        id('serviceStatus').textContent='Non in servizio.';
+        refreshPunchSummary();
       }
       function collectPayload(stato) { return { data:id('data').value || nowDateISO(), entrata:id('entrata').value, uscita:id('uscita').value, pausaMinuti:Number(id('pausa').value||0), causale:id('causale').value, note:id('note').value, cantiere:id('cantiere').value.trim(), caposquadra:id('caposquadra').value.trim(), stato }; }
       function upsertRecord(payload, customMessage='') {
@@ -359,7 +465,25 @@
         loadMyMonth();
         return row;
       }
-      function clockInNow() { const n = nowLocalDateAndTime(); id('data').value=n.date; id('entrata').value=n.time; id('uscita').value=''; id('causale').value='LAV'; const r = upsertRecord(collectPayload('IN_SERVIZIO'), `Entrata registrata alle ${n.time}. In servizio.`); if (r) setPunchStatus('IN_SERVIZIO', n.time); }
+      function openClockInSetup() {
+        id('clockInTipoLavoro').value = id('causale').value || 'LAV';
+        id('clockInCantiere').value = id('cantiere').value || '';
+        id('clockInCaposquadra').value = id('caposquadra').value || '';
+        id('clockInSetupBox').classList.remove('hidden');
+      }
+      function closeClockInSetup() { id('clockInSetupBox').classList.add('hidden'); }
+      function clockInNow() {
+        const n = nowLocalDateAndTime();
+        id('data').value=n.date;
+        id('entrata').value=n.time;
+        id('uscita').value='';
+        id('causale').value=id('clockInTipoLavoro').value || 'LAV';
+        id('cantiere').value=id('clockInCantiere').value.trim();
+        id('caposquadra').value=id('clockInCaposquadra').value.trim();
+        const r = upsertRecord(collectPayload('IN_SERVIZIO'), `Entrata registrata alle ${n.time}. In servizio.`);
+        closeClockInSetup();
+        if (r) setPunchStatus('IN_SERVIZIO', n.time);
+      }
       function clockOutNow() { if (!id('entrata').value) { showMsg('Prima devi timbrare l’entrata.', 'err'); return; } const n = nowLocalDateAndTime(); id('data').value = id('data').value || n.date; id('uscita').value=n.time; const r = upsertRecord(collectPayload('COMPLETATA'), `Uscita registrata alle ${n.time}.`); if (r) setPunchStatus('COMPLETATA', id('entrata').value, n.time); }
       function loadTodayPunch() {
         const today = nowDateISO();
@@ -368,6 +492,16 @@
         if (!found) { id('entrata').value=''; id('uscita').value=''; id('pausa').value=0; id('causale').value='LAV'; id('note').value=''; id('cantiere').value=''; id('caposquadra').value=''; setPunchStatus('NONE'); return; }
         id('entrata').value=found.entrata||''; id('uscita').value=found.uscita||''; id('pausa').value=found.pausa||0; id('causale').value=found.causale||'LAV'; id('note').value=found.note||''; id('cantiere').value=found.cantiere||''; id('caposquadra').value=found.caposquadra||'';
         if (found.stato === 'COMPLETATA') setPunchStatus('COMPLETATA', found.entrata, found.uscita); else if (found.entrata) setPunchStatus('IN_SERVIZIO', found.entrata); else setPunchStatus('NONE');
+      }
+      function correctTimeField(fieldId, label, completedStatus='IN_SERVIZIO') {
+        const current = id(fieldId).value || '';
+        const value = window.prompt(`Correggi ${label} (HH:MM)`, current);
+        if (value === null) return;
+        if (!/^\d{2}:\d{2}$/.test(value)) { showMsg(`Formato ${label} non valido. Usa HH:MM.`, 'err'); return; }
+        id(fieldId).value = value;
+        const stato = id('uscita').value ? 'COMPLETATA' : completedStatus;
+        upsertRecord(collectPayload(stato), `${label} corretta: ${value}.`);
+        setPunchStatus(stato, id('entrata').value, id('uscita').value);
       }
       function normalizeMonthValue(monthValue) { return /^\d{4}-\d{2}$/.test(String(monthValue||'').trim()) ? monthValue : currentMonthValueUTC(); }
       function loadMyMonth() {
@@ -409,11 +543,24 @@
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
         [['startMon','endMon','breakMon'],['startTue','endTue','breakTue'],['startWed','endWed','breakWed'],['startThu','endThu','breakThu'],['startFri','endFri','breakFri'],['startSat','endSat','breakSat'],['startSun','endSun','breakSun']].forEach((ids)=>ids.forEach((fieldId)=>id(fieldId).addEventListener('change', autoFillHoursFromContract)));
-        id('clockInBtn').addEventListener('click', clockInNow);
-        id('clockOutBtn').addEventListener('click', clockOutNow);
-        id('editPunchBtn').addEventListener('click', ()=>id('manualEditBox').classList.toggle('hidden'));
+        id('clockInBtn').addEventListener('click', ()=> {
+          if (id('clockInBtn').textContent.toLowerCase().includes('correggi')) { correctTimeField('entrata', 'entrata'); return; }
+          openClockInSetup();
+        });
+        id('confirmClockInSetupBtn').addEventListener('click', clockInNow);
+        id('cancelClockInSetupBtn').addEventListener('click', closeClockInSetup);
+        id('clockOutBtn').addEventListener('click', ()=> {
+          if (id('clockOutBtn').textContent.toLowerCase().includes('correggi')) { correctTimeField('uscita', 'uscita', 'COMPLETATA'); return; }
+          clockOutNow();
+        });
+        id('serviceStatus').addEventListener('dblclick', ()=>id('manualEditBox').classList.toggle('hidden'));
         id('saveDraftBtn').addEventListener('click', ()=>upsertRecord(collectPayload('BOZZA'), 'Timbratura corretta e salvata in bozza.'));
         id('saveDayBtn').addEventListener('click', ()=>upsertRecord(collectPayload('COMPLETATA'), 'Timbratura corretta e giornata confermata.'));
+        ['entrata','uscita','cantiere','caposquadra','pausa','causale'].forEach((fieldId)=>id(fieldId).addEventListener('change', refreshPunchSummary));
+        formatDateTimeLarge();
+        refreshPunchSummary();
+        if (liveClockTimer) clearInterval(liveClockTimer);
+        liveClockTimer = window.setInterval(()=>{ formatDateTimeLarge(); refreshPunchSummary(); }, 1000);
       }
 
       window.onload = init;
