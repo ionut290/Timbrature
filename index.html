@@ -3,6 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="description" content="App timbrature aziendali installabile offline" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
     <title>Timbrature Locale</title>
     <style>
       :root { --bg:#f4f6f8; --card:#fff; --line:#d8dde3; --text:#1e293b; --primary:#2563eb; --secondary:#475569; --ok:#047857; --error:#b91c1c; }
@@ -791,6 +795,16 @@
       function setMenuSection(panelId) { if (!menuPanelIds.includes(panelId)) return; activeMenuPanel = panelId; menuPanelIds.forEach((name)=>id(name).classList.toggle('hidden', name !== panelId)); document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId)); setMenuOpen(false); }
       function setMenuOpen(open) { menuOpen = !!open; id('leftMenu').classList.toggle('hidden', !menuOpen); id('menuToggleBtn').setAttribute('aria-expanded', menuOpen ? 'true' : 'false'); }
 
+      async function registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        try {
+          await navigator.serviceWorker.register('/sw.js');
+          console.info('Service worker registrato con successo.');
+        } catch (error) {
+          console.warn('Registrazione service worker fallita:', error);
+        }
+      }
+
       function init() {
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
@@ -833,6 +847,7 @@
       }
 
       window.onload = init;
+      registerServiceWorker();
       window.loadMyMonth = loadMyMonth;
       window.exportExcel = exportExcel;
       window.deleteTimbraturaByDate = deleteTimbraturaByDate;

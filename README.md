@@ -228,3 +228,19 @@ L'app esegue già il logout locale con `signOut({ scope: 'local' })`, quindi un 
 ## Nota
 
 La cartella `apps-script/` rimane come storico della vecchia versione Google Apps Script.
+
+
+## Modalità Progressive Web App (PWA)
+
+Questa app ora può essere installata come PWA:
+
+- include un `manifest.webmanifest`,
+- registra un service worker (`sw.js`) per cache offline dei file statici,
+- aggiunge icone installabili in `icons/`.
+
+### Come provarla
+
+1. pubblica su HTTPS (es. Netlify),
+2. apri il sito da Chrome/Edge,
+3. usa **Installa app** dal browser,
+4. disattiva la rete per verificare il caricamento offline della schermata principale.
