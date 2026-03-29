@@ -3,295 +3,53 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Timbrature Cloud</title>
+    <title>Timbrature Locale</title>
     <style>
-      :root {
-        --bg: #f4f6f8;
-        --card: #ffffff;
-        --line: #d8dde3;
-        --text: #1e293b;
-        --primary: #2563eb;
-        --secondary: #475569;
-        --ok: #047857;
-        --error: #b91c1c;
-      }
-
+      :root { --bg:#f4f6f8; --card:#fff; --line:#d8dde3; --text:#1e293b; --primary:#2563eb; --secondary:#475569; --ok:#047857; --error:#b91c1c; }
       * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: Inter, Arial, sans-serif;
-        background: var(--bg);
-        color: var(--text);
-      }
-
-      .container {
-        max-width: 1080px;
-        margin: 0 auto;
-        padding: 16px 12px 88px;
-      }
-
-      h1, h2 { margin-top: 0; }
-
-      .card {
-        background: var(--card);
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 14px;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 12px;
-      }
-
-      label {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        font-size: 13px;
-        font-weight: 600;
-      }
-
-      input, select, textarea, button {
-        min-height: 44px;
-        padding: 10px 12px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        font-size: 16px;
-      }
-
-      button {
-        cursor: pointer;
-        background: var(--primary);
-        color: #fff;
-        border: none;
-      }
-
-      button.secondary {
-        background: var(--secondary);
-      }
-
-      button:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-      }
-
-      .actions {
-        margin-top: 12px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-      }
-
-      .inline-actions {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        margin-bottom: 8px;
-        flex-wrap: wrap;
-      }
-
-      table {
-        width: 100%;
-        border-collapse: collapse;
-      }
-      .table-wrap {
-        overflow-x: auto;
-        margin-top: 8px;
-      }
-
-      th, td {
-        border: 1px solid var(--line);
-        padding: 8px;
-        font-size: 13px;
-        text-align: left;
-      }
-
-      th { background: #eef2ff; }
-      .msg { min-height: 18px; }
-      .ok { color: var(--ok); }
-      .err { color: var(--error); }
-      .small { color: #334155; font-size: 13px; margin: 0; }
-      .sql-help {
-        margin-top: 8px;
-        border: 1px dashed var(--line);
-        border-radius: 10px;
-        padding: 10px;
-        background: #f8fafc;
-      }
-      .sql-help textarea {
-        width: 100%;
-        min-height: 220px;
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        margin-top: 8px;
-      }
-      .pill {
-        display: inline-block;
-        background: #ecfeff;
-        border: 1px solid #bae6fd;
-        color: #075985;
-        border-radius: 999px;
-        padding: 4px 10px;
-        font-size: 12px;
-        font-weight: 600;
-      }
-      .hidden { display: none; }
-      .btn-green { background: #16a34a; }
-      .status-line {
-        margin: 8px 0 0;
-        font-size: 14px;
-        font-weight: 600;
-      }
-      .status-neutral { color: #334155; }
-      .status-ok { color: #047857; }
-      .auth-row {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-      .oauth-divider {
-        margin: 10px 0 0;
-        color: #64748b;
-        font-size: 13px;
-      }
-      .auth-row.compact {
-        justify-content: space-between;
-      }
-      .app-shell {
-        position: relative;
-      }
-      .top-menu {
-        display: flex;
-        justify-content: flex-end;
-        margin: 8px 0 10px;
-      }
-      .kebab-btn {
-        width: 44px;
-        min-width: 44px;
-        padding: 0;
-        border-radius: 999px;
-        font-size: 24px;
-        line-height: 1;
-        background: var(--secondary);
-      }
-      .left-menu {
-        width: min(280px, calc(100vw - 24px));
-        position: absolute;
-        right: 0;
-        top: 52px;
-        z-index: 20;
-        margin: 0;
-      }
-      .left-menu h3 {
-        margin: 0 0 10px;
-        font-size: 16px;
-      }
-      .menu-links {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-      .menu-link {
-        background: #e2e8f0;
-        color: #0f172a;
-        text-align: left;
-      }
-      .menu-link.active {
-        background: var(--primary);
-        color: #fff;
-      }
-      .main-content {
-        min-width: 0;
-      }
-      .week-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 8px;
-        margin-top: 10px;
-      }
-      .check-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-      .check-row input[type="checkbox"] {
-        min-height: auto;
-        width: 18px;
-        height: 18px;
-        margin: 0;
-        padding: 0;
-      }
-      @media (max-width: 860px) {
-        .left-menu {
-          width: min(320px, calc(100vw - 20px));
-        }
-        .actions {
-          grid-template-columns: 1fr;
-        }
-        .inline-actions {
-          flex-wrap: wrap;
-        }
-        .inline-actions input,
-        .inline-actions button {
-          width: 100%;
-        }
-        .responsive-table thead {
-          display: none;
-        }
-        .responsive-table,
-        .responsive-table tbody,
-        .responsive-table tr,
-        .responsive-table td {
-          display: block;
-          width: 100%;
-        }
-        .responsive-table tr {
-          background: #f8fafc;
-          border: 1px solid var(--line);
-          border-radius: 12px;
-          margin-bottom: 10px;
-          padding: 8px;
-        }
-        .responsive-table td {
-          border: 0;
-          border-bottom: 1px solid #e2e8f0;
-          padding: 6px 4px;
-          display: flex;
-          justify-content: space-between;
-          gap: 10px;
-          font-size: 13px;
-        }
-        .responsive-table td:last-child {
-          border-bottom: 0;
-        }
-        .responsive-table td::before {
-          content: attr(data-label);
-          font-weight: 700;
-          color: #334155;
-          flex: 0 0 44%;
-        }
-        .responsive-table td.actions-cell {
-          display: block;
-          padding-top: 10px;
-        }
-        .responsive-table td.actions-cell button {
-          width: 100%;
-          margin-bottom: 6px;
-        }
-      }
+      body { margin:0; font-family:Inter,Arial,sans-serif; background:var(--bg); color:var(--text); }
+      .container { max-width:1080px; margin:0 auto; padding:16px 12px 88px; }
+      .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+      .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+      label { display:flex; flex-direction:column; gap:6px; font-size:13px; font-weight:600; }
+      input, select, textarea, button { min-height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:16px; }
+      button { cursor:pointer; background:var(--primary); color:#fff; border:none; }
+      button.secondary { background:var(--secondary); }
+      .actions { margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+      .inline-actions { display:flex; gap:8px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+      .table-wrap { overflow-x:auto; margin-top:8px; }
+      table { width:100%; border-collapse:collapse; }
+      th, td { border:1px solid var(--line); padding:8px; font-size:13px; text-align:left; }
+      th { background:#eef2ff; }
+      .msg { min-height:18px; }
+      .ok { color:var(--ok); }
+      .err { color:var(--error); }
+      .small { color:#334155; font-size:13px; margin:0; }
+      .pill { display:inline-block; background:#ecfeff; border:1px solid #bae6fd; color:#075985; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:600; }
+      .hidden { display:none; }
+      .btn-green { background:#16a34a; }
+      .status-line { margin:8px 0 0; font-size:14px; font-weight:600; }
+      .status-neutral { color:#334155; }
+      .status-ok { color:#047857; }
+      .app-shell { position:relative; }
+      .top-menu { display:flex; justify-content:flex-end; margin:8px 0 10px; }
+      .kebab-btn { width:44px; min-width:44px; padding:0; border-radius:999px; font-size:24px; line-height:1; background:var(--secondary); }
+      .left-menu { width:min(280px, calc(100vw - 24px)); position:absolute; right:0; top:52px; z-index:20; margin:0; }
+      .left-menu h3 { margin:0 0 10px; font-size:16px; }
+      .menu-links { display:flex; flex-direction:column; gap:8px; }
+      .menu-link { background:#e2e8f0; color:#0f172a; text-align:left; }
+      .menu-link.active { background:var(--primary); color:#fff; }
+      .week-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:10px; }
+      @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
     </style>
   </head>
   <body>
     <div class="container">
       <h1>Timbrature Aziendali</h1>
-      <p class="pill">Multi utente con login + salvataggio cloud (Supabase)</p>
+      <p class="pill">Salvataggio locale: tutti i dati restano sul dispositivo</p>
 
       <div class="app-shell">
-        <div class="top-menu hidden" id="topMenuBar">
+        <div class="top-menu" id="topMenuBar">
           <button type="button" class="kebab-btn" id="menuToggleBtn" aria-label="Apri menu" aria-expanded="false">⋮</button>
           <aside class="card left-menu hidden" id="leftMenu">
             <h3>Menu</h3>
@@ -300,1445 +58,269 @@
               <button type="button" class="menu-link" data-menu-target="programCard">Programma settimana</button>
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
-              <button type="button" class="menu-link" data-menu-target="authBox">Accesso cloud</button>
             </div>
           </aside>
         </div>
 
-        <div class="main-content">
-        <div class="card" id="authBox">
-        <h2>Accesso cloud</h2>
-        <form id="authForm">
-        <div class="grid" id="authInputs">
-          <label>Email
-            <input type="email" id="authEmail" placeholder="mario@azienda.it" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" />
-          </label>
-          <label>Password
-            <input type="password" id="authPassword" placeholder="almeno 6 caratteri" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" />
-          </label>
-        </div>
-        <div class="auth-row" style="margin-top: 12px;" id="authRow">
-          <button id="loginBtn" type="button">Accedi</button>
-          <button class="secondary" id="registerBtn" type="button">Registrati</button>
-          <button class="secondary" id="googleLoginBtn" type="button">Accedi con Google</button>
-          <button class="secondary hidden" id="logoutBtn" type="button">Logout</button>
-        </div>
-        <p class="oauth-divider" id="authGoogleHelp">Oppure usa Google (richiede provider Google attivo in Supabase).</p>
-        <p id="authEsito" class="msg"></p>
-        </form>
-      </div>
-
-      <div class="card hidden" id="userBox">
-        <h2>Profilo</h2>
-        <div class="grid">
-          <label>Nome
-            <input type="text" id="nome" placeholder="Mario Rossi" />
-          </label>
-          <label>Email
-            <input type="email" id="email" placeholder="mario@azienda.it" readonly />
-          </label>
-        </div>
-        <div class="inline-actions" style="margin-top: 12px;">
-          <button class="secondary" id="saveProfile">Salva nome profilo</button>
-          <p class="small">Ogni utente vede solo i propri dati grazie all'account personale.</p>
-        </div>
-      </div>
-
-      <div class="card hidden" id="programCard">
-        <h2>Programma settimanale utente</h2>
-        <p class="small">Imposta una settimana di riferimento: il programma viene applicato a tutto l'anno dell'utente. Il sistema usa queste regole per calcolare ordinarie/straordinario.</p>
-        <div class="grid">
-          <label>Settimana (data inizio)
-            <input type="date" id="programWeekStart" />
-          </label>
-          <label>Pausa prevista?
-            <select id="programBreakEnabled">
-              <option value="true">Sì</option>
-              <option value="false">No</option>
-            </select>
-          </label>
-          <label>Minuti pausa standard
-            <input type="number" id="programBreakMinutes" min="0" value="0" />
-          </label>
-        </div>
-        <p class="small" style="margin-top: 10px;">Il sabato viene calcolato come giornata di recupero automatico per coprire eventuali giornate feriali sotto le 8 ore. Se la domenica è lavorata (&gt; 0 ore), una giornata feriale con ore più basse viene considerata riposo compensativo e non genera recupero aggiuntivo.</p>
-        <div class="week-grid">
-          <label>Lunedì (ore)
-            <input type="number" id="hoursMon" min="0" step="0.25" value="8" />
-          </label>
-          <label>Martedì (ore)
-            <input type="number" id="hoursTue" min="0" step="0.25" value="8" />
-          </label>
-          <label>Mercoledì (ore)
-            <input type="number" id="hoursWed" min="0" step="0.25" value="8" />
-          </label>
-          <label>Giovedì (ore)
-            <input type="number" id="hoursThu" min="0" step="0.25" value="8" />
-          </label>
-          <label>Venerdì (ore)
-            <input type="number" id="hoursFri" min="0" step="0.25" value="8" />
-          </label>
-          <label>Sabato (ore)
-            <input type="number" id="hoursSat" min="0" step="0.25" value="0" />
-          </label>
-          <label>Domenica (ore)
-            <input type="number" id="hoursSun" min="0" step="0.25" value="0" />
-          </label>
-        </div>
-        <div class="actions">
-          <button class="secondary" id="loadProgramBtn" type="button">Carica settimana</button>
-          <button id="saveProgramBtn" type="button">Salva programma</button>
-        </div>
-        <p id="programEsito" class="msg"></p>
-      </div>
-
-      <div class="card hidden" id="timbratureCard">
-        <h2>Nuova timbratura / giornata</h2>
-        <div class="inline-actions">
-          <button id="clockInBtn" class="btn-green" type="button">Timbra entrata</button>
-          <button id="clockOutBtn" class="secondary hidden" type="button">Timbra uscita</button>
-          <button id="editPunchBtn" class="secondary hidden" type="button">Correggi timbratura</button>
-        </div>
-        <p id="serviceStatus" class="status-line status-neutral">Non in servizio.</p>
-        <p id="dayCompletedText" class="status-line status-ok hidden">Giornata completata, buon riposo.</p>
-
-        <div id="manualEditBox" class="hidden">
-          <p class="small">Puoi correggere data/orari e salvare la timbratura aggiornata.</p>
-        <div class="grid">
-          <label>Data
-            <input type="date" id="data">
-          </label>
-
-          <label>Entrata
-            <input type="time" id="entrata">
-          </label>
-
-          <label>Uscita
-            <input type="time" id="uscita">
-          </label>
-
-          <label>Pausa (minuti)
-            <input type="number" id="pausa" min="0" value="0">
-          </label>
-
-          <label>Causale
-            <select id="causale">
-              <option value="LAV">LAV - Lavoro ordinario</option>
-              <option value="FER">FER - Ferie</option>
-              <option value="MAL">MAL - Malattia</option>
-              <option value="PIO">PIO - Pioggia</option>
-              <option value="PER">PER - Permesso</option>
-              <option value="TRA">TRA - Trasferta</option>
-              <option value="FES">FES - Festivo</option>
-              <option value="SW">SW - Smart working</option>
-            </select>
-          </label>
-
-          <label>Note
-            <textarea id="note" rows="2" placeholder="Aggiungi dettagli se necessario"></textarea>
-          </label>
-
-          <label>Cantiere (manuale)
-            <input type="text" id="cantiere" placeholder="Es. Cantiere Via Roma" />
-          </label>
-
-          <label>Caposquadra (manuale)
-            <input type="text" id="caposquadra" placeholder="Es. Mario Rossi" />
-          </label>
+        <div class="card hidden" id="userBox">
+          <h2>Profilo locale</h2>
+          <div class="grid">
+            <label>Nome
+              <input type="text" id="nome" placeholder="Mario Rossi" />
+            </label>
+            <label>Email (opzionale)
+              <input type="email" id="email" placeholder="mario@azienda.it" />
+            </label>
+          </div>
+          <div class="inline-actions" style="margin-top: 12px;">
+            <button class="secondary" id="saveProfile">Salva profilo locale</button>
+            <p class="small">Nessun login: i dati vengono salvati solo su questo browser/dispositivo.</p>
+          </div>
+          <p id="profileEsito" class="msg"></p>
         </div>
 
-        <div class="actions">
-          <button class="secondary" id="saveDraftBtn" type="button">Salva bozza</button>
-          <button id="saveDayBtn" type="button">Conferma giornata</button>
-        </div>
+        <div class="card hidden" id="programCard">
+          <h2>Programma settimanale</h2>
+          <div class="grid">
+            <label>Settimana (data inizio)
+              <input type="date" id="programWeekStart" />
+            </label>
+            <label>Pausa prevista?
+              <select id="programBreakEnabled"><option value="true">Sì</option><option value="false">No</option></select>
+            </label>
+            <label>Minuti pausa standard
+              <input type="number" id="programBreakMinutes" min="0" value="0" />
+            </label>
+          </div>
+          <div class="week-grid">
+            <label>Lunedì (ore)<input type="number" id="hoursMon" min="0" step="0.25" value="8" /></label>
+            <label>Martedì (ore)<input type="number" id="hoursTue" min="0" step="0.25" value="8" /></label>
+            <label>Mercoledì (ore)<input type="number" id="hoursWed" min="0" step="0.25" value="8" /></label>
+            <label>Giovedì (ore)<input type="number" id="hoursThu" min="0" step="0.25" value="8" /></label>
+            <label>Venerdì (ore)<input type="number" id="hoursFri" min="0" step="0.25" value="8" /></label>
+            <label>Sabato (ore)<input type="number" id="hoursSat" min="0" step="0.25" value="0" /></label>
+            <label>Domenica (ore)<input type="number" id="hoursSun" min="0" step="0.25" value="0" /></label>
+          </div>
+          <div class="actions">
+            <button class="secondary" id="loadProgramBtn" type="button">Carica settimana</button>
+            <button id="saveProgramBtn" type="button">Salva programma</button>
+          </div>
+          <p id="programEsito" class="msg"></p>
         </div>
 
-        <p id="esito" class="msg"></p>
-        <div id="sqlHelp" class="sql-help hidden">
-          <p class="small">Script SQL pronto: incollalo nel SQL Editor di Supabase, poi premi “Ricarica”.</p>
-          <button class="secondary" id="copySqlBtn" type="button">Copia SQL setup</button>
-          <textarea id="sqlHintText" readonly></textarea>
-        </div>
-      </div>
+        <div class="card" id="timbratureCard">
+          <h2>Nuova timbratura / giornata</h2>
+          <div class="inline-actions">
+            <button id="clockInBtn" class="btn-green" type="button">Timbra entrata</button>
+            <button id="clockOutBtn" class="secondary hidden" type="button">Timbra uscita</button>
+            <button id="editPunchBtn" class="secondary hidden" type="button">Correggi timbratura</button>
+          </div>
+          <p id="serviceStatus" class="status-line status-neutral">Non in servizio.</p>
+          <p id="dayCompletedText" class="status-line status-ok hidden">Giornata completata, buon riposo.</p>
 
-      <div class="card hidden" id="storicoCard">
-        <h2>Storico mese</h2>
-        <div class="inline-actions">
-          <input type="month" id="mese">
-          <button onclick="loadMyMonth()">Ricarica</button>
-          <button class="secondary" onclick="exportData()">Esporta backup JSON</button>
+          <div id="manualEditBox" class="hidden">
+            <div class="grid">
+              <label>Data<input type="date" id="data"></label>
+              <label>Entrata<input type="time" id="entrata"></label>
+              <label>Uscita<input type="time" id="uscita"></label>
+              <label>Pausa (minuti)<input type="number" id="pausa" min="0" value="0"></label>
+              <label>Causale
+                <select id="causale">
+                  <option value="LAV">LAV - Lavoro ordinario</option><option value="FER">FER - Ferie</option><option value="MAL">MAL - Malattia</option><option value="PIO">PIO - Pioggia</option><option value="PER">PER - Permesso</option><option value="TRA">TRA - Trasferta</option><option value="FES">FES - Festivo</option><option value="SW">SW - Smart working</option>
+                </select>
+              </label>
+              <label>Note<textarea id="note" rows="2"></textarea></label>
+              <label>Cantiere<input type="text" id="cantiere" /></label>
+              <label>Caposquadra<input type="text" id="caposquadra" /></label>
+            </div>
+            <div class="actions">
+              <button class="secondary" id="saveDraftBtn" type="button">Salva bozza</button>
+              <button id="saveDayBtn" type="button">Conferma giornata</button>
+            </div>
+          </div>
+          <p id="esito" class="msg"></p>
         </div>
-        <div class="table-wrap">
-        <table class="responsive-table">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Entrata</th>
-              <th>Uscita</th>
-              <th>Pausa</th>
-              <th>Causale</th>
-              <th>Cantiere</th>
-              <th>Caposquadra</th>
-              <th>Ore</th>
-              <th>Ordinarie</th>
-              <th>Straordinario</th>
-              <th>Stato</th>
-              <th>Azioni</th>
-            </tr>
-          </thead>
-          <tbody id="myRows"></tbody>
-        </table>
+
+        <div class="card hidden" id="storicoCard">
+          <h2>Storico mese</h2>
+          <div class="inline-actions">
+            <input type="month" id="mese"><button onclick="loadMyMonth()">Ricarica</button><button class="secondary" onclick="exportData()">Esporta backup JSON</button>
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Data</th><th>Entrata</th><th>Uscita</th><th>Pausa</th><th>Causale</th><th>Cantiere</th><th>Caposquadra</th><th>Ore</th><th>Ordinarie</th><th>Straordinario</th><th>Stato</th><th>Azioni</th></tr></thead><tbody id="myRows"></tbody></table>
+          </div>
         </div>
-      </div>
-      </div>
       </div>
     </div>
 
     <script>
-      const DEFAULT_SUPABASE_URL = 'https://xxgstjxgrhkrmeqosoak.supabase.co';
-      const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4Z3N0anhncmhrcm1lcW9zb2FrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3MTk2NDEsImV4cCI6MjA5MDI5NTY0MX0.ayvYyAuZPaMmv4s9_3fwTR88P_8IDokyG11t5L5biNI';
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
-      const ENABLE_GOOGLE_LOGIN = false;
-      const SUPABASE_URL_STORAGE_KEY = 'timbrature.supabase.url';
-      const SUPABASE_KEY_STORAGE_KEY = 'timbrature.supabase.key';
-
-      function readStorageValue(key) {
-        try {
-          return (localStorage.getItem(key) || '').trim();
-        } catch (_) {
-          return '';
-        }
-      }
-
-      function writeStorageValue(key, value) {
-        try {
-          localStorage.setItem(key, value);
-        } catch (_) {
-          // Ignora errori storage (es. private mode); l'app usa comunque i valori runtime.
-        }
-      }
-
-      function resolveSupabaseConfig() {
-        const urlFromWindow = window.SUPABASE_URL || '';
-        const keyFromWindow = window.SUPABASE_ANON_KEY || '';
-        const hasWindowConfig = !!(urlFromWindow && keyFromWindow);
-        const params = new URLSearchParams(window.location.search || '');
-        const urlFromQuery = (params.get('supabase_url') || '').trim();
-        const keyFromQuery = (params.get('supabase_key') || '').trim();
-        const hasQueryConfig = !!(urlFromQuery && keyFromQuery);
-        const urlFromStorage = readStorageValue(SUPABASE_URL_STORAGE_KEY);
-        const keyFromStorage = readStorageValue(SUPABASE_KEY_STORAGE_KEY);
-        const hasStorageConfig = !!(urlFromStorage && keyFromStorage);
-
-        if (hasQueryConfig) {
-          writeStorageValue(SUPABASE_URL_STORAGE_KEY, urlFromQuery);
-          writeStorageValue(SUPABASE_KEY_STORAGE_KEY, keyFromQuery);
-        }
-
-        return {
-          url: hasWindowConfig
-            ? urlFromWindow
-            : hasQueryConfig
-              ? urlFromQuery
-              : hasStorageConfig
-                ? urlFromStorage
-                : DEFAULT_SUPABASE_URL,
-          key: hasWindowConfig
-            ? keyFromWindow
-            : hasQueryConfig
-              ? keyFromQuery
-              : hasStorageConfig
-                ? keyFromStorage
-                : DEFAULT_SUPABASE_ANON_KEY,
-          source: hasWindowConfig
-            ? 'window'
-            : hasQueryConfig
-              ? 'query'
-              : hasStorageConfig
-                ? 'localStorage'
-            : 'default'
-        };
-      }
-
-      const supabaseConfig = resolveSupabaseConfig();
-      const SUPABASE_URL = supabaseConfig.url;
-      const SUPABASE_ANON_KEY = supabaseConfig.key;
-
-      const missingSupabaseConfig = [];
-      if (!SUPABASE_URL || SUPABASE_URL.includes('INSERISCI_')) missingSupabaseConfig.push('SUPABASE_URL');
-      if (!SUPABASE_ANON_KEY || SUPABASE_ANON_KEY.includes('INSERISCI_')) missingSupabaseConfig.push('SUPABASE_ANON_KEY');
-      const isCloudConfigured = missingSupabaseConfig.length === 0;
-      const SUPABASE_SDK_CANDIDATES = [
-        'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-        'https://unpkg.com/@supabase/supabase-js@2'
-      ];
-      let supabaseClient = null;
-
-      let currentUser = null;
-      let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
-      let cachedPrograms = [];
-      let isManualLogoutInProgress = false;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'storicoCard', 'userBox', 'authBox'];
+      const PROFILE_KEY = 'timbrature.local.profile';
+      const RECORDS_KEY = 'timbrature.local.records';
+      const PROGRAMS_KEY = 'timbrature.local.programs';
+      const menuPanelIds = ['timbratureCard', 'programCard', 'storicoCard', 'userBox'];
       let activeMenuPanel = 'timbratureCard';
       let menuOpen = false;
+      let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
 
-      function id(x) { return document.getElementById(x); }
+      const id = (x) => document.getElementById(x);
+      const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
+      const writeJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+      const nowDateISO = () => new Date().toISOString().slice(0, 10);
+      const currentMonthValueUTC = () => { const n = new Date(); return `${n.getUTCFullYear()}-${String(n.getUTCMonth()+1).padStart(2,'0')}`; };
+      const showMsg = (m, t='ok') => { id('esito').className = `msg ${t}`; id('esito').textContent = m; };
+      const showProgramMsg = (m, t='ok') => { id('programEsito').className = `msg ${t}`; id('programEsito').textContent = m; };
+      const showProfileMsg = (m, t='ok') => { id('profileEsito').className = `msg ${t}`; id('profileEsito').textContent = m; };
 
-      function loadExternalScript(src) {
-        return new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = src;
-          script.async = true;
-          script.onload = () => resolve(true);
-          script.onerror = () => reject(new Error(`Impossibile caricare ${src}`));
-          document.head.appendChild(script);
-        });
-      }
-
-      async function ensureSupabaseSdk() {
-        if (window.supabase?.createClient) return true;
-        for (const src of SUPABASE_SDK_CANDIDATES) {
-          try {
-            await loadExternalScript(src);
-            if (window.supabase?.createClient) return true;
-          } catch (_) {
-            // prova URL successivo
-          }
-        }
-        return false;
-      }
-
-      function showMsg(message, type = 'ok') {
-        id('esito').className = `msg ${type}`;
-        id('esito').textContent = message;
-        if (type !== 'err') setSqlHint('');
-      }
-
-      function showAuthMsg(message, type = 'ok') {
-        id('authEsito').className = `msg ${type}`;
-        id('authEsito').textContent = message;
-      }
-
-      function parseTimeToMinutes(hhmm) {
-        if (!hhmm) return null;
-        const [h, m] = String(hhmm).split(':').map(Number);
-        if (Number.isNaN(h) || Number.isNaN(m)) return null;
-        return h * 60 + m;
-      }
-
-      function roundMinutes(minutes, step) {
-        if (!step || step <= 0) return minutes;
-        return Math.round(minutes / step) * step;
-      }
-
-      function overlapMinutes(startA, endA, startB, endB) {
-        const start = Math.max(startA, startB);
-        const end = Math.min(endA, endB);
-        return Math.max(end - start, 0);
-      }
-
-      function calculateNightMinutes(entrata, uscita, pausaMinuti) {
-        const inMin = parseTimeToMinutes(entrata);
-        const outMin = parseTimeToMinutes(uscita);
-        if (inMin == null || outMin == null) return 0;
-
-        let start = inMin;
-        let end = outMin;
-        if (end <= start) end += 24 * 60;
-
-        const day = 24 * 60;
-        const overlapCurrentNight = overlapMinutes(start, end, 22 * 60, day);
-        const overlapNextNight = overlapMinutes(start, end, day, day + 6 * 60);
-        const overlapExtendedNight = overlapMinutes(start, end, day + 22 * 60, day * 2);
-        const grossNight = overlapCurrentNight + overlapNextNight + overlapExtendedNight;
-
-        const workedMin = Math.max(end - start - (Number(pausaMinuti) || 0), 0);
-        if (workedMin <= 0 || grossNight <= 0) return 0;
-
-        const pauseRatio = Math.min((Number(pausaMinuti) || 0) / (end - start), 1);
-        return Math.max(grossNight * (1 - pauseRatio), 0);
-      }
-
+      function parseTimeToMinutes(hhmm) { if (!hhmm) return null; const [h,m] = String(hhmm).split(':').map(Number); return Number.isNaN(h)||Number.isNaN(m) ? null : h*60+m; }
+      function roundMinutes(minutes, step) { return !step || step<=0 ? minutes : Math.round(minutes / step) * step; }
       function computeHours(entrata, uscita, pausaMinuti, causale, rules) {
-        if (!CAUSALI_LAVORATIVE.includes(causale)) {
-          return { worked: 0, ord: 0, stra: 0, night: 0 };
-        }
-
-        const inMin = parseTimeToMinutes(entrata);
-        const outMin = parseTimeToMinutes(uscita);
-        if (inMin == null || outMin == null) return { worked: 0, ord: 0, stra: 0, night: 0 };
-
-        let workedMin = outMin - inMin - (Number(pausaMinuti) || 0);
-        if (workedMin < 0) workedMin = 0;
-
+        if (!CAUSALI_LAVORATIVE.includes(causale)) return { worked:0, ord:0, stra:0 };
+        const i = parseTimeToMinutes(entrata), o = parseTimeToMinutes(uscita);
+        if (i == null || o == null) return { worked:0, ord:0, stra:0 };
+        const workedMin = Math.max(o - i - (Number(pausaMinuti) || 0), 0);
         const rounded = roundMinutes(workedMin, Number(rules.roundingMinutes || 0));
         const threshold = Number(rules.ordinaryHours || 8) * 60;
-        const ordMin = Math.min(rounded, threshold);
-        const straMin = Math.max(rounded - threshold, 0);
-        const nightMin = calculateNightMinutes(entrata, uscita, pausaMinuti);
-
-        return {
-          worked: +(rounded / 60).toFixed(2),
-          ord: +(ordMin / 60).toFixed(2),
-          stra: +(straMin / 60).toFixed(2),
-          night: +(nightMin / 60).toFixed(2)
-        };
+        return { worked:+(rounded/60).toFixed(2), ord:+(Math.min(rounded, threshold)/60).toFixed(2), stra:+(Math.max(rounded-threshold,0)/60).toFixed(2) };
       }
 
-      function nowDateISO() {
-        return new Date().toISOString().slice(0, 10);
-      }
+      function isoWeekStart(dateValue) { const d = new Date(`${dateValue}T00:00:00`); if (Number.isNaN(d.getTime())) return nowDateISO(); const day = (d.getDay()+6)%7; d.setDate(d.getDate()-day); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+      function weekDayIndex(dateValue) { const d = new Date(`${dateValue}T00:00:00`); return (d.getDay() + 6) % 7; }
+      function getPrograms() { return readJSON(PROGRAMS_KEY, []); }
+      function setPrograms(v) { writeJSON(PROGRAMS_KEY, v); }
+      function getRecords() { return readJSON(RECORDS_KEY, []); }
+      function setRecords(v) { writeJSON(RECORDS_KEY, v); }
+      function getProfile() { return readJSON(PROFILE_KEY, { nome:'', email:'' }); }
+      function setProfile(v) { writeJSON(PROFILE_KEY, v); }
 
-      function showProgramMsg(message, type = 'ok') {
-        id('programEsito').className = `msg ${type}`;
-        id('programEsito').textContent = message;
+      function programForDate(dateValue) {
+        const selectedWeekStart = isoWeekStart(dateValue || nowDateISO());
+        const sorted = [...getPrograms()].sort((a,b)=>a.week_start > b.week_start ? -1 : 1);
+        return sorted.find((p)=>p.week_start === selectedWeekStart) || null;
       }
-
-      function isoWeekStart(dateValue) {
-        const date = new Date(`${dateValue}T00:00:00`);
-        if (Number.isNaN(date.getTime())) return nowDateISO();
-        const day = (date.getDay() + 6) % 7;
-        date.setDate(date.getDate() - day);
-        const yyyy = date.getFullYear();
-        const mm = String(date.getMonth() + 1).padStart(2, '0');
-        const dd = String(date.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
-      }
-
-      function weekDayIndex(dateValue) {
-        const date = new Date(`${dateValue}T00:00:00`);
-        return (date.getDay() + 6) % 7; // 0 lunedì ... 6 domenica
-      }
-
       function getProgramHoursByDay(program, dayIndex) {
-        const byDay = [
-          Number(program.monday_hours || 0),
-          Number(program.tuesday_hours || 0),
-          Number(program.wednesday_hours || 0),
-          Number(program.thursday_hours || 0),
-          Number(program.friday_hours || 0),
-          Number(program.saturday_hours || 0),
-          Number(program.sunday_hours || 0)
-        ];
+        const byDay = [Number(program.monday_hours||0),Number(program.tuesday_hours||0),Number(program.wednesday_hours||0),Number(program.thursday_hours||0),Number(program.friday_hours||0),Number(program.saturday_hours||0),Number(program.sunday_hours||0)];
         return byDay[dayIndex] || 0;
       }
-
-      function getSaturdayRecoveryHours(program) {
-        const plannedWeekdays = [
-          Number(program.monday_hours || 0),
-          Number(program.tuesday_hours || 0),
-          Number(program.wednesday_hours || 0),
-          Number(program.thursday_hours || 0),
-          Number(program.friday_hours || 0)
-        ];
-        const weekdayDeficits = plannedWeekdays.map((h) => Math.max(8 - h, 0));
-        const missingHours = weekdayDeficits.reduce((acc, h) => acc + h, 0);
-        const sundayHours = Number(program.sunday_hours || 0);
-        const compensatoryRestCredit = sundayHours > 0 ? Math.max(...weekdayDeficits, 0) : 0;
-        const netMissingHours = Math.max(missingHours - compensatoryRestCredit, 0);
-        return +(Math.max(Number(program.saturday_hours || 0), netMissingHours)).toFixed(2);
+      function resolveRulesForDate(dateValue) {
+        const program = programForDate(dateValue);
+        if (!program) return { rules: currentRules, defaultBreak:0, breakEnabled:true };
+        return { rules:{ roundingMinutes: currentRules.roundingMinutes, ordinaryHours:getProgramHoursByDay(program, weekDayIndex(dateValue)) }, defaultBreak: program.break_enabled ? Number(program.break_minutes||0) : 0, breakEnabled:Boolean(program.break_enabled) };
       }
 
-      function currentMonthValueUTC() {
-        const now = new Date();
-        return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+      function saveProfile() {
+        const profile = { nome: id('nome').value.trim(), email: id('email').value.trim() };
+        setProfile(profile);
+        showProfileMsg('Profilo salvato sul dispositivo.', 'ok');
       }
-
-      function normalizeMonthValue(monthValue) {
-        const value = String(monthValue || '').trim();
-        if (/^\d{4}-\d{2}$/.test(value)) return value;
-        return currentMonthValueUTC();
-      }
-
-      function monthRange(monthValue) {
-        const normalized = normalizeMonthValue(monthValue);
-        const [year, month] = normalized.split('-').map(Number);
-        const start = `${year}-${String(month).padStart(2, '0')}-01`;
-        const endDate = new Date(Date.UTC(year, month, 0));
-        const end = `${year}-${String(month).padStart(2, '0')}-${String(endDate.getUTCDate()).padStart(2, '0')}`;
-        return { start, end };
-      }
-
-      function setMenuSection(panelId) {
-        if (!menuPanelIds.includes(panelId)) return;
-        activeMenuPanel = panelId;
-        menuPanelIds.forEach((idName) => {
-          id(idName).classList.toggle('hidden', idName !== panelId);
-        });
-        document.querySelectorAll('[data-menu-target]').forEach((btn) => {
-          btn.classList.toggle('active', btn.dataset.menuTarget === panelId);
-        });
-        setMenuOpen(false);
-      }
-
-      function setMenuOpen(isOpen) {
-        menuOpen = !!isOpen;
-        id('leftMenu').classList.toggle('hidden', !menuOpen);
-        id('menuToggleBtn').setAttribute('aria-expanded', menuOpen ? 'true' : 'false');
-      }
-
-      function setLoggedInUI(isLoggedIn) {
-        id('topMenuBar').classList.toggle('hidden', !isLoggedIn);
-        id('authInputs').classList.toggle('hidden', isLoggedIn);
-        id('loginBtn').classList.toggle('hidden', isLoggedIn);
-        id('registerBtn').classList.toggle('hidden', isLoggedIn);
-        id('googleLoginBtn').classList.toggle('hidden', isLoggedIn || !ENABLE_GOOGLE_LOGIN);
-        id('googleLoginBtn').disabled = !ENABLE_GOOGLE_LOGIN;
-        id('authGoogleHelp').classList.toggle('hidden', !ENABLE_GOOGLE_LOGIN);
-        id('authRow').classList.toggle('compact', isLoggedIn);
-        id('logoutBtn').disabled = !isLoggedIn;
-        id('logoutBtn').classList.toggle('hidden', !isLoggedIn);
-        if (isLoggedIn) {
-          if (activeMenuPanel === 'authBox') activeMenuPanel = 'timbratureCard';
-          setMenuSection(activeMenuPanel);
-        } else {
-          setMenuOpen(false);
-          activeMenuPanel = 'authBox';
-          id('authBox').classList.remove('hidden');
-          id('userBox').classList.add('hidden');
-          id('programCard').classList.add('hidden');
-          id('storicoCard').classList.add('hidden');
-          id('timbratureCard').classList.add('hidden');
-        }
-      }
-
-      function setProfileUI(user) {
-        id('nome').value = user?.user_metadata?.full_name || '';
-        id('email').value = user?.email || '';
-      }
-
-      function getProjectRefFromUrl(url) {
-        try {
-          return new URL(url).hostname.split('.')[0] || 'sconosciuto';
-        } catch (_) {
-          return 'non valido';
-        }
-      }
-
-      function buildOAuthRedirectUrl() {
-        try {
-          const current = new URL(window.location.href);
-          // Usa la root del dominio per ridurre mismatch con la allow-list di Supabase.
-          // Se la callback contiene path specifici (es. /index.html) spesso non è inclusa
-          // in Authentication > URL Configuration e Supabase ricade sul Site URL.
-          const redirect = new URL(`${current.origin}/`);
-          const forwardedParams = ['supabase_url', 'supabase_key'];
-
-          forwardedParams.forEach((param) => {
-            const value = current.searchParams.get(param);
-            if (value) redirect.searchParams.set(param, value);
-          });
-
-          return redirect.toString();
-        } catch (_) {
-          return window.location.origin || window.location.href;
-        }
-      }
-
-      function showCloudTargetInfo() {
-        // Configurazione cloud preimpostata: la schermata di login resta minimale.
-      }
-
-      async function login() {
-        if (!supabaseClient) {
-          showAuthMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
-          return;
-        }
-
-        const email = id('authEmail').value.trim().toLowerCase();
-        const password = id('authPassword').value;
-
-        if (!email || !password) {
-          showAuthMsg('Inserisci email e password prima di accedere.', 'err');
-          return;
-        }
-
-        id('loginBtn').disabled = true;
-        try {
-          const projectRef = getProjectRefFromUrl(SUPABASE_URL);
-          const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-          if (error) {
-            const msg = (error.message || '').toLowerCase();
-            if (msg.includes('invalid login credentials')) {
-              const extraHint = supabaseConfig.source === 'default'
-                ? ' Verifica anche di essere collegato al progetto Supabase corretto (non al cloud predefinito).'
-                : '';
-              showAuthMsg(`Login fallito: credenziali non valide. Controlla email/password e riprova.${extraHint}`, 'err');
-              return;
-            }
-            if (msg.includes('email not confirmed')) {
-              showAuthMsg('Login fallito: email non confermata. Controlla la tua casella email e conferma l’account.', 'err');
-              return;
-            }
-            if (msg.includes('invalid api key') || msg.includes('api key') || msg.includes('jwt')) {
-              showAuthMsg(`Login fallito: chiave Supabase non valida per il progetto ${projectRef}. Verifica URL e anon key del deploy.`, 'err');
-              return;
-            }
-            if (msg.includes('network') || msg.includes('fetch')) {
-              showAuthMsg('Login fallito: errore di rete. Verifica connessione internet e riprova.', 'err');
-              return;
-            }
-            showAuthMsg(`Login fallito: ${error.message}`, 'err');
-            return;
-          }
-
-          if (data?.user) {
-            currentUser = data.user;
-            await refreshSession();
-          }
-          showAuthMsg('Accesso effettuato.', 'ok');
-        } catch (error) {
-          const message = error?.message || 'Errore di rete durante il login.';
-          showAuthMsg(`Login fallito: ${message}`, 'err');
-        } finally {
-          id('loginBtn').disabled = false;
-        }
-      }
-
-      async function register() {
-        if (!supabaseClient) {
-          showAuthMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
-          return;
-        }
-
-        const email = id('authEmail').value.trim().toLowerCase();
-        const password = id('authPassword').value;
-
-        if (!email || !password) {
-          showAuthMsg('Inserisci email e password per registrarti.', 'err');
-          return;
-        }
-        if (password.length < 6) {
-          showAuthMsg('Password troppo corta: usa almeno 6 caratteri.', 'err');
-          return;
-        }
-
-        id('registerBtn').disabled = true;
-        try {
-          const emailRedirectTo = buildOAuthRedirectUrl();
-          const { data, error } = await supabaseClient.auth.signUp({
-            email,
-            password,
-            options: { emailRedirectTo }
-          });
-          if (error) {
-            showAuthMsg(`Registrazione fallita: ${error.message}`, 'err');
-            return;
-          }
-
-          if (data?.session) {
-            currentUser = data.user || data.session.user || null;
-            await refreshSession();
-            showAuthMsg('Registrazione completata. Accesso effettuato.', 'ok');
-            return;
-          }
-
-          showAuthMsg(`Registrazione completata. Controlla la mail e conferma l'account. Se il link apre localhost:3000, imposta Site URL/Redirect URLs in Supabase uguali a ${emailRedirectTo}.`, 'ok');
-        } catch (error) {
-          const message = error?.message || 'Errore di rete durante la registrazione.';
-          showAuthMsg(`Registrazione fallita: ${message}`, 'err');
-        } finally {
-          id('registerBtn').disabled = false;
-        }
-      }
-
-      async function logout() {
-        if (!supabaseClient) return;
-
-        // Esegue il logout solo su questo dispositivo/browser, senza invalidare
-        // le altre sessioni attive dello stesso utente su altri dispositivi.
-        isManualLogoutInProgress = true;
-        try {
-          const { error } = await supabaseClient.auth.signOut({ scope: 'local' });
-          if (error) {
-            showAuthMsg(`Logout fallito: ${error.message}`, 'err');
-            return;
-          }
-        } finally {
-          isManualLogoutInProgress = false;
-        }
-
-        currentUser = null;
-        setLoggedInUI(false);
-        setProfileUI(null);
-        id('myRows').innerHTML = '';
-        setPunchStatus('NONE');
-        await refreshSession();
-        showAuthMsg('Logout effettuato.', 'ok');
-      }
-
-      async function loginWithGoogle() {
-        if (!ENABLE_GOOGLE_LOGIN) {
-          showAuthMsg('Accesso Google disattivato: usa Email + Password.', 'err');
-          return;
-        }
-        if (!supabaseClient) {
-          showAuthMsg(`Configura prima: ${missingSupabaseConfig.join(', ')}.`, 'err');
-          return;
-        }
-
-        const googleBtn = id('googleLoginBtn');
-        googleBtn.disabled = true;
-        try {
-          const redirectTo = buildOAuthRedirectUrl();
-          const { error } = await supabaseClient.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-              redirectTo
-            }
-          });
-          if (error) {
-            const msg = (error.message || '').toLowerCase();
-            if (msg.includes('redirect') && msg.includes('allowed')) {
-              showAuthMsg(`Accesso Google fallito: URL di callback non autorizzato (${redirectTo}). In Supabase aggiungi questo URL in Authentication → URL Configuration.`, 'err');
-              return;
-            }
-            showAuthMsg(`Accesso Google fallito: ${error.message}`, 'err');
-            return;
-          }
-          showAuthMsg('Reindirizzamento a Google in corso…', 'ok');
-        } catch (error) {
-          const message = error?.message || 'Errore durante il login Google.';
-          showAuthMsg(`Accesso Google fallito: ${message}`, 'err');
-        } finally {
-          googleBtn.disabled = false;
-        }
-      }
-
-      async function saveProfile() {
-        if (!supabaseClient || !currentUser) return;
-
-        const fullName = id('nome').value.trim();
-        const { error } = await supabaseClient.auth.updateUser({
-          data: { full_name: fullName }
-        });
-
-        if (error) {
-          showMsg(`Errore salvataggio profilo: ${error.message}`, 'err');
-          return;
-        }
-
-        showMsg('Profilo aggiornato nel cloud.', 'ok');
+      function loadProfileUI() {
+        const p = getProfile();
+        id('nome').value = p.nome || '';
+        id('email').value = p.email || '';
       }
 
       function collectProgramPayload() {
-        return {
-          week_start: isoWeekStart(id('programWeekStart').value || nowDateISO()),
-          break_enabled: id('programBreakEnabled').value === 'true',
-          break_minutes: Number(id('programBreakMinutes').value || 0),
-          monday_hours: Number(id('hoursMon').value || 0),
-          tuesday_hours: Number(id('hoursTue').value || 0),
-          wednesday_hours: Number(id('hoursWed').value || 0),
-          thursday_hours: Number(id('hoursThu').value || 0),
-          friday_hours: Number(id('hoursFri').value || 0),
-          saturday_hours: Number(id('hoursSat').value || 0),
-          sunday_hours: Number(id('hoursSun').value || 0)
-        };
+        return { week_start: isoWeekStart(id('programWeekStart').value || nowDateISO()), break_enabled: id('programBreakEnabled').value==='true', break_minutes:Number(id('programBreakMinutes').value||0), monday_hours:Number(id('hoursMon').value||0), tuesday_hours:Number(id('hoursTue').value||0), wednesday_hours:Number(id('hoursWed').value||0), thursday_hours:Number(id('hoursThu').value||0), friday_hours:Number(id('hoursFri').value||0), saturday_hours:Number(id('hoursSat').value||0), sunday_hours:Number(id('hoursSun').value||0) };
       }
-
-      function fillProgramForm(program) {
-        if (!program) return;
-        id('programWeekStart').value = program.week_start;
-        id('programBreakEnabled').value = String(Boolean(program.break_enabled));
-        id('programBreakMinutes').value = Number(program.break_minutes || 0);
-        id('hoursMon').value = Number(program.monday_hours || 0);
-        id('hoursTue').value = Number(program.tuesday_hours || 0);
-        id('hoursWed').value = Number(program.wednesday_hours || 0);
-        id('hoursThu').value = Number(program.thursday_hours || 0);
-        id('hoursFri').value = Number(program.friday_hours || 0);
-        id('hoursSat').value = Number(program.saturday_hours || 0);
-        id('hoursSun').value = Number(program.sunday_hours || 0);
-        applyBreakUI();
+      function fillProgramForm(p) {
+        if (!p) return;
+        id('programWeekStart').value = p.week_start; id('programBreakEnabled').value = String(Boolean(p.break_enabled)); id('programBreakMinutes').value = Number(p.break_minutes||0);
+        id('hoursMon').value = Number(p.monday_hours||0); id('hoursTue').value = Number(p.tuesday_hours||0); id('hoursWed').value = Number(p.wednesday_hours||0); id('hoursThu').value = Number(p.thursday_hours||0); id('hoursFri').value = Number(p.friday_hours||0); id('hoursSat').value = Number(p.saturday_hours||0); id('hoursSun').value = Number(p.sunday_hours||0);
       }
-
-      async function loadUserPrograms() {
-        if (!supabaseClient || !currentUser) {
-          cachedPrograms = [];
-          return [];
-        }
-        const { data, error } = await supabaseClient
-          .from('timbrature_week_programs')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .order('week_start', { ascending: false });
-        if (error) {
-          const explained = explainSupabaseError(error, 'Errore caricamento programmi');
-          showProgramMsg(explained.message, 'err');
-          setSqlHint(explained.sqlHint);
-          return [];
-        }
-        cachedPrograms = data || [];
-        return cachedPrograms;
+      function saveProgram() {
+        const payload = collectProgramPayload();
+        const programs = getPrograms().filter((p)=>p.week_start !== payload.week_start);
+        programs.push(payload);
+        setPrograms(programs);
+        showProgramMsg(`Programma settimana ${payload.week_start} salvato localmente.`, 'ok');
       }
-
-      async function loadProgramBySelectedWeek() {
-        if (!supabaseClient || !currentUser) return;
+      function loadProgramBySelectedWeek() {
         const weekStart = isoWeekStart(id('programWeekStart').value || nowDateISO());
         id('programWeekStart').value = weekStart;
-        const { data, error } = await supabaseClient
-          .from('timbrature_week_programs')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .eq('week_start', weekStart)
-          .maybeSingle();
-        if (error) {
-          const explained = explainSupabaseError(error, 'Errore caricamento settimana');
-          showProgramMsg(explained.message, 'err');
-          setSqlHint(explained.sqlHint);
-          return;
-        }
-        if (!data) {
-          showProgramMsg('Nessun programma trovato per questa settimana. Puoi crearlo ora.', 'ok');
-          return;
-        }
-        fillProgramForm(data);
-        showProgramMsg(`Programma caricato per la settimana ${weekStart}.`, 'ok');
+        const found = getPrograms().find((p)=>p.week_start === weekStart);
+        if (!found) { showProgramMsg('Nessun programma trovato per questa settimana.', 'err'); return; }
+        fillProgramForm(found);
+        showProgramMsg(`Programma caricato per ${weekStart}.`, 'ok');
       }
 
-      async function saveProgram() {
-        if (!supabaseClient || !currentUser) {
-          showProgramMsg('Devi essere autenticato per salvare il programma.', 'err');
-          return;
-        }
-        const payload = collectProgramPayload();
-        const row = {
-          user_id: currentUser.id,
-          week_start: payload.week_start,
-          break_enabled: payload.break_enabled,
-          break_minutes: payload.break_enabled ? payload.break_minutes : 0,
-          saturday_ordinary: false,
-          night_recovery_hours: 0,
-          monday_hours: payload.monday_hours,
-          tuesday_hours: payload.tuesday_hours,
-          wednesday_hours: payload.wednesday_hours,
-          thursday_hours: payload.thursday_hours,
-          friday_hours: payload.friday_hours,
-          saturday_hours: payload.saturday_hours,
-          sunday_hours: payload.sunday_hours
-        };
-
-        const { error } = await supabaseClient
-          .from('timbrature_week_programs')
-          .upsert(row, { onConflict: 'user_id,week_start' });
-        if (error) {
-          const explained = explainSupabaseError(error, 'Errore salvataggio programma');
-          showProgramMsg(explained.message, 'err');
-          setSqlHint(explained.sqlHint);
-          return;
-        }
-
-        await loadUserPrograms();
-        showProgramMsg(`Programma settimana ${row.week_start} salvato.`, 'ok');
-        await loadTodayPunch();
-        await loadMyMonth();
+      function nowLocalDateAndTime() { const n = new Date(); return { date:`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`, time:`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`}; }
+      function setPunchStatus(status, entryTime='', exitTime='') {
+        if (status === 'IN_SERVIZIO') { id('clockInBtn').classList.add('hidden'); id('clockOutBtn').classList.remove('hidden'); id('editPunchBtn').classList.remove('hidden'); id('dayCompletedText').classList.add('hidden'); id('serviceStatus').className='status-line status-ok'; id('serviceStatus').textContent=`In servizio dalle ${entryTime || id('entrata').value || '--:--'}.`; return; }
+        if (status === 'COMPLETATA') { id('clockInBtn').classList.add('hidden'); id('clockOutBtn').classList.add('hidden'); id('editPunchBtn').classList.remove('hidden'); id('serviceStatus').className='status-line status-ok'; id('serviceStatus').textContent=`Entrata ${entryTime || id('entrata').value || '--:--'} - Uscita ${exitTime || id('uscita').value || '--:--'}.`; id('dayCompletedText').classList.remove('hidden'); return; }
+        id('clockInBtn').classList.remove('hidden'); id('clockOutBtn').classList.add('hidden'); id('editPunchBtn').classList.add('hidden'); id('dayCompletedText').classList.add('hidden'); id('serviceStatus').className='status-line status-neutral'; id('serviceStatus').textContent='Non in servizio.';
       }
-
-      function programForDate(dateValue) {
-        const dayISO = dateValue || nowDateISO();
-        const selectedWeekStart = isoWeekStart(dayISO);
-        const sorted = [...cachedPrograms].sort((a, b) => {
-          if (a.week_start === b.week_start) return 0;
-          return a.week_start > b.week_start ? -1 : 1;
-        });
-        const exactWeek = sorted.find((p) => p.week_start === selectedWeekStart);
-        if (exactWeek) return exactWeek;
-
-        const selectedYear = Number(dayISO.slice(0, 4));
-        const sameYear = sorted.filter((p) => Number(String(p.week_start || '').slice(0, 4)) === selectedYear);
-        if (!sameYear.length) return null;
-
-        const firstInYear = [...sameYear].sort((a, b) => (a.week_start > b.week_start ? 1 : -1))[0];
-        return firstInYear || null;
-      }
-
-      function resolveRulesForDate(dateValue) {
-        const program = programForDate(dateValue);
-        if (!program) {
-          return { rules: currentRules, defaultBreak: 0, breakEnabled: true };
-        }
-        const dayIdx = weekDayIndex(dateValue);
-        let ordinaryHours = getProgramHoursByDay(program, dayIdx);
-        if (dayIdx === 5) ordinaryHours = getSaturdayRecoveryHours(program);
-
-        return {
-          rules: {
-            roundingMinutes: currentRules.roundingMinutes,
-            ordinaryHours
-          },
-          defaultBreak: program.break_enabled ? Number(program.break_minutes || 0) : 0,
-          breakEnabled: Boolean(program.break_enabled)
-        };
-      }
-
-      function applyBreakUI() {
-        const enabled = id('programBreakEnabled').value === 'true';
-        id('programBreakMinutes').disabled = !enabled;
-      }
-
-
-      function setSqlHint(sql) {
-        const hasSql = Boolean(sql);
-        id('sqlHelp').classList.toggle('hidden', !hasSql);
-        id('sqlHintText').value = sql || '';
-      }
-
-      async function copySqlHint() {
-        const sql = id('sqlHintText').value;
-        if (!sql) return;
-
-        try {
-          await navigator.clipboard.writeText(sql);
-          showMsg('SQL copiato negli appunti.', 'ok');
-        } catch (_) {
-          id('sqlHintText').focus();
-          id('sqlHintText').select();
-          document.execCommand('copy');
-          showMsg('SQL copiato negli appunti.', 'ok');
-        }
-      }
-
-      function explainSupabaseError(error, operationLabel) {
-        if (!error) return { message: '', sqlHint: '' };
-
-        const msg = (error.message || '').toLowerCase();
-        const code = (error.code || '').toUpperCase();
-        const missingRecordsTable = msg.includes("could not find the table") && msg.includes('timbrature_records');
-        const missingProgramsTable = msg.includes("could not find the table") && msg.includes('timbrature_week_programs');
-        const projectRef = (() => {
-          try {
-            return new URL(SUPABASE_URL).hostname.split('.')[0];
-          } catch (_) {
-            return '';
-          }
-        })();
-        const projectLabel = projectRef ? ` (project: ${projectRef})` : '';
-
-        if (code === 'PGRST205' || code === 'PGRST204' || missingRecordsTable || missingProgramsTable) {
-          const sqlHint = [
-            'create extension if not exists pgcrypto;',
-            '',
-            'create table if not exists public.timbrature_records (',
-            '  id uuid primary key default gen_random_uuid(),',
-            '  user_id uuid not null references auth.users(id) on delete cascade,',
-            '  email text not null,',
-            '  nome text,',
-            '  data date not null,',
-            '  entrata text,',
-            '  uscita text,',
-            '  pausa integer default 0,',
-            '  causale text,',
-            '  note text,',
-            '  cantiere text,',
-            '  caposquadra text,',
-            '  ore numeric,',
-            '  ord numeric,',
-            '  stra numeric,',
-            '  stato text,',
-            '  updated_at timestamptz not null default now(),',
-            '  unique(user_id, data)',
-            ');',
-            '',
-            'alter table public.timbrature_records',
-            '  add column if not exists cantiere text,',
-            '  add column if not exists caposquadra text;',
-            '',
-            'alter table public.timbrature_records enable row level security;',
-            '',
-            'drop policy if exists "read own records" on public.timbrature_records;',
-            'create policy "read own records" on public.timbrature_records',
-            'for select using (auth.uid() = user_id);',
-            '',
-            'drop policy if exists "insert own records" on public.timbrature_records;',
-            'create policy "insert own records" on public.timbrature_records',
-            'for insert with check (auth.uid() = user_id);',
-            '',
-            'drop policy if exists "update own records" on public.timbrature_records;',
-            'create policy "update own records" on public.timbrature_records',
-            'for update using (auth.uid() = user_id) with check (auth.uid() = user_id);',
-            '',
-            'drop policy if exists "delete own records" on public.timbrature_records;',
-            'create policy "delete own records" on public.timbrature_records',
-            'for delete using (auth.uid() = user_id);',
-            '',
-            'create table if not exists public.timbrature_week_programs (',
-            '  id uuid primary key default gen_random_uuid(),',
-            '  user_id uuid not null references auth.users(id) on delete cascade,',
-            '  week_start date not null,',
-            '  monday_hours numeric default 8,',
-            '  tuesday_hours numeric default 8,',
-            '  wednesday_hours numeric default 8,',
-            '  thursday_hours numeric default 8,',
-            '  friday_hours numeric default 8,',
-            '  saturday_hours numeric default 0,',
-            '  sunday_hours numeric default 0,',
-            '  saturday_ordinary boolean default false,',
-            '  night_recovery_hours numeric default 0,',
-            '  break_enabled boolean default true,',
-            '  break_minutes integer default 0,',
-            '  created_at timestamptz not null default now(),',
-            '  updated_at timestamptz not null default now(),',
-            '  unique(user_id, week_start)',
-            ');',
-            '',
-            'alter table public.timbrature_week_programs enable row level security;',
-            '',
-            'drop policy if exists "read own week programs" on public.timbrature_week_programs;',
-            'create policy "read own week programs" on public.timbrature_week_programs',
-            'for select using (auth.uid() = user_id);',
-            '',
-            'drop policy if exists "insert own week programs" on public.timbrature_week_programs;',
-            'create policy "insert own week programs" on public.timbrature_week_programs',
-            'for insert with check (auth.uid() = user_id);',
-            '',
-            'drop policy if exists "update own week programs" on public.timbrature_week_programs;',
-            'create policy "update own week programs" on public.timbrature_week_programs',
-            'for update using (auth.uid() = user_id) with check (auth.uid() = user_id);',
-            '',
-            'drop policy if exists "delete own week programs" on public.timbrature_week_programs;',
-            'create policy "delete own week programs" on public.timbrature_week_programs',
-            'for delete using (auth.uid() = user_id);'
-          ].join('\n');
-
-          return {
-            message: `${operationLabel}: una tabella cloud richiesta (timbrature_records o timbrature_week_programs) non esiste in questo progetto Supabase${projectLabel}. Apri il file supabase/setup.sql (o README.md, sezione 'Crea tabella e policy RLS') e incolla quelle query nel SQL Editor del progetto corretto. Se vuoi cambiare cloud rapidamente senza toccare il codice, apri la pagina con ?supabase_url=https://TUO-PROGETTO.supabase.co&supabase_key=TUO_ANON_KEY.\nDettaglio tecnico: ${error.message}`,
-            sqlHint
-          };
-        }
-
-        return { message: `${operationLabel}: ${error.message}`, sqlHint: '' };
-      }
-
-      function collectPayload(stato) {
-        const pausaField = id('pausa');
-        return {
-          data: id('data').value || nowDateISO(),
-          entrata: id('entrata').value,
-          uscita: id('uscita').value,
-          pausaMinuti: pausaField.disabled ? 0 : Number(pausaField.value || 0),
-          causale: id('causale').value,
-          note: id('note').value,
-          cantiere: id('cantiere').value.trim(),
-          caposquadra: id('caposquadra').value.trim(),
-          stato
-        };
-      }
-
-      async function saveRecord(stato, customMessage = '') {
-        if (!supabaseClient || !currentUser) {
-          showMsg('Devi essere autenticato.', 'err');
-          return null;
-        }
-
-        const payload = collectPayload(stato);
-        return await upsertRecord(payload, customMessage);
-      }
-
-      async function upsertRecord(payload, customMessage = '') {
-        if (!supabaseClient || !currentUser) {
-          showMsg('Devi essere autenticato.', 'err');
-          return null;
-        }
-
-        const resolved = resolveRulesForDate(payload.data);
-        const calc = computeHours(
-          payload.entrata,
-          payload.uscita,
-          payload.pausaMinuti,
-          payload.causale,
-          resolved.rules
-        );
-
-        const row = {
-          user_id: currentUser.id,
-          email: currentUser.email,
-          nome: id('nome').value.trim(),
-          data: payload.data,
-          entrata: payload.entrata,
-          uscita: payload.uscita,
-          pausa: payload.pausaMinuti,
-          causale: payload.causale,
-          note: payload.note,
-          cantiere: payload.cantiere,
-          caposquadra: payload.caposquadra,
-          ore: calc.worked,
-          ord: calc.ord,
-          stra: calc.stra,
-          stato: payload.stato,
-          updated_at: new Date().toISOString()
-        };
-
-        const { data: existing, error: readError } = await supabaseClient
-          .from('timbrature_records')
-          .select('id')
-          .eq('user_id', currentUser.id)
-          .eq('data', payload.data)
-          .maybeSingle();
-
-        if (readError) {
-          const explained = explainSupabaseError(readError, 'Errore lettura');
-          showMsg(explained.message, 'err');
-          setSqlHint(explained.sqlHint);
-          return null;
-        }
-
-        let writeError;
-        if (existing?.id) {
-          ({ error: writeError } = await supabaseClient
-            .from('timbrature_records')
-            .update(row)
-            .eq('id', existing.id));
-        } else {
-          ({ error: writeError } = await supabaseClient
-            .from('timbrature_records')
-            .insert(row));
-        }
-
-        if (writeError) {
-          const explained = explainSupabaseError(writeError, 'Errore salvataggio cloud');
-          showMsg(explained.message, 'err');
-          setSqlHint(explained.sqlHint);
-          return null;
-        }
-
-        setSqlHint('');
-        showMsg(customMessage || `Salvato nel cloud. Ore: ${calc.worked}, Ordinarie: ${calc.ord}, Straordinario: ${calc.stra}, Notturne: ${calc.night}`, 'ok');
-        await loadMyMonth();
+      function collectPayload(stato) { return { data:id('data').value || nowDateISO(), entrata:id('entrata').value, uscita:id('uscita').value, pausaMinuti:Number(id('pausa').value||0), causale:id('causale').value, note:id('note').value, cantiere:id('cantiere').value.trim(), caposquadra:id('caposquadra').value.trim(), stato }; }
+      function upsertRecord(payload, customMessage='') {
+        const profile = getProfile();
+        const calc = computeHours(payload.entrata, payload.uscita, payload.pausaMinuti, payload.causale, resolveRulesForDate(payload.data).rules);
+        const row = { nome: profile.nome || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, updated_at:new Date().toISOString() };
+        const records = getRecords().filter((r)=>r.data !== payload.data);
+        records.push(row);
+        records.sort((a,b)=>a.data > b.data ? 1 : -1);
+        setRecords(records);
+        showMsg(customMessage || `Salvato sul dispositivo. Ore: ${calc.worked}, Ordinarie: ${calc.ord}, Straordinario: ${calc.stra}`, 'ok');
+        loadMyMonth();
         return row;
       }
-
-      function nowLocalDateAndTime() {
-        const now = new Date();
-        const yyyy = now.getFullYear();
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const dd = String(now.getDate()).padStart(2, '0');
-        const hh = String(now.getHours()).padStart(2, '0');
-        const min = String(now.getMinutes()).padStart(2, '0');
-        return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${min}` };
-      }
-
-      function setPunchStatus(status, entryTime = '', exitTime = '') {
-        if (status === 'IN_SERVIZIO') {
-          id('clockInBtn').classList.add('hidden');
-          id('clockOutBtn').classList.remove('hidden');
-          id('editPunchBtn').classList.remove('hidden');
-          id('dayCompletedText').classList.add('hidden');
-          id('serviceStatus').className = 'status-line status-ok';
-          id('serviceStatus').textContent = `In servizio dalle ${entryTime || id('entrata').value || '--:--'}.`;
-          return;
-        }
-
-        if (status === 'COMPLETATA') {
-          id('clockInBtn').classList.add('hidden');
-          id('clockOutBtn').classList.add('hidden');
-          id('editPunchBtn').classList.remove('hidden');
-          id('serviceStatus').className = 'status-line status-ok';
-          id('serviceStatus').textContent = `Entrata ${entryTime || id('entrata').value || '--:--'} - Uscita ${exitTime || id('uscita').value || '--:--'}.`;
-          id('dayCompletedText').classList.remove('hidden');
-          return;
-        }
-
-        id('clockInBtn').classList.remove('hidden');
-        id('clockOutBtn').classList.add('hidden');
-        id('editPunchBtn').classList.add('hidden');
-        id('dayCompletedText').classList.add('hidden');
-        id('serviceStatus').className = 'status-line status-neutral';
-        id('serviceStatus').textContent = 'Non in servizio.';
-      }
-
-      async function clockInNow() {
-        const now = nowLocalDateAndTime();
-        id('data').value = now.date;
-        id('entrata').value = now.time;
-        id('uscita').value = '';
-        id('causale').value = 'LAV';
-
-        const payload = collectPayload('IN_SERVIZIO');
-        const result = await upsertRecord(payload, `Entrata registrata alle ${now.time}. In servizio.`);
-        if (!result) return;
-        setPunchStatus('IN_SERVIZIO', now.time);
-      }
-
-      async function clockOutNow() {
-        if (!id('entrata').value) {
-          showMsg('Prima devi timbrare l’entrata.', 'err');
-          return;
-        }
-
-        const now = nowLocalDateAndTime();
-        id('data').value = id('data').value || now.date;
-        id('uscita').value = now.time;
-        const payload = collectPayload('COMPLETATA');
-        const result = await upsertRecord(payload, `Uscita registrata alle ${now.time}. Giornata completata, buon riposo.`);
-        if (!result) return;
-        setPunchStatus('COMPLETATA', id('entrata').value, now.time);
-      }
-
-      function toggleManualCorrection() {
-        id('manualEditBox').classList.toggle('hidden');
-      }
-
-      async function loadTodayPunch() {
-        if (!supabaseClient || !currentUser) {
-          setPunchStatus('NONE');
-          return;
-        }
-
+      function clockInNow() { const n = nowLocalDateAndTime(); id('data').value=n.date; id('entrata').value=n.time; id('uscita').value=''; id('causale').value='LAV'; const r = upsertRecord(collectPayload('IN_SERVIZIO'), `Entrata registrata alle ${n.time}. In servizio.`); if (r) setPunchStatus('IN_SERVIZIO', n.time); }
+      function clockOutNow() { if (!id('entrata').value) { showMsg('Prima devi timbrare l’entrata.', 'err'); return; } const n = nowLocalDateAndTime(); id('data').value = id('data').value || n.date; id('uscita').value=n.time; const r = upsertRecord(collectPayload('COMPLETATA'), `Uscita registrata alle ${n.time}.`); if (r) setPunchStatus('COMPLETATA', id('entrata').value, n.time); }
+      function loadTodayPunch() {
         const today = nowDateISO();
         id('data').value = today;
-        const todayProgram = resolveRulesForDate(today);
-        id('pausa').disabled = !todayProgram.breakEnabled;
-
-        const { data, error } = await supabaseClient
-          .from('timbrature_records')
-          .select('data, entrata, uscita, pausa, causale, note, cantiere, caposquadra, stato')
-          .eq('user_id', currentUser.id)
-          .eq('data', today)
-          .maybeSingle();
-
-        if (error) {
-          setPunchStatus('NONE');
-          return;
-        }
-
-        if (!data) {
-          id('entrata').value = '';
-          id('uscita').value = '';
-          id('pausa').value = todayProgram.defaultBreak;
-          id('causale').value = 'LAV';
-          id('note').value = '';
-          id('cantiere').value = '';
-          id('caposquadra').value = '';
-          setPunchStatus('NONE');
-          return;
-        }
-
-        id('entrata').value = data.entrata || '';
-        id('uscita').value = data.uscita || '';
-        id('pausa').value = data.pausa || 0;
-        id('causale').value = data.causale || 'LAV';
-        id('note').value = data.note || '';
-        id('cantiere').value = data.cantiere || '';
-        id('caposquadra').value = data.caposquadra || '';
-
-        if (data.stato === 'COMPLETATA') {
-          setPunchStatus('COMPLETATA', data.entrata, data.uscita);
-        } else if (data.entrata) {
-          setPunchStatus('IN_SERVIZIO', data.entrata);
-        } else {
-          setPunchStatus('NONE');
-        }
+        const found = getRecords().find((r)=>r.data === today);
+        if (!found) { id('entrata').value=''; id('uscita').value=''; id('pausa').value=0; id('causale').value='LAV'; id('note').value=''; id('cantiere').value=''; id('caposquadra').value=''; setPunchStatus('NONE'); return; }
+        id('entrata').value=found.entrata||''; id('uscita').value=found.uscita||''; id('pausa').value=found.pausa||0; id('causale').value=found.causale||'LAV'; id('note').value=found.note||''; id('cantiere').value=found.cantiere||''; id('caposquadra').value=found.caposquadra||'';
+        if (found.stato === 'COMPLETATA') setPunchStatus('COMPLETATA', found.entrata, found.uscita); else if (found.entrata) setPunchStatus('IN_SERVIZIO', found.entrata); else setPunchStatus('NONE');
       }
-
-      async function loadMyMonth() {
-        if (!supabaseClient || !currentUser) {
-          id('myRows').innerHTML = '';
-          return;
-        }
-
+      function normalizeMonthValue(monthValue) { return /^\d{4}-\d{2}$/.test(String(monthValue||'').trim()) ? monthValue : currentMonthValueUTC(); }
+      function loadMyMonth() {
         const month = normalizeMonthValue(id('mese').value);
         id('mese').value = month;
-        const { start, end } = monthRange(month);
-
-        const { data, error } = await supabaseClient
-          .from('timbrature_records')
-          .select('data, entrata, uscita, pausa, causale, cantiere, caposquadra, ore, ord, stra, stato')
-          .eq('user_id', currentUser.id)
-          .gte('data', start)
-          .lte('data', end)
-          .order('data', { ascending: true });
-
-        if (error) {
-          const explained = explainSupabaseError(error, 'Errore caricamento storico');
-          showMsg(explained.message, 'err');
-          setSqlHint(explained.sqlHint);
-          return;
-        }
-
-        setSqlHint('');
-        id('myRows').innerHTML = (data || []).map((r) => `
-          <tr>
-            <td data-label="Data">${r.data || ''}</td>
-            <td data-label="Entrata">${r.entrata || ''}</td>
-            <td data-label="Uscita">${r.uscita || ''}</td>
-            <td data-label="Pausa">${r.pausa || 0}</td>
-            <td data-label="Causale">${r.causale || ''}</td>
-            <td data-label="Cantiere">${r.cantiere || ''}</td>
-            <td data-label="Caposquadra">${r.caposquadra || ''}</td>
-            <td data-label="Ore">${r.ore || 0}</td>
-            <td data-label="Ordinarie">${r.ord || 0}</td>
-            <td data-label="Straordinario">${r.stra || 0}</td>
-            <td data-label="Stato">${r.stato || ''}</td>
-            <td data-label="Azioni" class="actions-cell">
-              <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${r.data}')">Elimina</button>
-            </td>
-          </tr>`).join('');
+        const rows = getRecords().filter((r)=> String(r.data||'').startsWith(month));
+        id('myRows').innerHTML = rows.map((r)=>`<tr><td>${r.data||''}</td><td>${r.entrata||''}</td><td>${r.uscita||''}</td><td>${r.pausa||0}</td><td>${r.causale||''}</td><td>${r.cantiere||''}</td><td>${r.caposquadra||''}</td><td>${r.ore||0}</td><td>${r.ord||0}</td><td>${r.stra||0}</td><td>${r.stato||''}</td><td><button type="button" class="secondary" onclick="deleteTimbraturaByDate('${r.data}')">Elimina</button></td></tr>`).join('');
       }
-
-      async function deleteTimbraturaByDate(dataRecord) {
-        if (!supabaseClient || !currentUser) {
-          showMsg('Devi essere autenticato.', 'err');
-          return;
-        }
-
-        if (!dataRecord) {
-          showMsg('Data timbratura non valida.', 'err');
-          return;
-        }
-
-        const confirmed = window.confirm(`Confermi l'eliminazione della timbratura del ${dataRecord}?`);
-        if (!confirmed) return;
-
-        const { error } = await supabaseClient
-          .from('timbrature_records')
-          .delete()
-          .eq('user_id', currentUser.id)
-          .eq('data', dataRecord);
-
-        if (error) {
-          const explained = explainSupabaseError(error, 'Errore eliminazione timbratura');
-          showMsg(explained.message, 'err');
-          setSqlHint(explained.sqlHint);
-          return;
-        }
-
+      function deleteTimbraturaByDate(dataRecord) {
+        if (!window.confirm(`Confermi l'eliminazione della timbratura del ${dataRecord}?`)) return;
+        setRecords(getRecords().filter((r)=>r.data !== dataRecord));
         showMsg(`Timbratura del ${dataRecord} eliminata.`, 'ok');
-        await loadTodayPunch();
-        await loadMyMonth();
+        loadTodayPunch();
+        loadMyMonth();
       }
-
-      async function exportData() {
-        if (!supabaseClient || !currentUser) {
-          showMsg('Devi essere autenticato.', 'err');
-          return;
-        }
-
-        const { data, error } = await supabaseClient
-          .from('timbrature_records')
-          .select('*')
-          .eq('user_id', currentUser.id)
-          .order('data', { ascending: true });
-
-        if (error) {
-          const explained = explainSupabaseError(error, 'Errore export');
-          showMsg(explained.message, 'err');
-          setSqlHint(explained.sqlHint);
-          return;
-        }
-
-        setSqlHint('');
-        const blob = new Blob([JSON.stringify({ records: data || [] }, null, 2)], { type: 'application/json' });
+      function exportData() {
+        const blob = new Blob([JSON.stringify({ profile:getProfile(), programs:getPrograms(), records:getRecords() }, null, 2)], { type:'application/json' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `timbrature-cloud-backup-${new Date().toISOString().slice(0, 10)}.json`;
-        a.click();
+        const a = document.createElement('a'); a.href=url; a.download=`timbrature-local-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
         URL.revokeObjectURL(url);
       }
 
-      async function refreshSession() {
-        if (!supabaseClient) {
-          setLoggedInUI(false);
-          showMsg(`Imposta ${missingSupabaseConfig.join(' e ')} nel file index.html.`, 'err');
-          return;
-        }
+      function setMenuSection(panelId) { if (!menuPanelIds.includes(panelId)) return; activeMenuPanel = panelId; menuPanelIds.forEach((name)=>id(name).classList.toggle('hidden', name !== panelId)); document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId)); setMenuOpen(false); }
+      function setMenuOpen(open) { menuOpen = !!open; id('leftMenu').classList.toggle('hidden', !menuOpen); id('menuToggleBtn').setAttribute('aria-expanded', menuOpen ? 'true' : 'false'); }
 
-        const { data: sessionData } = await supabaseClient.auth.getSession();
-        currentUser = sessionData?.session?.user || null;
-        if (!currentUser) {
-          const { data: userData } = await supabaseClient.auth.getUser();
-          currentUser = userData?.user || null;
-        }
-
-        if (!currentUser) {
-          showCloudTargetInfo();
-          setLoggedInUI(false);
-          showAuthMsg('');
-          id('myRows').innerHTML = '';
-          cachedPrograms = [];
-          setPunchStatus('NONE');
-          return;
-        }
-
-        setProfileUI(currentUser);
-        setLoggedInUI(true);
-        id('programWeekStart').value = isoWeekStart(nowDateISO());
-        await loadUserPrograms();
-        await loadProgramBySelectedWeek();
-        await loadTodayPunch();
-        await loadMyMonth();
-      }
-
-      async function init() {
+      function init() {
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
         id('programWeekStart').value = isoWeekStart(nowDateISO());
-        applyBreakUI();
-        showCloudTargetInfo();
-        setLoggedInUI(false);
+        loadProfileUI();
+        loadTodayPunch();
+        loadMyMonth();
 
-        id('loginBtn').addEventListener('click', login);
-        id('registerBtn').addEventListener('click', register);
-        id('googleLoginBtn').addEventListener('click', loginWithGoogle);
-        id('authForm').addEventListener('submit', async (event) => {
-          event.preventDefault();
-          await login();
-        });
-        id('logoutBtn').addEventListener('click', logout);
+        id('menuToggleBtn').addEventListener('click', (e)=>{ e.stopPropagation(); setMenuOpen(!menuOpen); });
+        id('leftMenu').addEventListener('click', (e)=>e.stopPropagation());
+        document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
+        document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
         id('saveProfile').addEventListener('click', saveProfile);
-        id('programBreakEnabled').addEventListener('change', applyBreakUI);
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
-        id('copySqlBtn').addEventListener('click', copySqlHint);
         id('clockInBtn').addEventListener('click', clockInNow);
         id('clockOutBtn').addEventListener('click', clockOutNow);
-        id('editPunchBtn').addEventListener('click', toggleManualCorrection);
-        id('saveDraftBtn').addEventListener('click', () => saveRecord('BOZZA', 'Timbratura corretta e salvata in bozza.'));
-        id('saveDayBtn').addEventListener('click', () => saveRecord('COMPLETATA', 'Timbratura corretta e giornata confermata.'));
-        id('menuToggleBtn').addEventListener('click', (event) => {
-          event.stopPropagation();
-          setMenuOpen(!menuOpen);
-        });
-        id('leftMenu').addEventListener('click', (event) => {
-          event.stopPropagation();
-        });
-        document.addEventListener('click', () => {
-          if (menuOpen) setMenuOpen(false);
-        });
-        document.addEventListener('keydown', (event) => {
-          if (event.key === 'Escape' && menuOpen) setMenuOpen(false);
-        });
-        document.querySelectorAll('[data-menu-target]').forEach((btn) => {
-          btn.addEventListener('click', () => setMenuSection(btn.dataset.menuTarget));
-        });
-
-        if (isCloudConfigured) {
-          const hasSdk = await ensureSupabaseSdk();
-          if (!hasSdk) {
-            showAuthMsg('Login non disponibile: libreria Supabase non caricata (connessione mobile/CDN bloccato). Riprova con rete diversa o disattiva blocchi contenuti.', 'err');
-          } else {
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-              auth: {
-                persistSession: true,
-                autoRefreshToken: true,
-                detectSessionInUrl: true
-              }
-            });
-          }
-        }
-
-        if (supabaseClient) {
-          supabaseClient.auth.onAuthStateChange(async (event) => {
-            if (event === 'SIGNED_OUT' && !isManualLogoutInProgress) {
-              showAuthMsg('Sessione chiusa da un altro dispositivo/progetto. In Supabase disattiva "Single session per user" per consentire accessi simultanei.', 'err');
-            }
-            await refreshSession();
-          });
-        }
-
-        await refreshSession();
+        id('editPunchBtn').addEventListener('click', ()=>id('manualEditBox').classList.toggle('hidden'));
+        id('saveDraftBtn').addEventListener('click', ()=>upsertRecord(collectPayload('BOZZA'), 'Timbratura corretta e salvata in bozza.'));
+        id('saveDayBtn').addEventListener('click', ()=>upsertRecord(collectPayload('COMPLETATA'), 'Timbratura corretta e giornata confermata.'));
       }
 
       window.onload = init;
+      window.loadMyMonth = loadMyMonth;
+      window.exportData = exportData;
       window.deleteTimbraturaByDate = deleteTimbraturaByDate;
     </script>
   </body>
