@@ -75,6 +75,7 @@
       .day-selector label { flex-direction:row; align-items:center; font-size:12px; font-weight:600; gap:6px; }
       .day-selector input { min-height:auto; padding:0; }
       .program-summary { margin-top:10px; border:1px solid #bfdbfe; border-radius:10px; background:#eff6ff; padding:10px; font-size:13px; color:#0f172a; }
+      .group-row { border:1px solid #dbeafe; border-radius:8px; padding:8px; margin-top:8px; background:#fff; }
       .timbratura-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
       .timbratura-head h2 { margin:0; }
       .welcome-box { margin:0; max-width:520px; font-size:13px; line-height:1.4; color:#0f172a; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px; }
@@ -181,13 +182,10 @@
               <div class="grid">
                 <label>Inizio turno<input type="time" id="simpleStartCommon" value="08:00" /></label>
                 <label>Pausa (min)<input type="number" id="simpleBreakCommon" min="0" value="60" /></label>
-                <label>Ore per gruppo A<input type="number" id="simpleHoursA" min="0" step="0.25" value="7" /></label>
-                <label>Ore per gruppo B<input type="number" id="simpleHoursB" min="0" step="0.25" value="6" /></label>
               </div>
-              <div class="grid">
-                <label>Giorni gruppo A (es: Lun,Mar,Mer,Gio,Ven)<input type="text" id="daysGroupA" value="Lun,Mar,Mer,Gio,Ven" /></label>
-                <label>Giorni gruppo B (es: Sab)<input type="text" id="daysGroupB" value="" /></label>
-                <label>Giorni non lavorativi (es: Dom)<input type="text" id="daysOff" value="Dom" /></label>
+              <div id="customGroupsContainer"></div>
+              <div class="inline-actions">
+                <button type="button" class="secondary" id="addGroupBtn">Aggiungi gruppo giorni</button>
               </div>
               <div class="inline-actions">
                 <button type="button" class="secondary" id="presetFiveDaysBtn">Preset 5 giorni (Lun-Ven)</button>
@@ -625,6 +623,35 @@
         const labels = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
         return indices.sort((a,b)=>a-b).map((idx)=>labels[idx]).join(',');
       }
+      function groupRowHtml(hours='7', days='Lun,Mar,Mer,Gio,Ven') {
+        return `<div class="group-row"><div class="grid"><label>Ore gruppo<input type="number" class="grp-hours" min="0" step="0.25" value="${hours}" /></label><label>Giorni (es: Lun,Mar,Ven)<input type="text" class="grp-days" value="${days}" /></label></div><div class="inline-actions"><button type="button" class="secondary grp-remove-btn">Rimuovi gruppo</button></div></div>`;
+      }
+      function bindGroupRowActions(row) {
+        const removeBtn = row.querySelector('.grp-remove-btn');
+        removeBtn.addEventListener('click', ()=> {
+          const rows = id('customGroupsContainer').querySelectorAll('.group-row');
+          if (rows.length <= 1) return;
+          row.remove();
+        });
+      }
+      function setCustomGroups(groups) {
+        const container = id('customGroupsContainer');
+        container.innerHTML = '';
+        const safeGroups = Array.isArray(groups) && groups.length ? groups : [{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }];
+        safeGroups.forEach((group) => {
+          const wrap = document.createElement('div');
+          wrap.innerHTML = groupRowHtml(group.hours, group.days);
+          const row = wrap.firstElementChild;
+          bindGroupRowActions(row);
+          container.appendChild(row);
+        });
+      }
+      function getCustomGroups() {
+        return Array.from(id('customGroupsContainer').querySelectorAll('.group-row')).map((row) => ({
+          hours: Math.max(Number(row.querySelector('.grp-hours')?.value || 0), 0),
+          days: row.querySelector('.grp-days')?.value || ''
+        }));
+      }
       function resetDailyHiddenFields() {
         Array.from({ length: 7 }, (_, idx) => dayFieldSuffix(idx)).forEach((sfx) => {
           id(`start${sfx}`).value = '';
@@ -644,14 +671,11 @@
       function applySimpleWeeklyPlan() {
         const start = id('simpleStartCommon').value;
         const breakMinutes = Math.max(Number(id('simpleBreakCommon').value || 0), 0);
-        const hoursA = Math.max(Number(id('simpleHoursA').value || 0), 0);
-        const hoursB = Math.max(Number(id('simpleHoursB').value || 0), 0);
-        const groupA = parseDayTokens(id('daysGroupA').value);
-        const groupB = parseDayTokens(id('daysGroupB').value);
-        const offDays = new Set(parseDayTokens(id('daysOff').value));
         resetDailyHiddenFields();
-        groupA.forEach((dayIndex)=>!offDays.has(dayIndex) && applyShiftToDay({ start, breakMinutes, hours: hoursA }, dayIndex));
-        groupB.forEach((dayIndex)=>!offDays.has(dayIndex) && applyShiftToDay({ start, breakMinutes, hours: hoursB }, dayIndex));
+        getCustomGroups().forEach((group) => {
+          const days = parseDayTokens(group.days);
+          days.forEach((dayIndex)=>applyShiftToDay({ start, breakMinutes, hours: group.hours }, dayIndex));
+        });
       }
       function fillSimplePlanFromDailyFields() {
         const readDay = (idx) => {
@@ -660,19 +684,11 @@
         };
         const workingDays = Array.from({ length: 7 }, (_, idx) => readDay(idx)).filter((d) => d.start && d.hours > 0);
         const groupedByHours = [...new Set(workingDays.map((d)=>d.hours))].sort((a,b)=>b-a);
-        const mainHours = groupedByHours[0] ?? 7;
-        const secondHours = groupedByHours[1] ?? 6;
-        const groupA = workingDays.filter((d)=>d.hours === mainHours).map((d)=>d.idx);
-        const groupB = workingDays.filter((d)=>d.hours === secondHours).map((d)=>d.idx);
-        const off = Array.from({ length: 7 }, (_, idx)=>idx).filter((idx)=>!workingDays.some((d)=>d.idx===idx));
         const base = workingDays[0] || { start:'08:00', breakMinutes:60 };
         id('simpleStartCommon').value = base.start;
         id('simpleBreakCommon').value = base.breakMinutes;
-        id('simpleHoursA').value = mainHours;
-        id('simpleHoursB').value = secondHours;
-        id('daysGroupA').value = dayListToInput(groupA);
-        id('daysGroupB').value = dayListToInput(groupB);
-        id('daysOff').value = dayListToInput(off);
+        const groups = groupedByHours.map((hours)=>({ hours, days: dayListToInput(workingDays.filter((d)=>d.hours===hours).map((d)=>d.idx)) }));
+        setCustomGroups(groups.length ? groups : [{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
       }
       function renderProgramSummary(program) {
         const dayNames = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
@@ -680,35 +696,8 @@
           const day = getProgramDayConfig(program, idx);
           return `<li><strong>${name}</strong>: ${day.start || '-'} → ${day.hours || 0}h (pausa ${day.breakMin || 0} min)</li>`;
         }).join('');
-        id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Giorni non lavorativi: ${id('daysOff').value || '-'}</p>`;
-        id('programSummary').classList.remove('hidden');
-      }
-      function fillSimplePlanFromDailyFields() {
-        const readDay = (idx) => {
-          const sfx = dayFieldSuffix(idx);
-          return { idx, start: id(`start${sfx}`).value, hours: Number(id(`hours${sfx}`).value || 0), breakMinutes: Number(id(`break${sfx}`).value || 0) };
-        };
-        const workingDays = Array.from({ length: 7 }, (_, idx) => readDay(idx)).filter((d) => d.start && d.hours > 0);
-        const groupA = workingDays.length ? workingDays.filter((d) => d.start === workingDays[0].start && d.hours === workingDays[0].hours && d.breakMinutes === workingDays[0].breakMinutes) : [];
-        const groupB = workingDays.filter((d) => !groupA.some((a) => a.idx === d.idx));
-        const a = groupA[0] || { start:'08:00', hours:8, breakMinutes:60 };
-        id('simpleStart1').value = a.start;
-        id('simpleHours1').value = a.hours;
-        id('simpleBreak1').value = a.breakMinutes;
-        Array.from({ length: 7 }, (_, idx) => id(`d1${dayFieldSuffix(idx)}`).checked = groupA.some((d) => d.idx === idx));
-        const b = groupB[0] || { start:'', hours:0, breakMinutes:0 };
-        id('simpleStart2').value = b.start;
-        id('simpleHours2').value = b.hours;
-        id('simpleBreak2').value = b.breakMinutes;
-        Array.from({ length: 7 }, (_, idx) => id(`d2${dayFieldSuffix(idx)}`).checked = groupB.some((d) => d.idx === idx));
-      }
-      function renderProgramSummary(program) {
-        const dayNames = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
-        const rows = dayNames.map((name, idx) => {
-          const day = getProgramDayConfig(program, idx);
-          return `<li><strong>${name}</strong>: ${day.start || '-'} → ${day.hours || 0}h (pausa ${day.breakMin || 0} min)</li>`;
-        }).join('');
-        id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Festivi non lavorativi: ${program.holidays_non_working ? 'Sì' : 'No'} • Prefestivi non lavorativi: ${program.prefestive_non_working ? 'Sì' : 'No'}</p>`;
+        const customSummary = getCustomGroups().map((group)=>`${group.hours}h: ${group.days}`).join(' | ');
+        id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Gruppi: ${customSummary || '-'}</p>`;
         id('programSummary').classList.remove('hidden');
       }
       function autoFillHoursFromContract() {
@@ -1123,6 +1112,7 @@
         buildContractTemplateOptions();
         buildContractLevelsOptions();
         if (id('programBreakEnabled').value === 'true' && Number(id('programBreakMinutes').value || 0) <= 0) id('programBreakMinutes').value = 60;
+        setCustomGroups([{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
         applySimpleWeeklyPlan();
         applyDefaultBreakForDate(id('data').value || nowDateISO(), true);
         id('menuToggleBtn').addEventListener('click', (e)=>{ e.stopPropagation(); setMenuOpen(!menuOpen); });
@@ -1140,15 +1130,18 @@
           if (id('programBreakEnabled').value === 'false') id('programBreakMinutes').value = 0;
           if (id('programBreakEnabled').value === 'true' && Number(id('simpleBreakCommon').value || 0) <= 0) id('simpleBreakCommon').value = 60;
         });
+        id('addGroupBtn').addEventListener('click', ()=>{
+          const wrap = document.createElement('div');
+          wrap.innerHTML = groupRowHtml(6, '');
+          const row = wrap.firstElementChild;
+          bindGroupRowActions(row);
+          id('customGroupsContainer').appendChild(row);
+        });
         id('presetFiveDaysBtn').addEventListener('click', ()=>{
-          id('daysGroupA').value = 'Lun,Mar,Mer,Gio,Ven';
-          id('daysGroupB').value = '';
-          id('daysOff').value = 'Sab,Dom';
+          setCustomGroups([{ hours:8, days:'Lun,Mar,Mer,Gio,Ven' }]);
         });
         id('presetSixDaysBtn').addEventListener('click', ()=>{
-          id('daysGroupA').value = 'Lun,Mar,Mer,Gio,Ven';
-          id('daysGroupB').value = 'Sab';
-          id('daysOff').value = 'Dom';
+          setCustomGroups([{ hours:8, days:'Lun,Mar,Mer,Gio,Ven' }, { hours:6, days:'Sab' }]);
         });
         id('clockInBtn').addEventListener('click', ()=> {
           if (id('clockInBtn').textContent.toLowerCase().includes('correggi')) { correctTimeField('entrata', 'entrata'); return; }
