@@ -69,6 +69,18 @@
       .contract-row { display:grid; grid-template-columns:minmax(120px, 1.1fr) repeat(4, minmax(90px, 1fr)); gap:8px; align-items:end; }
       .contract-row label { font-size:12px; }
       .contract-row .day-name { font-weight:700; font-size:13px; padding-bottom:11px; }
+      .simple-shift { border:1px solid #dbeafe; border-radius:10px; padding:10px; background:#f8fbff; margin-bottom:10px; }
+      .simple-shift h3 { margin:0 0 8px; font-size:14px; color:#1e3a8a; }
+      .day-selector { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:6px; margin-top:8px; }
+      .day-selector label { flex-direction:row; align-items:center; font-size:12px; font-weight:600; gap:6px; }
+      .day-selector input { min-height:auto; padding:0; }
+      .program-summary { margin-top:10px; border:1px solid #bfdbfe; border-radius:10px; background:#eff6ff; padding:10px; font-size:13px; color:#0f172a; }
+      .group-row { border:1px solid #dbeafe; border-radius:8px; padding:8px; margin-top:8px; background:#fff; }
+      .days-dropdown { border:1px solid var(--line); border-radius:8px; padding:8px; background:#fff; }
+      .days-dropdown summary { cursor:pointer; font-size:14px; font-weight:600; color:#0f172a; }
+      .days-options { margin-top:8px; display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:6px; }
+      .days-options label { flex-direction:row; align-items:center; gap:6px; font-size:12px; font-weight:600; }
+      .days-options input { min-height:auto; padding:0; }
       .timbratura-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
       .timbratura-head h2 { margin:0; }
       .welcome-box { margin:0; max-width:520px; font-size:13px; line-height:1.4; color:#0f172a; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px; }
@@ -149,8 +161,8 @@
                   <option value="DET">Determinato</option>
                 </select>
               </label>
-              <label>Paga oraria manuale (€)
-                <input type="number" id="hourlyRate" min="0" step="0.01" value="0" />
+              <label>Paga oraria (€ auto)
+                <input type="number" id="hourlyRate" min="0" step="0.01" value="0" readonly />
               </label>
             </div>
             <p id="contractMetaHint" class="small">Se lasci 0, la paga oraria viene calcolata dal contratto scelto.</p>
@@ -170,54 +182,29 @@
             </label>
           </div>
           <div class="contract-grid">
-            <div class="contract-row">
-              <div class="day-name">Lunedì</div>
-              <label>Inizio<input type="time" id="startMon" value="08:00" /></label>
-              <label>Fine<input type="time" id="endMon" value="17:00" /></label>
-              <label>Pausa (min)<input type="number" id="breakMon" min="0" value="60" /></label>
-              <label>Ore ordinarie<input type="number" id="hoursMon" min="0" step="0.25" value="8" /></label>
+            <div class="simple-shift">
+              <h3>Pianificazione rapida (un solo inizio turno)</h3>
+              <div class="grid">
+                <label>Inizio turno<input type="time" id="simpleStartCommon" value="08:00" /></label>
+                <label>Pausa (min)<input type="number" id="simpleBreakCommon" min="0" value="60" /></label>
+              </div>
+              <div id="customGroupsContainer"></div>
+              <div class="inline-actions">
+                <button type="button" class="secondary" id="addGroupBtn">Aggiungi gruppo giorni</button>
+              </div>
+              <div class="inline-actions">
+                <button type="button" class="secondary" id="presetFiveDaysBtn">Preset 5 giorni (Lun-Ven)</button>
+                <button type="button" class="secondary" id="presetSixDaysBtn">Preset 6 giorni (Lun-Sab)</button>
+              </div>
             </div>
-            <div class="contract-row">
-              <div class="day-name">Martedì</div>
-              <label>Inizio<input type="time" id="startTue" value="08:00" /></label>
-              <label>Fine<input type="time" id="endTue" value="17:00" /></label>
-              <label>Pausa (min)<input type="number" id="breakTue" min="0" value="60" /></label>
-              <label>Ore ordinarie<input type="number" id="hoursTue" min="0" step="0.25" value="8" /></label>
-            </div>
-            <div class="contract-row">
-              <div class="day-name">Mercoledì</div>
-              <label>Inizio<input type="time" id="startWed" value="08:00" /></label>
-              <label>Fine<input type="time" id="endWed" value="17:00" /></label>
-              <label>Pausa (min)<input type="number" id="breakWed" min="0" value="60" /></label>
-              <label>Ore ordinarie<input type="number" id="hoursWed" min="0" step="0.25" value="8" /></label>
-            </div>
-            <div class="contract-row">
-              <div class="day-name">Giovedì</div>
-              <label>Inizio<input type="time" id="startThu" value="08:00" /></label>
-              <label>Fine<input type="time" id="endThu" value="17:00" /></label>
-              <label>Pausa (min)<input type="number" id="breakThu" min="0" value="60" /></label>
-              <label>Ore ordinarie<input type="number" id="hoursThu" min="0" step="0.25" value="8" /></label>
-            </div>
-            <div class="contract-row">
-              <div class="day-name">Venerdì</div>
-              <label>Inizio<input type="time" id="startFri" value="08:00" /></label>
-              <label>Fine<input type="time" id="endFri" value="17:00" /></label>
-              <label>Pausa (min)<input type="number" id="breakFri" min="0" value="60" /></label>
-              <label>Ore ordinarie<input type="number" id="hoursFri" min="0" step="0.25" value="8" /></label>
-            </div>
-            <div class="contract-row">
-              <div class="day-name">Sabato</div>
-              <label>Inizio<input type="time" id="startSat" /></label>
-              <label>Fine<input type="time" id="endSat" /></label>
-              <label>Pausa (min)<input type="number" id="breakSat" min="0" value="0" /></label>
-              <label>Ore ordinarie<input type="number" id="hoursSat" min="0" step="0.25" value="0" /></label>
-            </div>
-            <div class="contract-row">
-              <div class="day-name">Domenica</div>
-              <label>Inizio<input type="time" id="startSun" /></label>
-              <label>Fine<input type="time" id="endSun" /></label>
-              <label>Pausa (min)<input type="number" id="breakSun" min="0" value="0" /></label>
-              <label>Ore ordinarie<input type="number" id="hoursSun" min="0" step="0.25" value="0" /></label>
+            <div class="hidden">
+              <input type="time" id="startMon" value="08:00" /><input type="time" id="endMon" value="17:00" /><input type="number" id="breakMon" value="60" /><input type="number" id="hoursMon" value="8" />
+              <input type="time" id="startTue" value="08:00" /><input type="time" id="endTue" value="17:00" /><input type="number" id="breakTue" value="60" /><input type="number" id="hoursTue" value="8" />
+              <input type="time" id="startWed" value="08:00" /><input type="time" id="endWed" value="17:00" /><input type="number" id="breakWed" value="60" /><input type="number" id="hoursWed" value="8" />
+              <input type="time" id="startThu" value="08:00" /><input type="time" id="endThu" value="17:00" /><input type="number" id="breakThu" value="60" /><input type="number" id="hoursThu" value="8" />
+              <input type="time" id="startFri" value="08:00" /><input type="time" id="endFri" value="17:00" /><input type="number" id="breakFri" value="60" /><input type="number" id="hoursFri" value="8" />
+              <input type="time" id="startSat" /><input type="time" id="endSat" /><input type="number" id="breakSat" value="0" /><input type="number" id="hoursSat" value="0" />
+              <input type="time" id="startSun" /><input type="time" id="endSun" /><input type="number" id="breakSun" value="0" /><input type="number" id="hoursSun" value="0" />
             </div>
           </div>
           <div class="actions">
@@ -225,6 +212,7 @@
             <button id="saveProgramBtn" type="button">Salva contratto</button>
           </div>
           <p id="programEsito" class="msg"></p>
+          <div id="programSummary" class="program-summary hidden"></div>
         </div>
 
         <div class="card" id="timbratureCard">
@@ -456,6 +444,14 @@
       }
 
       function parseTimeToMinutes(hhmm) { if (!hhmm) return null; const [h,m] = String(hhmm).split(':').map(Number); return Number.isNaN(h)||Number.isNaN(m) ? null : h*60+m; }
+      function addMinutesToTime(hhmm, minutesToAdd) {
+        const base = parseTimeToMinutes(hhmm);
+        if (base == null) return '';
+        const total = Math.max(base + Math.max(Number(minutesToAdd) || 0, 0), 0);
+        const h = String(Math.floor(total / 60) % 24).padStart(2, '0');
+        const m = String(total % 60).padStart(2, '0');
+        return `${h}:${m}`;
+      }
       function durationHoursFromSchedule(startTime, endTime, breakMinutes) {
         const start = parseTimeToMinutes(startTime);
         const end = parseTimeToMinutes(endTime);
@@ -483,7 +479,7 @@
       function getProfile() { return readJSON(PROFILE_KEY, { nome:'', azienda:'', email:'' }); }
       function setProfile(v) { writeJSON(PROFILE_KEY, v); }
       function updateWelcomeMessage() {
-        id('welcomeText').textContent = 'Luogo powered by Ionel Varga.';
+        id('welcomeText').textContent = 'Powered by Ionel Varga';
       }
 
       function programForDate(dateValue) {
@@ -495,7 +491,9 @@
         const nearestPrevious = sorted.find((p)=> new Date(`${p.week_start}T00:00:00`) <= selectedDate);
         return nearestPrevious || sorted[0] || null;
       }
-      function getProgramHoursByDay(program, dayIndex) {
+      function getProgramDayConfig(program, dayIndex) {
+        if (dayIndex === 6 && program.holidays_non_working) return { hours:0, start:'', end:'', breakMin:0 };
+        if (dayIndex === 5 && program.prefestive_non_working) return { hours:0, start:'', end:'', breakMin:0 };
         const dayMap = [
           { hours: Number(program.monday_hours||0), start: program.monday_start, end: program.monday_end, breakMin: Number(program.monday_break_minutes ?? program.break_minutes ?? 0) },
           { hours: Number(program.tuesday_hours||0), start: program.tuesday_start, end: program.tuesday_end, breakMin: Number(program.tuesday_break_minutes ?? program.break_minutes ?? 0) },
@@ -505,14 +503,28 @@
           { hours: Number(program.saturday_hours||0), start: program.saturday_start, end: program.saturday_end, breakMin: Number(program.saturday_break_minutes ?? program.break_minutes ?? 0) },
           { hours: Number(program.sunday_hours||0), start: program.sunday_start, end: program.sunday_end, breakMin: Number(program.sunday_break_minutes ?? program.break_minutes ?? 0) }
         ];
-        const selected = dayMap[dayIndex] || dayMap[0];
+        return dayMap[dayIndex] || dayMap[0];
+      }
+      function getProgramHoursByDay(program, dayIndex) {
+        const selected = getProgramDayConfig(program, dayIndex);
         const fromSchedule = durationHoursFromSchedule(selected.start, selected.end, selected.breakMin);
         return fromSchedule > 0 ? fromSchedule : selected.hours;
       }
       function resolveRulesForDate(dateValue) {
         const program = programForDate(dateValue);
         if (!program) return { rules: currentRules, defaultBreak:0, breakEnabled:true };
-        return { rules:{ roundingMinutes: currentRules.roundingMinutes, ordinaryHours:getProgramHoursByDay(program, weekDayIndex(dateValue)) }, defaultBreak: program.break_enabled ? Number(program.break_minutes||0) : 0, breakEnabled:Boolean(program.break_enabled) };
+        const dayConfig = getProgramDayConfig(program, weekDayIndex(dateValue));
+        return {
+          rules:{ roundingMinutes: currentRules.roundingMinutes, ordinaryHours:getProgramHoursByDay(program, weekDayIndex(dateValue)) },
+          defaultBreak: program.break_enabled ? Number(dayConfig.breakMin || 0) : 0,
+          breakEnabled:Boolean(program.break_enabled)
+        };
+      }
+      function applyDefaultBreakForDate(dateValue, force=false) {
+        const resolved = resolveRulesForDate(dateValue || nowDateISO());
+        const current = Number(id('pausa').value || 0);
+        if (!force && current > 0) return;
+        id('pausa').value = Math.max(Number(resolved.defaultBreak || 0), 0);
       }
 
       function saveProfile() {
@@ -529,6 +541,7 @@
       }
 
       function collectProgramPayload() {
+        applySimpleWeeklyPlan();
         const selectedTemplate = id('contractTemplate').value;
         const selectedLevel = id('contractLevel').value;
         const manualHourly = Number(id('hourlyRate').value || 0);
@@ -539,6 +552,8 @@
           contract_employment_type: id('contractEmploymentType').value || 'IND',
           break_enabled: id('programBreakEnabled').value==='true',
           break_minutes:Number(id('programBreakMinutes').value||0),
+          holidays_non_working: false,
+          prefestive_non_working: false,
           hourly_rate: manualHourly,
           night_bonus_percent:Number(id('nightBonusPercent').value||0),
           overtime_bonus_percent:Number(id('overtimeBonusPercent').value||0),
@@ -568,6 +583,7 @@
         id('startFri').value = p.friday_start || ''; id('endFri').value = p.friday_end || ''; id('breakFri').value = Number(p.friday_break_minutes ?? p.break_minutes ?? 0); id('hoursFri').value = Number(p.friday_hours||0);
         id('startSat').value = p.saturday_start || ''; id('endSat').value = p.saturday_end || ''; id('breakSat').value = Number(p.saturday_break_minutes ?? p.break_minutes ?? 0); id('hoursSat').value = Number(p.saturday_hours||0);
         id('startSun').value = p.sunday_start || ''; id('endSun').value = p.sunday_end || ''; id('breakSun').value = Number(p.sunday_break_minutes ?? p.break_minutes ?? 0); id('hoursSun').value = Number(p.sunday_hours||0);
+        fillSimplePlanFromDailyFields();
       }
       function buildContractTemplateOptions() {
         id('contractTemplate').innerHTML = Object.entries(CONTRACT_PRESETS)
@@ -595,10 +611,131 @@
         }
         const sourceSuffix = preset?.source ? ` (${preset.source})` : '';
         id('contractMetaHint').textContent = `${preset.label} • ${level.label} • ${employmentType} → paga base suggerita € ${Number(level.hourlyRate).toFixed(2)}/h${sourceSuffix}`;
-        if (Number(id('hourlyRate').value || 0) <= 0) {
-          id('overtimeBonusPercent').value = Number(level.overtimeBonusPercent || 0);
-          id('nightBonusPercent').value = Number(level.nightBonusPercent || 0);
-        }
+        id('hourlyRate').value = Number(level.hourlyRate || 0).toFixed(2);
+        id('overtimeBonusPercent').value = Number(level.overtimeBonusPercent || 0);
+        id('nightBonusPercent').value = Number(level.nightBonusPercent || 0);
+      }
+      function dayFieldSuffix(dayIndex) { return ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][dayIndex] || 'Mon'; }
+      function parseDayTokens(value) {
+        const map = { lun:0, mar:1, mer:2, gio:3, ven:4, sab:5, dom:6 };
+        return String(value || '')
+          .split(',')
+          .map((x)=>x.trim().slice(0,3).toLowerCase())
+          .map((token)=>map[token])
+          .filter((idx)=>Number.isInteger(idx));
+      }
+      function dayListToInput(indices) {
+        const labels = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+        return indices.sort((a,b)=>a-b).map((idx)=>labels[idx]).join(',');
+      }
+      function groupRowHtml(hours='7', days='Lun,Mar,Mer,Gio,Ven') {
+        return `<div class="group-row"><div class="grid"><label>Ore gruppo<input type="number" class="grp-hours" min="0" step="0.25" value="${hours}" /></label><div><label>Giorni</label><details class="days-dropdown"><summary class="grp-days-summary">Seleziona giorni</summary><div class="days-options"></div></details><input type="hidden" class="grp-days" value="${days}" /></div></div><div class="inline-actions"><button type="button" class="secondary grp-remove-btn">Rimuovi gruppo</button></div></div>`;
+      }
+      function updateGroupSummary(row) {
+        const selected = row.querySelector('.grp-days')?.value || '';
+        row.querySelector('.grp-days-summary').textContent = selected || 'Seleziona giorni';
+      }
+      function renderDaysOptionsForRow(row, allowedIndices) {
+        const dayLabels = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+        const selected = parseDayTokens(row.querySelector('.grp-days')?.value || '');
+        const choices = [...new Set([...allowedIndices, ...selected])].sort((a,b)=>a-b);
+        const container = row.querySelector('.days-options');
+        container.innerHTML = choices.map((idx)=>`<label><input type="checkbox" data-day-idx="${idx}" ${selected.includes(idx) ? 'checked' : ''} />${dayLabels[idx]}</label>`).join('');
+        container.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+          checkbox.addEventListener('change', () => {
+            const checked = Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((el)=>Number(el.dataset.dayIdx));
+            row.querySelector('.grp-days').value = dayListToInput(checked);
+            updateGroupSummary(row);
+            syncGroupDayAvailability();
+          });
+        });
+        updateGroupSummary(row);
+      }
+      function syncGroupDayAvailability() {
+        const rows = Array.from(id('customGroupsContainer').querySelectorAll('.group-row'));
+        const used = new Set();
+        rows.forEach((row) => {
+          const selected = parseDayTokens(row.querySelector('.grp-days')?.value || '');
+          const allowed = Array.from({ length: 7 }, (_, idx)=>idx).filter((idx)=>!used.has(idx) || selected.includes(idx));
+          renderDaysOptionsForRow(row, allowed);
+          selected.forEach((idx)=>used.add(idx));
+        });
+      }
+      function bindGroupRowActions(row) {
+        const removeBtn = row.querySelector('.grp-remove-btn');
+        removeBtn.addEventListener('click', ()=> {
+          const rows = id('customGroupsContainer').querySelectorAll('.group-row');
+          if (rows.length <= 1) return;
+          row.remove();
+          syncGroupDayAvailability();
+        });
+      }
+      function setCustomGroups(groups) {
+        const container = id('customGroupsContainer');
+        container.innerHTML = '';
+        const safeGroups = Array.isArray(groups) && groups.length ? groups : [{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }];
+        safeGroups.forEach((group) => {
+          const wrap = document.createElement('div');
+          wrap.innerHTML = groupRowHtml(group.hours, group.days);
+          const row = wrap.firstElementChild;
+          bindGroupRowActions(row);
+          container.appendChild(row);
+        });
+        syncGroupDayAvailability();
+      }
+      function getCustomGroups() {
+        return Array.from(id('customGroupsContainer').querySelectorAll('.group-row')).map((row) => ({
+          hours: Math.max(Number(row.querySelector('.grp-hours')?.value || 0), 0),
+          days: row.querySelector('.grp-days')?.value || ''
+        }));
+      }
+      function resetDailyHiddenFields() {
+        Array.from({ length: 7 }, (_, idx) => dayFieldSuffix(idx)).forEach((sfx) => {
+          id(`start${sfx}`).value = '';
+          id(`end${sfx}`).value = '';
+          id(`break${sfx}`).value = 0;
+          id(`hours${sfx}`).value = 0;
+        });
+      }
+      function applyShiftToDay(shift, dayIndex) {
+        const sfx = dayFieldSuffix(dayIndex);
+        if (!shift.start || shift.hours <= 0) return;
+        id(`start${sfx}`).value = shift.start;
+        id(`break${sfx}`).value = shift.breakMinutes;
+        id(`hours${sfx}`).value = shift.hours;
+        id(`end${sfx}`).value = addMinutesToTime(shift.start, (shift.hours * 60) + shift.breakMinutes);
+      }
+      function applySimpleWeeklyPlan() {
+        const start = id('simpleStartCommon').value;
+        const breakMinutes = Math.max(Number(id('simpleBreakCommon').value || 0), 0);
+        resetDailyHiddenFields();
+        getCustomGroups().forEach((group) => {
+          const days = parseDayTokens(group.days);
+          days.forEach((dayIndex)=>applyShiftToDay({ start, breakMinutes, hours: group.hours }, dayIndex));
+        });
+      }
+      function fillSimplePlanFromDailyFields() {
+        const readDay = (idx) => {
+          const sfx = dayFieldSuffix(idx);
+          return { idx, start: id(`start${sfx}`).value, hours: Number(id(`hours${sfx}`).value || 0), breakMinutes: Number(id(`break${sfx}`).value || 0) };
+        };
+        const workingDays = Array.from({ length: 7 }, (_, idx) => readDay(idx)).filter((d) => d.start && d.hours > 0);
+        const groupedByHours = [...new Set(workingDays.map((d)=>d.hours))].sort((a,b)=>b-a);
+        const base = workingDays[0] || { start:'08:00', breakMinutes:60 };
+        id('simpleStartCommon').value = base.start;
+        id('simpleBreakCommon').value = base.breakMinutes;
+        const groups = groupedByHours.map((hours)=>({ hours, days: dayListToInput(workingDays.filter((d)=>d.hours===hours).map((d)=>d.idx)) }));
+        setCustomGroups(groups.length ? groups : [{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
+      }
+      function renderProgramSummary(program) {
+        const dayNames = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+        const rows = dayNames.map((name, idx) => {
+          const day = getProgramDayConfig(program, idx);
+          return `<li><strong>${name}</strong>: ${day.start || '-'} → ${day.hours || 0}h (pausa ${day.breakMin || 0} min)</li>`;
+        }).join('');
+        const customSummary = getCustomGroups().map((group)=>`${group.hours}h: ${group.days}`).join(' | ');
+        id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Gruppi: ${customSummary || '-'}</p>`;
+        id('programSummary').classList.remove('hidden');
       }
       function autoFillHoursFromContract() {
         const dayConfig = [
@@ -616,10 +753,10 @@
         });
       }
       function saveProgram() {
-        autoFillHoursFromContract();
         const payload = collectProgramPayload();
         setPrograms([payload]);
         showProgramMsg('Impostazioni contratto annuali salvate localmente.', 'ok');
+        renderProgramSummary(payload);
         refreshPunchSummary();
         loadMyMonth();
       }
@@ -627,6 +764,7 @@
         const found = getPrograms()[0];
         if (!found) { showProgramMsg('Nessun contratto salvato.', 'err'); return; }
         fillProgramForm(found);
+        renderProgramSummary(found);
         showProgramMsg('Contratto caricato.', 'ok');
       }
 
@@ -792,6 +930,7 @@
         id('caposquadra').value=id('clockInCaposquadra').value.trim();
         const activeProgram = programForDate(n.date);
         if (activeProgram?.contract_employment_type) id('contratto').value = activeProgram.contract_employment_type;
+        applyDefaultBreakForDate(n.date, true);
         todaySegments = [{ start:n.time, end:'', cantiere:id('cantiere').value, caposquadra:id('caposquadra').value }];
         const r = upsertRecord(collectPayload('IN_SERVIZIO'), `Entrata registrata alle ${n.time}. In servizio.`);
         closeClockInSetup();
@@ -839,7 +978,7 @@
         const today = nowDateISO();
         id('data').value = today;
         const found = getRecords().find((r)=>r.data === today);
-        if (!found) { id('entrata').value=''; id('uscita').value=''; id('pausa').value=0; id('causale').value='LAV'; id('note').value=''; id('cantiere').value=''; id('caposquadra').value=''; id('contratto').value='DET'; id('meteoGestione').value=''; todaySegments = []; setPunchStatus('NONE'); return; }
+        if (!found) { id('entrata').value=''; id('uscita').value=''; id('pausa').value=0; id('causale').value='LAV'; id('note').value=''; id('cantiere').value=''; id('caposquadra').value=''; id('contratto').value='DET'; id('meteoGestione').value=''; todaySegments = []; applyDefaultBreakForDate(today, true); setPunchStatus('NONE'); return; }
         id('entrata').value=found.entrata||''; id('uscita').value=found.uscita||''; id('pausa').value=found.pausa||0; id('causale').value=found.causale||'LAV'; id('note').value=found.note||''; id('cantiere').value=found.cantiere||''; id('caposquadra').value=found.caposquadra||''; id('contratto').value=found.contratto||'DET'; id('meteoGestione').value=found.meteoGestione||'';
         todaySegments = Array.isArray(found.segments) ? found.segments : (found.entrata ? [{ start:found.entrata, end:found.uscita || '', cantiere:found.cantiere || '', caposquadra:found.caposquadra || '' }] : []);
         if (found.stato === 'COMPLETATA') setPunchStatus('COMPLETATA', found.entrata, found.uscita); else if (found.entrata) setPunchStatus('IN_SERVIZIO', found.entrata); else setPunchStatus('NONE');
@@ -999,7 +1138,6 @@
           console.warn('Registrazione service worker fallita:', error);
         }
       }
-
       function init() {
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
@@ -1010,6 +1148,10 @@
 
         buildContractTemplateOptions();
         buildContractLevelsOptions();
+        if (id('programBreakEnabled').value === 'true' && Number(id('programBreakMinutes').value || 0) <= 0) id('programBreakMinutes').value = 60;
+        setCustomGroups([{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
+        applySimpleWeeklyPlan();
+        applyDefaultBreakForDate(id('data').value || nowDateISO(), true);
         id('menuToggleBtn').addEventListener('click', (e)=>{ e.stopPropagation(); setMenuOpen(!menuOpen); });
         id('leftMenu').addEventListener('click', (e)=>e.stopPropagation());
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
@@ -1020,8 +1162,25 @@
         id('contractTemplate').addEventListener('change', buildContractLevelsOptions);
         id('contractLevel').addEventListener('change', updateContractHintAndRates);
         id('contractEmploymentType').addEventListener('change', updateContractHintAndRates);
-        id('hourlyRate').addEventListener('input', updateContractHintAndRates);
-        [['startMon','endMon','breakMon'],['startTue','endTue','breakTue'],['startWed','endWed','breakWed'],['startThu','endThu','breakThu'],['startFri','endFri','breakFri'],['startSat','endSat','breakSat'],['startSun','endSun','breakSun']].forEach((ids)=>ids.forEach((fieldId)=>id(fieldId).addEventListener('change', autoFillHoursFromContract)));
+        id('programBreakEnabled').addEventListener('change', ()=>{
+          if (id('programBreakEnabled').value === 'true' && Number(id('programBreakMinutes').value || 0) <= 0) id('programBreakMinutes').value = 60;
+          if (id('programBreakEnabled').value === 'false') id('programBreakMinutes').value = 0;
+          if (id('programBreakEnabled').value === 'true' && Number(id('simpleBreakCommon').value || 0) <= 0) id('simpleBreakCommon').value = 60;
+        });
+        id('addGroupBtn').addEventListener('click', ()=>{
+          const wrap = document.createElement('div');
+          wrap.innerHTML = groupRowHtml(6, '');
+          const row = wrap.firstElementChild;
+          bindGroupRowActions(row);
+          id('customGroupsContainer').appendChild(row);
+          syncGroupDayAvailability();
+        });
+        id('presetFiveDaysBtn').addEventListener('click', ()=>{
+          setCustomGroups([{ hours:8, days:'Lun,Mar,Mer,Gio,Ven' }]);
+        });
+        id('presetSixDaysBtn').addEventListener('click', ()=>{
+          setCustomGroups([{ hours:8, days:'Lun,Mar,Mer,Gio,Ven' }, { hours:6, days:'Sab' }]);
+        });
         id('clockInBtn').addEventListener('click', ()=> {
           if (id('clockInBtn').textContent.toLowerCase().includes('correggi')) { correctTimeField('entrata', 'entrata'); return; }
           openClockInSetup();
@@ -1039,6 +1198,7 @@
         id('serviceStatus').addEventListener('dblclick', ()=>id('manualEditBox').classList.toggle('hidden'));
         id('saveDraftBtn').addEventListener('click', ()=>upsertRecord(collectPayload('BOZZA'), 'Timbratura corretta e salvata in bozza.'));
         id('saveDayBtn').addEventListener('click', ()=>upsertRecord(collectPayload('COMPLETATA'), 'Timbratura corretta e giornata confermata.'));
+        id('data').addEventListener('change', ()=>{ applyDefaultBreakForDate(id('data').value || nowDateISO(), true); refreshPunchSummary(); });
         ['entrata','uscita','cantiere','caposquadra','pausa','causale'].forEach((fieldId)=>id(fieldId).addEventListener('change', refreshPunchSummary));
         formatDateTimeLarge();
         refreshPunchSummary();
