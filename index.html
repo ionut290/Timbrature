@@ -483,10 +483,7 @@
       function getProfile() { return readJSON(PROFILE_KEY, { nome:'', azienda:'', email:'' }); }
       function setProfile(v) { writeJSON(PROFILE_KEY, v); }
       function updateWelcomeMessage() {
-        const profile = getProfile();
-        const nome = profile.nome || 'collega';
-        const azienda = profile.azienda || 'la tua azienda';
-        id('welcomeText').textContent = `Ben tornato "${nome}", ti auguriamo una buona giornata insieme ai tuoi colleghi di "${azienda}".`;
+        id('welcomeText').textContent = 'Luogo powered by Ionel Varga.';
       }
 
       function programForDate(dateValue) {
