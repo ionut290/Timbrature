@@ -84,8 +84,20 @@
       .timbratura-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
       .timbratura-head h2 { margin:0; }
       .welcome-box { margin:0; max-width:520px; font-size:13px; line-height:1.4; color:#0f172a; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px; }
-      #timbratureCard { border:1px solid #bfdbfe; box-shadow:0 10px 26px rgba(37, 99, 235, 0.12); background:linear-gradient(180deg,#ffffff 0%, #f8fbff 100%); }
+      #timbratureCard { border:1px solid #bfdbfe; box-shadow:0 14px 34px rgba(37, 99, 235, 0.16); background:linear-gradient(135deg,#ffffff 0%, #eef7ff 45%, #f5f3ff 100%); }
       .timbrature-subtitle { margin:4px 0 0; font-size:13px; color:#475569; }
+      #timbratureCard .inline-actions { margin-top:12px; }
+      #timbratureCard .inline-actions button { flex:1; min-width:180px; border-radius:12px; font-weight:700; }
+      #timbratureCard .status-line { display:inline-flex; align-items:center; background:#eff6ff; border:1px solid #bfdbfe; border-radius:999px; padding:8px 14px; margin:8px 8px 0 0; }
+      #timbratureCard .status-ok { background:#ecfdf5; border-color:#86efac; color:#047857; }
+      .punch-dashboard { margin-top:14px; border:1px solid #dbeafe; background:linear-gradient(135deg,#0f172a 0%, #1e3a8a 55%, #312e81 100%); border-radius:16px; padding:16px; color:#fff; }
+      .punch-dashboard .live-date { color:#dbeafe; }
+      .punch-dashboard .live-time { color:#fff; text-shadow:0 2px 12px rgba(30, 64, 175, 0.6); }
+      .punch-dashboard .punch-row { color:#cbd5e1; }
+      .punch-dashboard .punch-row strong { color:#fff; }
+      .punch-dashboard .service-total { color:#86efac; }
+      .punch-dashboard .service-subtotal { color:#dbeafe; }
+      #timbratureCard .segments-box, #timbratureCard .setup-box { border-radius:14px; border:1px solid #bfdbfe; background:#ffffffcc; backdrop-filter: blur(3px); }
       .segments-box { margin-top:10px; border:1px solid #dbeafe; background:#f8fafc; border-radius:10px; padding:10px; }
       .split-top { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
       .split-summary { margin:0; font-size:13px; color:#334155; }
@@ -229,8 +241,8 @@
             </div>
           </div>
           <div class="inline-actions">
-            <button id="clockInBtn" class="btn-green" type="button">Timbra entrata</button>
-            <button id="clockOutBtn" class="btn-red" type="button" disabled>Timbra uscita</button>
+            <button id="clockInBtn" class="btn-green" type="button">🟢 Timbra entrata</button>
+            <button id="clockOutBtn" class="btn-red" type="button" disabled>🔴 Timbra uscita</button>
           </div>
           <p id="serviceStatus" class="status-line status-neutral">Non in servizio.</p>
           <p id="dayCompletedText" class="status-line status-ok hidden">Giornata completata, buon riposo.</p>
@@ -253,7 +265,7 @@
             </div>
           </div>
           <div class="segments-box">
-            <p class="small"><strong>Suddivisione giornata su più cantieri</strong></p>
+            <p class="small"><strong>Organizzazione cantieri di oggi</strong></p>
             <div class="split-top">
               <button type="button" class="secondary" id="splitCantiereBtn">Cambia cantiere</button>
               <p id="splitSummaryText" class="split-summary">Cantieri di oggi: -</p>
