@@ -683,6 +683,34 @@
         id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Giorni non lavorativi: ${id('daysOff').value || '-'}</p>`;
         id('programSummary').classList.remove('hidden');
       }
+      function fillSimplePlanFromDailyFields() {
+        const readDay = (idx) => {
+          const sfx = dayFieldSuffix(idx);
+          return { idx, start: id(`start${sfx}`).value, hours: Number(id(`hours${sfx}`).value || 0), breakMinutes: Number(id(`break${sfx}`).value || 0) };
+        };
+        const workingDays = Array.from({ length: 7 }, (_, idx) => readDay(idx)).filter((d) => d.start && d.hours > 0);
+        const groupA = workingDays.length ? workingDays.filter((d) => d.start === workingDays[0].start && d.hours === workingDays[0].hours && d.breakMinutes === workingDays[0].breakMinutes) : [];
+        const groupB = workingDays.filter((d) => !groupA.some((a) => a.idx === d.idx));
+        const a = groupA[0] || { start:'08:00', hours:8, breakMinutes:60 };
+        id('simpleStart1').value = a.start;
+        id('simpleHours1').value = a.hours;
+        id('simpleBreak1').value = a.breakMinutes;
+        Array.from({ length: 7 }, (_, idx) => id(`d1${dayFieldSuffix(idx)}`).checked = groupA.some((d) => d.idx === idx));
+        const b = groupB[0] || { start:'', hours:0, breakMinutes:0 };
+        id('simpleStart2').value = b.start;
+        id('simpleHours2').value = b.hours;
+        id('simpleBreak2').value = b.breakMinutes;
+        Array.from({ length: 7 }, (_, idx) => id(`d2${dayFieldSuffix(idx)}`).checked = groupB.some((d) => d.idx === idx));
+      }
+      function renderProgramSummary(program) {
+        const dayNames = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+        const rows = dayNames.map((name, idx) => {
+          const day = getProgramDayConfig(program, idx);
+          return `<li><strong>${name}</strong>: ${day.start || '-'} → ${day.hours || 0}h (pausa ${day.breakMin || 0} min)</li>`;
+        }).join('');
+        id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Festivi non lavorativi: ${program.holidays_non_working ? 'Sì' : 'No'} • Prefestivi non lavorativi: ${program.prefestive_non_working ? 'Sì' : 'No'}</p>`;
+        id('programSummary').classList.remove('hidden');
+      }
       function autoFillHoursFromContract() {
         const dayConfig = [
           ['startMon', 'endMon', 'breakMon', 'hoursMon'],
