@@ -177,30 +177,22 @@
           </div>
           <div class="contract-grid">
             <div class="simple-shift">
-              <h3>Turno 1</h3>
+              <h3>Pianificazione rapida (un solo inizio turno)</h3>
               <div class="grid">
-                <label>Inizio turno<input type="time" id="simpleStart1" value="08:00" /></label>
-                <label>Ore di lavoro<input type="number" id="simpleHours1" min="0" step="0.25" value="8" /></label>
-                <label>Pausa (min)<input type="number" id="simpleBreak1" min="0" value="60" /></label>
+                <label>Inizio turno<input type="time" id="simpleStartCommon" value="08:00" /></label>
+                <label>Pausa (min)<input type="number" id="simpleBreakCommon" min="0" value="60" /></label>
+                <label>Ore per gruppo A<input type="number" id="simpleHoursA" min="0" step="0.25" value="7" /></label>
+                <label>Ore per gruppo B<input type="number" id="simpleHoursB" min="0" step="0.25" value="6" /></label>
               </div>
-              <div class="day-selector">
-                <label><input type="checkbox" id="d1Mon" checked />Lunedì</label><label><input type="checkbox" id="d1Tue" checked />Martedì</label><label><input type="checkbox" id="d1Wed" checked />Mercoledì</label><label><input type="checkbox" id="d1Thu" checked />Giovedì</label><label><input type="checkbox" id="d1Fri" checked />Venerdì</label><label><input type="checkbox" id="d1Sat" />Sabato</label><label><input type="checkbox" id="d1Sun" />Domenica</label>
-              </div>
-            </div>
-            <div class="simple-shift">
-              <h3>Turno 2 (opzionale)</h3>
               <div class="grid">
-                <label>Inizio turno<input type="time" id="simpleStart2" /></label>
-                <label>Ore di lavoro<input type="number" id="simpleHours2" min="0" step="0.25" value="0" /></label>
-                <label>Pausa (min)<input type="number" id="simpleBreak2" min="0" value="0" /></label>
+                <label>Giorni gruppo A (es: Lun,Mar,Mer,Gio,Ven)<input type="text" id="daysGroupA" value="Lun,Mar,Mer,Gio,Ven" /></label>
+                <label>Giorni gruppo B (es: Sab)<input type="text" id="daysGroupB" value="" /></label>
+                <label>Giorni non lavorativi (es: Dom)<input type="text" id="daysOff" value="Dom" /></label>
               </div>
-              <div class="day-selector">
-                <label><input type="checkbox" id="d2Mon" />Lunedì</label><label><input type="checkbox" id="d2Tue" />Martedì</label><label><input type="checkbox" id="d2Wed" />Mercoledì</label><label><input type="checkbox" id="d2Thu" />Giovedì</label><label><input type="checkbox" id="d2Fri" />Venerdì</label><label><input type="checkbox" id="d2Sat" />Sabato</label><label><input type="checkbox" id="d2Sun" />Domenica</label>
+              <div class="inline-actions">
+                <button type="button" class="secondary" id="presetFiveDaysBtn">Preset 5 giorni (Lun-Ven)</button>
+                <button type="button" class="secondary" id="presetSixDaysBtn">Preset 6 giorni (Lun-Sab)</button>
               </div>
-            </div>
-            <div class="day-selector">
-              <label><input type="checkbox" id="holidaysNonWorking" checked />Festivi non lavorativi</label>
-              <label><input type="checkbox" id="prefestiveNonWorking" />Prefestivi non lavorativi (sabato)</label>
             </div>
             <div class="hidden">
               <input type="time" id="startMon" value="08:00" /><input type="time" id="endMon" value="17:00" /><input type="number" id="breakMon" value="60" /><input type="number" id="hoursMon" value="8" />
@@ -557,8 +549,8 @@
           contract_employment_type: id('contractEmploymentType').value || 'IND',
           break_enabled: id('programBreakEnabled').value==='true',
           break_minutes:Number(id('programBreakMinutes').value||0),
-          holidays_non_working: Boolean(id('holidaysNonWorking').checked),
-          prefestive_non_working: Boolean(id('prefestiveNonWorking').checked),
+          holidays_non_working: false,
+          prefestive_non_working: false,
           hourly_rate: manualHourly,
           night_bonus_percent:Number(id('nightBonusPercent').value||0),
           overtime_bonus_percent:Number(id('overtimeBonusPercent').value||0),
@@ -588,8 +580,6 @@
         id('startFri').value = p.friday_start || ''; id('endFri').value = p.friday_end || ''; id('breakFri').value = Number(p.friday_break_minutes ?? p.break_minutes ?? 0); id('hoursFri').value = Number(p.friday_hours||0);
         id('startSat').value = p.saturday_start || ''; id('endSat').value = p.saturday_end || ''; id('breakSat').value = Number(p.saturday_break_minutes ?? p.break_minutes ?? 0); id('hoursSat').value = Number(p.saturday_hours||0);
         id('startSun').value = p.sunday_start || ''; id('endSun').value = p.sunday_end || ''; id('breakSun').value = Number(p.sunday_break_minutes ?? p.break_minutes ?? 0); id('hoursSun').value = Number(p.sunday_hours||0);
-        id('holidaysNonWorking').checked = p.holidays_non_working !== false;
-        id('prefestiveNonWorking').checked = Boolean(p.prefestive_non_working);
         fillSimplePlanFromDailyFields();
       }
       function buildContractTemplateOptions() {
@@ -623,13 +613,17 @@
         id('nightBonusPercent').value = Number(level.nightBonusPercent || 0);
       }
       function dayFieldSuffix(dayIndex) { return ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][dayIndex] || 'Mon'; }
-      function readSimpleShift(shiftNumber) {
-        return {
-          start: id(`simpleStart${shiftNumber}`).value,
-          hours: Math.max(Number(id(`simpleHours${shiftNumber}`).value || 0), 0),
-          breakMinutes: Math.max(Number(id(`simpleBreak${shiftNumber}`).value || 0), 0),
-          days: Array.from({ length: 7 }, (_, idx) => Boolean(id(`d${shiftNumber}${dayFieldSuffix(idx)}`).checked))
-        };
+      function parseDayTokens(value) {
+        const map = { lun:0, mar:1, mer:2, gio:3, ven:4, sab:5, dom:6 };
+        return String(value || '')
+          .split(',')
+          .map((x)=>x.trim().slice(0,3).toLowerCase())
+          .map((token)=>map[token])
+          .filter((idx)=>Number.isInteger(idx));
+      }
+      function dayListToInput(indices) {
+        const labels = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+        return indices.sort((a,b)=>a-b).map((idx)=>labels[idx]).join(',');
       }
       function resetDailyHiddenFields() {
         Array.from({ length: 7 }, (_, idx) => dayFieldSuffix(idx)).forEach((sfx) => {
@@ -648,13 +642,46 @@
         id(`end${sfx}`).value = addMinutesToTime(shift.start, (shift.hours * 60) + shift.breakMinutes);
       }
       function applySimpleWeeklyPlan() {
-        const shift1 = readSimpleShift(1);
-        const shift2 = readSimpleShift(2);
+        const start = id('simpleStartCommon').value;
+        const breakMinutes = Math.max(Number(id('simpleBreakCommon').value || 0), 0);
+        const hoursA = Math.max(Number(id('simpleHoursA').value || 0), 0);
+        const hoursB = Math.max(Number(id('simpleHoursB').value || 0), 0);
+        const groupA = parseDayTokens(id('daysGroupA').value);
+        const groupB = parseDayTokens(id('daysGroupB').value);
+        const offDays = new Set(parseDayTokens(id('daysOff').value));
         resetDailyHiddenFields();
-        for (let dayIndex = 0; dayIndex < 7; dayIndex += 1) {
-          if (shift1.days[dayIndex]) applyShiftToDay(shift1, dayIndex);
-          if (shift2.days[dayIndex]) applyShiftToDay(shift2, dayIndex);
-        }
+        groupA.forEach((dayIndex)=>!offDays.has(dayIndex) && applyShiftToDay({ start, breakMinutes, hours: hoursA }, dayIndex));
+        groupB.forEach((dayIndex)=>!offDays.has(dayIndex) && applyShiftToDay({ start, breakMinutes, hours: hoursB }, dayIndex));
+      }
+      function fillSimplePlanFromDailyFields() {
+        const readDay = (idx) => {
+          const sfx = dayFieldSuffix(idx);
+          return { idx, start: id(`start${sfx}`).value, hours: Number(id(`hours${sfx}`).value || 0), breakMinutes: Number(id(`break${sfx}`).value || 0) };
+        };
+        const workingDays = Array.from({ length: 7 }, (_, idx) => readDay(idx)).filter((d) => d.start && d.hours > 0);
+        const groupedByHours = [...new Set(workingDays.map((d)=>d.hours))].sort((a,b)=>b-a);
+        const mainHours = groupedByHours[0] ?? 7;
+        const secondHours = groupedByHours[1] ?? 6;
+        const groupA = workingDays.filter((d)=>d.hours === mainHours).map((d)=>d.idx);
+        const groupB = workingDays.filter((d)=>d.hours === secondHours).map((d)=>d.idx);
+        const off = Array.from({ length: 7 }, (_, idx)=>idx).filter((idx)=>!workingDays.some((d)=>d.idx===idx));
+        const base = workingDays[0] || { start:'08:00', breakMinutes:60 };
+        id('simpleStartCommon').value = base.start;
+        id('simpleBreakCommon').value = base.breakMinutes;
+        id('simpleHoursA').value = mainHours;
+        id('simpleHoursB').value = secondHours;
+        id('daysGroupA').value = dayListToInput(groupA);
+        id('daysGroupB').value = dayListToInput(groupB);
+        id('daysOff').value = dayListToInput(off);
+      }
+      function renderProgramSummary(program) {
+        const dayNames = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+        const rows = dayNames.map((name, idx) => {
+          const day = getProgramDayConfig(program, idx);
+          return `<li><strong>${name}</strong>: ${day.start || '-'} → ${day.hours || 0}h (pausa ${day.breakMin || 0} min)</li>`;
+        }).join('');
+        id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Giorni non lavorativi: ${id('daysOff').value || '-'}</p>`;
+        id('programSummary').classList.remove('hidden');
       }
       function fillSimplePlanFromDailyFields() {
         const readDay = (idx) => {
@@ -1112,7 +1139,17 @@
         id('programBreakEnabled').addEventListener('change', ()=>{
           if (id('programBreakEnabled').value === 'true' && Number(id('programBreakMinutes').value || 0) <= 0) id('programBreakMinutes').value = 60;
           if (id('programBreakEnabled').value === 'false') id('programBreakMinutes').value = 0;
-          if (id('programBreakEnabled').value === 'true' && Number(id('simpleBreak1').value || 0) <= 0) id('simpleBreak1').value = 60;
+          if (id('programBreakEnabled').value === 'true' && Number(id('simpleBreakCommon').value || 0) <= 0) id('simpleBreakCommon').value = 60;
+        });
+        id('presetFiveDaysBtn').addEventListener('click', ()=>{
+          id('daysGroupA').value = 'Lun,Mar,Mer,Gio,Ven';
+          id('daysGroupB').value = '';
+          id('daysOff').value = 'Sab,Dom';
+        });
+        id('presetSixDaysBtn').addEventListener('click', ()=>{
+          id('daysGroupA').value = 'Lun,Mar,Mer,Gio,Ven';
+          id('daysGroupB').value = 'Sab';
+          id('daysOff').value = 'Dom';
         });
         id('clockInBtn').addEventListener('click', ()=> {
           if (id('clockInBtn').textContent.toLowerCase().includes('correggi')) { correctTimeField('entrata', 'entrata'); return; }
