@@ -76,6 +76,11 @@
       .day-selector input { min-height:auto; padding:0; }
       .program-summary { margin-top:10px; border:1px solid #bfdbfe; border-radius:10px; background:#eff6ff; padding:10px; font-size:13px; color:#0f172a; }
       .group-row { border:1px solid #dbeafe; border-radius:8px; padding:8px; margin-top:8px; background:#fff; }
+      .days-dropdown { border:1px solid var(--line); border-radius:8px; padding:8px; background:#fff; }
+      .days-dropdown summary { cursor:pointer; font-size:14px; font-weight:600; color:#0f172a; }
+      .days-options { margin-top:8px; display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:6px; }
+      .days-options label { flex-direction:row; align-items:center; gap:6px; font-size:12px; font-weight:600; }
+      .days-options input { min-height:auto; padding:0; }
       .timbratura-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
       .timbratura-head h2 { margin:0; }
       .welcome-box { margin:0; max-width:520px; font-size:13px; line-height:1.4; color:#0f172a; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px; }
@@ -624,7 +629,37 @@
         return indices.sort((a,b)=>a-b).map((idx)=>labels[idx]).join(',');
       }
       function groupRowHtml(hours='7', days='Lun,Mar,Mer,Gio,Ven') {
-        return `<div class="group-row"><div class="grid"><label>Ore gruppo<input type="number" class="grp-hours" min="0" step="0.25" value="${hours}" /></label><label>Giorni (es: Lun,Mar,Ven)<input type="text" class="grp-days" value="${days}" /></label></div><div class="inline-actions"><button type="button" class="secondary grp-remove-btn">Rimuovi gruppo</button></div></div>`;
+        return `<div class="group-row"><div class="grid"><label>Ore gruppo<input type="number" class="grp-hours" min="0" step="0.25" value="${hours}" /></label><div><label>Giorni</label><details class="days-dropdown"><summary class="grp-days-summary">Seleziona giorni</summary><div class="days-options"></div></details><input type="hidden" class="grp-days" value="${days}" /></div></div><div class="inline-actions"><button type="button" class="secondary grp-remove-btn">Rimuovi gruppo</button></div></div>`;
+      }
+      function updateGroupSummary(row) {
+        const selected = row.querySelector('.grp-days')?.value || '';
+        row.querySelector('.grp-days-summary').textContent = selected || 'Seleziona giorni';
+      }
+      function renderDaysOptionsForRow(row, allowedIndices) {
+        const dayLabels = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+        const selected = parseDayTokens(row.querySelector('.grp-days')?.value || '');
+        const choices = [...new Set([...allowedIndices, ...selected])].sort((a,b)=>a-b);
+        const container = row.querySelector('.days-options');
+        container.innerHTML = choices.map((idx)=>`<label><input type="checkbox" data-day-idx="${idx}" ${selected.includes(idx) ? 'checked' : ''} />${dayLabels[idx]}</label>`).join('');
+        container.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+          checkbox.addEventListener('change', () => {
+            const checked = Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map((el)=>Number(el.dataset.dayIdx));
+            row.querySelector('.grp-days').value = dayListToInput(checked);
+            updateGroupSummary(row);
+            syncGroupDayAvailability();
+          });
+        });
+        updateGroupSummary(row);
+      }
+      function syncGroupDayAvailability() {
+        const rows = Array.from(id('customGroupsContainer').querySelectorAll('.group-row'));
+        const used = new Set();
+        rows.forEach((row) => {
+          const selected = parseDayTokens(row.querySelector('.grp-days')?.value || '');
+          const allowed = Array.from({ length: 7 }, (_, idx)=>idx).filter((idx)=>!used.has(idx) || selected.includes(idx));
+          renderDaysOptionsForRow(row, allowed);
+          selected.forEach((idx)=>used.add(idx));
+        });
       }
       function bindGroupRowActions(row) {
         const removeBtn = row.querySelector('.grp-remove-btn');
@@ -632,6 +667,7 @@
           const rows = id('customGroupsContainer').querySelectorAll('.group-row');
           if (rows.length <= 1) return;
           row.remove();
+          syncGroupDayAvailability();
         });
       }
       function setCustomGroups(groups) {
@@ -645,6 +681,7 @@
           bindGroupRowActions(row);
           container.appendChild(row);
         });
+        syncGroupDayAvailability();
       }
       function getCustomGroups() {
         return Array.from(id('customGroupsContainer').querySelectorAll('.group-row')).map((row) => ({
@@ -1136,6 +1173,7 @@
           const row = wrap.firstElementChild;
           bindGroupRowActions(row);
           id('customGroupsContainer').appendChild(row);
+          syncGroupDayAvailability();
         });
         id('presetFiveDaysBtn').addEventListener('click', ()=>{
           setCustomGroups([{ hours:8, days:'Lun,Mar,Mer,Gio,Ven' }]);
