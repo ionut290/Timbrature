@@ -84,6 +84,8 @@
       .timbratura-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
       .timbratura-head h2 { margin:0; }
       .welcome-box { margin:0; max-width:520px; font-size:13px; line-height:1.4; color:#0f172a; background:#eff6ff; border:1px solid #bfdbfe; border-radius:10px; padding:10px; }
+      #timbratureCard { border:1px solid #bfdbfe; box-shadow:0 10px 26px rgba(37, 99, 235, 0.12); background:linear-gradient(180deg,#ffffff 0%, #f8fbff 100%); }
+      .timbrature-subtitle { margin:4px 0 0; font-size:13px; color:#475569; }
       .segments-box { margin-top:10px; border:1px solid #dbeafe; background:#f8fafc; border-radius:10px; padding:10px; }
       .split-top { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
       .split-summary { margin:0; font-size:13px; color:#334155; }
@@ -217,8 +219,14 @@
 
         <div class="card" id="timbratureCard">
           <div class="timbratura-head">
-            <h2>Nuova timbratura / giornata</h2>
-            <p class="welcome-box" id="welcomeText"></p>
+            <div>
+              <h2>Timbrature di oggi</h2>
+              <p class="timbrature-subtitle">Interfaccia semplificata per entrata, uscita e riepilogo giornata.</p>
+            </div>
+            <div>
+              <p class="pill" id="locationBadge">Luogo: Ionel Varga</p>
+              <p class="welcome-box" id="welcomeText"></p>
+            </div>
           </div>
           <div class="inline-actions">
             <button id="clockInBtn" class="btn-green" type="button">Timbra entrata</button>
@@ -346,6 +354,7 @@
       const PROFILE_KEY = 'timbrature.local.profile';
       const RECORDS_KEY = 'timbrature.local.records';
       const PROGRAMS_KEY = 'timbrature.local.programs';
+      const PROGRAM_DRAFT_KEY = 'timbrature.local.program.draft';
       const menuPanelIds = ['timbratureCard', 'programCard', 'storicoCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
@@ -478,8 +487,13 @@
       function setRecords(v) { writeJSON(RECORDS_KEY, v); }
       function getProfile() { return readJSON(PROFILE_KEY, { nome:'', azienda:'', email:'' }); }
       function setProfile(v) { writeJSON(PROFILE_KEY, v); }
+      function getProgramDraft() { return readJSON(PROGRAM_DRAFT_KEY, null); }
+      function setProgramDraft(v) { writeJSON(PROGRAM_DRAFT_KEY, v); }
       function updateWelcomeMessage() {
+        const profile = getProfile();
+        const displayName = (profile.nome || 'Ionel Varga').trim();
         id('welcomeText').textContent = 'Powered by Ionel Varga';
+        id('locationBadge').textContent = `Luogo: ${displayName}`;
       }
 
       function programForDate(dateValue) {
@@ -532,6 +546,36 @@
         setProfile(profile);
         updateWelcomeMessage();
         showProfileMsg('Profilo salvato sul dispositivo.', 'ok');
+      }
+      function saveProgramDraftUI() {
+        const draft = {
+          contract_template: id('contractTemplate').value,
+          contract_level: id('contractLevel').value,
+          contract_employment_type: id('contractEmploymentType').value,
+          break_enabled: id('programBreakEnabled').value,
+          break_minutes: id('programBreakMinutes').value,
+          night_bonus_percent: id('nightBonusPercent').value,
+          overtime_bonus_percent: id('overtimeBonusPercent').value,
+          simple_start: id('simpleStartCommon').value,
+          simple_break: id('simpleBreakCommon').value,
+          groups: getCustomGroups()
+        };
+        setProgramDraft(draft);
+      }
+      function loadProgramDraftUI() {
+        const draft = getProgramDraft();
+        if (!draft) return;
+        if (draft.contract_template) id('contractTemplate').value = draft.contract_template;
+        buildContractLevelsOptions();
+        if (draft.contract_level) id('contractLevel').value = draft.contract_level;
+        if (draft.contract_employment_type) id('contractEmploymentType').value = draft.contract_employment_type;
+        if (draft.break_enabled) id('programBreakEnabled').value = draft.break_enabled;
+        if (draft.break_minutes != null) id('programBreakMinutes').value = draft.break_minutes;
+        if (draft.night_bonus_percent != null) id('nightBonusPercent').value = draft.night_bonus_percent;
+        if (draft.overtime_bonus_percent != null) id('overtimeBonusPercent').value = draft.overtime_bonus_percent;
+        if (draft.simple_start) id('simpleStartCommon').value = draft.simple_start;
+        if (draft.simple_break != null) id('simpleBreakCommon').value = draft.simple_break;
+        setCustomGroups(draft.groups || [{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
       }
       function loadProfileUI() {
         const p = getProfile();
@@ -647,6 +691,7 @@
             row.querySelector('.grp-days').value = dayListToInput(checked);
             updateGroupSummary(row);
             syncGroupDayAvailability();
+            saveProgramDraftUI();
           });
         });
         updateGroupSummary(row);
@@ -668,6 +713,7 @@
           if (rows.length <= 1) return;
           row.remove();
           syncGroupDayAvailability();
+          saveProgramDraftUI();
         });
       }
       function setCustomGroups(groups) {
@@ -755,6 +801,7 @@
       function saveProgram() {
         const payload = collectProgramPayload();
         setPrograms([payload]);
+        saveProgramDraftUI();
         showProgramMsg('Impostazioni contratto annuali salvate localmente.', 'ok');
         renderProgramSummary(payload);
         refreshPunchSummary();
@@ -764,6 +811,7 @@
         const found = getPrograms()[0];
         if (!found) { showProgramMsg('Nessun contratto salvato.', 'err'); return; }
         fillProgramForm(found);
+        saveProgramDraftUI();
         renderProgramSummary(found);
         showProgramMsg('Contratto caricato.', 'ok');
       }
@@ -1148,8 +1196,9 @@
 
         buildContractTemplateOptions();
         buildContractLevelsOptions();
+        loadProgramDraftUI();
         if (id('programBreakEnabled').value === 'true' && Number(id('programBreakMinutes').value || 0) <= 0) id('programBreakMinutes').value = 60;
-        setCustomGroups([{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
+        if (!id('customGroupsContainer').children.length) setCustomGroups([{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
         applySimpleWeeklyPlan();
         applyDefaultBreakForDate(id('data').value || nowDateISO(), true);
         id('menuToggleBtn').addEventListener('click', (e)=>{ e.stopPropagation(); setMenuOpen(!menuOpen); });
@@ -1159,13 +1208,15 @@
         id('saveProfile').addEventListener('click', saveProfile);
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
-        id('contractTemplate').addEventListener('change', buildContractLevelsOptions);
-        id('contractLevel').addEventListener('change', updateContractHintAndRates);
-        id('contractEmploymentType').addEventListener('change', updateContractHintAndRates);
+        id('contractTemplate').addEventListener('change', ()=>{ buildContractLevelsOptions(); saveProgramDraftUI(); });
+        id('contractLevel').addEventListener('change', ()=>{ updateContractHintAndRates(); saveProgramDraftUI(); });
+        id('contractEmploymentType').addEventListener('change', ()=>{ updateContractHintAndRates(); saveProgramDraftUI(); });
+        ['programBreakMinutes','nightBonusPercent','overtimeBonusPercent','simpleStartCommon','simpleBreakCommon'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveProgramDraftUI));
         id('programBreakEnabled').addEventListener('change', ()=>{
           if (id('programBreakEnabled').value === 'true' && Number(id('programBreakMinutes').value || 0) <= 0) id('programBreakMinutes').value = 60;
           if (id('programBreakEnabled').value === 'false') id('programBreakMinutes').value = 0;
           if (id('programBreakEnabled').value === 'true' && Number(id('simpleBreakCommon').value || 0) <= 0) id('simpleBreakCommon').value = 60;
+          saveProgramDraftUI();
         });
         id('addGroupBtn').addEventListener('click', ()=>{
           const wrap = document.createElement('div');
@@ -1174,12 +1225,15 @@
           bindGroupRowActions(row);
           id('customGroupsContainer').appendChild(row);
           syncGroupDayAvailability();
+          saveProgramDraftUI();
         });
         id('presetFiveDaysBtn').addEventListener('click', ()=>{
           setCustomGroups([{ hours:8, days:'Lun,Mar,Mer,Gio,Ven' }]);
+          saveProgramDraftUI();
         });
         id('presetSixDaysBtn').addEventListener('click', ()=>{
           setCustomGroups([{ hours:8, days:'Lun,Mar,Mer,Gio,Ven' }, { hours:6, days:'Sab' }]);
+          saveProgramDraftUI();
         });
         id('clockInBtn').addEventListener('click', ()=> {
           if (id('clockInBtn').textContent.toLowerCase().includes('correggi')) { correctTimeField('entrata', 'entrata'); return; }
