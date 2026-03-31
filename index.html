@@ -264,13 +264,24 @@
           <p class="small">Inserisci il caposquadra, i membri della squadra e i mezzi utilizzati.</p>
           <div class="grid">
             <label>Caposquadra
-              <input type="text" id="teamLeaderInput" placeholder="Nome caposquadra" />
+              <input type="text" id="teamLeaderInput" list="memberSuggestionsList" placeholder="Nome caposquadra" />
             </label>
             <label>Nuovo membro squadra
-              <input type="text" id="teamMemberInput" placeholder="Nome membro" />
+              <input type="text" id="teamMemberInput" list="memberSuggestionsList" placeholder="Nome membro" />
             </label>
             <label>Nuovo mezzo utilizzato
-              <input type="text" id="teamVehicleInput" placeholder="Es. Furgone AB123CD" />
+              <input type="text" id="teamVehicleInput" list="vehicleSuggestionsList" placeholder="Es. Furgone AB123CD" />
+            </label>
+          </div>
+          <div class="grid">
+            <label>URL CSV Google Sheet (personale/mezzi)
+              <input type="url" id="teamSheetUrlInput" placeholder="https://docs.google.com/...output=csv" />
+            </label>
+            <label>Membro da elenco Google Sheet
+              <input type="text" id="teamMemberSelect" list="memberSuggestionsList" placeholder="Scrivi per cercare (es. V)" />
+            </label>
+            <label>Mezzo da elenco Google Sheet
+              <input type="text" id="teamVehicleSelect" list="vehicleSuggestionsList" placeholder="Scrivi per cercare mezzo" />
             </label>
           </div>
           <div class="grid">
@@ -317,6 +328,14 @@
               </label>
               <label>Mezzi richiesti
                 <textarea id="teamRequestVehicles" rows="3" placeholder="Es. Furgone + piattaforma"></textarea>
+              </label>
+            </div>
+            <div class="grid">
+              <label>Aggiungi persona da elenco
+                <input type="text" id="teamRequestPersonSuggest" list="memberSuggestionsList" placeholder="Scrivi e scegli un nome" />
+              </label>
+              <label>Aggiungi mezzo da elenco
+                <input type="text" id="teamRequestVehicleSuggest" list="vehicleSuggestionsList" placeholder="Scrivi e scegli un mezzo" />
               </label>
             </div>
             <input type="hidden" id="teamProgramId" />
@@ -371,7 +390,7 @@
                 </select>
               </label>
               <label>Cantiere<input type="text" id="clockInCantiere" placeholder="Nome cantiere"></label>
-              <label>Caposquadra<input type="text" id="clockInCaposquadra" placeholder="Nome caposquadra"></label>
+              <label>Caposquadra<input type="text" id="clockInCaposquadra" list="memberSuggestionsList" placeholder="Nome caposquadra"></label>
             </div>
             <div class="actions">
               <button type="button" class="secondary" id="cancelClockInSetupBtn">Annulla</button>
@@ -390,7 +409,7 @@
                   <input type="text" id="nextCantiere" placeholder="Nuovo cantiere" />
                 </label>
                 <label>Nuovo caposquadra
-                  <input type="text" id="nextCaposquadra" placeholder="Nuovo caposquadra" />
+                  <input type="text" id="nextCaposquadra" list="memberSuggestionsList" placeholder="Nuovo caposquadra" />
                 </label>
               </div>
               <div class="actions">
@@ -434,7 +453,7 @@
               </label>
               <label>Note<textarea id="note" rows="2"></textarea></label>
               <label>Cantiere<input type="text" id="cantiere" /></label>
-              <label>Caposquadra<input type="text" id="caposquadra" /></label>
+              <label>Caposquadra<input type="text" id="caposquadra" list="memberSuggestionsList" /></label>
               <label>Tipo contratto
                 <select id="contratto">
                   <option value="DET">Determinato</option>
@@ -474,6 +493,8 @@
         </div>
       </div>
     </div>
+    <datalist id="memberSuggestionsList"></datalist>
+    <datalist id="vehicleSuggestionsList"></datalist>
 
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
@@ -831,6 +852,8 @@
         id('teamRequestCantiere').value = draft.cantiere || '';
         id('teamRequestPersonnel').value = draft.personale || '';
         id('teamRequestVehicles').value = draft.mezzi || '';
+        id('teamRequestPersonSuggest').value = '';
+        id('teamRequestVehicleSuggest').value = '';
         id('teamProgramId').value = '';
         id('teamImportPreview').textContent = 'Nessun testo estratto da screenshot.';
         renderTeamDirectorySelects();
@@ -838,12 +861,19 @@
       }
       function renderTeamDirectorySelects() {
         const directory = getTeamDirectory();
-        id('teamMemberSelect').innerHTML = ['<option value="">Seleziona membro</option>']
-          .concat((directory.members || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}">${name}</option>`))
-          .join('');
-        id('teamVehicleSelect').innerHTML = ['<option value="">Seleziona mezzo</option>']
-          .concat((directory.vehicles || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}">${name}</option>`))
-          .join('');
+        const memberOptions = (directory.members || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
+        const vehicleOptions = (directory.vehicles || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
+        id('memberSuggestionsList').innerHTML = memberOptions;
+        id('vehicleSuggestionsList').innerHTML = vehicleOptions;
+      }
+      function appendSuggestionToTextarea(inputId, textareaId) {
+        const value = id(inputId).value.trim();
+        if (!value) return;
+        const existing = normalizeListText(id(textareaId).value);
+        const merged = normalizeListText([existing, value].filter(Boolean).join(', '));
+        id(textareaId).value = merged;
+        id(inputId).value = '';
+        saveTeamRequestDraft();
       }
       function parseCsvRows(csvText='') {
         const lines = String(csvText || '').split(/\r?\n/).map((row)=>row.trim()).filter(Boolean);
@@ -1930,6 +1960,10 @@
         id('addTeamMemberFromListBtn').addEventListener('click', ()=>addTeamMember(id('teamMemberSelect').value));
         id('addTeamVehicleBtn').addEventListener('click', addTeamVehicle);
         id('addTeamVehicleFromListBtn').addEventListener('click', ()=>addTeamVehicle(id('teamVehicleSelect').value));
+        id('teamRequestPersonSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'));
+        id('teamRequestVehicleSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'));
+        id('teamRequestPersonSuggest').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'); } });
+        id('teamRequestVehicleSuggest').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'); } });
         id('extractTeamScreenshotBtn').addEventListener('click', extractTeamFromScreenshot);
         id('prefillTeamRequestBtn').addEventListener('click', prefillTeamRequestFromSavedTeam);
         id('saveTeamProgramBtn').addEventListener('click', saveTeamProgram);
