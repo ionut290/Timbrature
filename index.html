@@ -1201,6 +1201,47 @@
           autoPunchInProgress = false;
         }
       }
+      async function autoPunchTick() {
+        if (autoPunchInProgress) return;
+        const today = nowDateISO();
+        const program = programForDate(today);
+        if (!program) return;
+        const geofence = geofenceConfigFromProgram(program);
+        if (!geofence) { updateAutoPunchStatus('Timbratura automatica disattivata: geofence non configurato.', false); return; }
+        const dayIdx = weekDayIndex(today);
+        const dayCfg = getProgramDayConfig(program, dayIdx);
+        const dayTargetHours = Number(getProgramHoursByDay(program, dayIdx) || 0);
+        const record = getRecords().find((r)=>r.data === today);
+        autoPunchInProgress = true;
+        try {
+          if (!record?.entrata && dayCfg?.start) {
+            const nowMinutes = parseTimeToMinutes(nowLocalDateAndTime().time);
+            const startMinutes = parseTimeToMinutes(dayCfg.start);
+            if (nowMinutes != null && startMinutes != null && nowMinutes >= startMinutes) {
+              const geo = await checkInsideGeofence(program);
+              if (geo.inside) {
+                clockInNow({ source:'auto', note:'Auto entrata da geofence', distanceM: Math.round(Number(geo.distanceM || 0)) });
+                return;
+              }
+              updateAutoPunchStatus(`Auto entrata non eseguita: ${geo.reason}`, false);
+            }
+          }
+          const current = getRecords().find((r)=>r.data === today);
+          if (current?.entrata && !current?.uscita && dayTargetHours > 0) {
+            const worked = computeHours(current.entrata, nowLocalDateAndTime().time, Number(current.pausa || 0), current.causale || 'LAV', resolveRulesForDate(today).rules).worked;
+            if (Number(worked) >= dayTargetHours) {
+              const geo = await checkInsideGeofence(program);
+              if (geo.inside) {
+                clockOutNow({ source:'auto', note:'Auto uscita da geofence', distanceM: Math.round(Number(geo.distanceM || 0)) });
+                return;
+              }
+              updateAutoPunchStatus(`Auto uscita non eseguita: ${geo.reason}`, false);
+            }
+          }
+        } finally {
+          autoPunchInProgress = false;
+        }
+      }
       function loadTodayPunch() {
         const today = nowDateISO();
         id('data').value = today;
