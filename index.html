@@ -273,10 +273,24 @@
               <input type="text" id="teamVehicleInput" placeholder="Es. Furgone AB123CD" />
             </label>
           </div>
+          <div class="grid">
+            <label>URL CSV Google Sheet (personale/mezzi)
+              <input type="url" id="teamSheetUrlInput" placeholder="https://docs.google.com/...output=csv" />
+            </label>
+            <label>Membro da elenco Google Sheet
+              <select id="teamMemberSelect"></select>
+            </label>
+            <label>Mezzo da elenco Google Sheet
+              <select id="teamVehicleSelect"></select>
+            </label>
+          </div>
           <div class="inline-actions">
+            <button type="button" class="secondary" id="loadTeamSheetBtn">Carica elenco Google Sheet</button>
             <button type="button" class="secondary" id="saveTeamLeaderBtn">Salva caposquadra</button>
             <button type="button" class="secondary" id="addTeamMemberBtn">Aggiungi membro</button>
+            <button type="button" class="secondary" id="addTeamMemberFromListBtn">Aggiungi membro da elenco</button>
             <button type="button" class="secondary" id="addTeamVehicleBtn">Aggiungi mezzo</button>
+            <button type="button" class="secondary" id="addTeamVehicleFromListBtn">Aggiungi mezzo da elenco</button>
           </div>
           <div class="grid">
             <div>
@@ -470,6 +484,7 @@
       const TEAM_KEY = 'timbrature.local.team';
       const TEAM_REQUEST_DRAFT_KEY = 'timbrature.local.team.request.draft';
       const TEAM_PROGRAMS_KEY = 'timbrature.local.team.programs';
+      const TEAM_DIRECTORY_KEY = 'timbrature.local.team.directory';
       const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
@@ -668,6 +683,8 @@
       function setTeamRequestDraft(v) { writeJSON(TEAM_REQUEST_DRAFT_KEY, v); }
       function getTeamPrograms() { return readJSON(TEAM_PROGRAMS_KEY, []); }
       function setTeamPrograms(v) { writeJSON(TEAM_PROGRAMS_KEY, v); }
+      function getTeamDirectory() { return readJSON(TEAM_DIRECTORY_KEY, { sheetUrl:'', members:[], vehicles:[] }); }
+      function setTeamDirectory(v) { writeJSON(TEAM_DIRECTORY_KEY, v); }
       function updateWelcomeMessage() {
         const profile = getProfile();
         const displayName = (profile.nome || 'Ionel Varga').trim();
@@ -774,17 +791,65 @@
       }
       function renderTeamUI() {
         const team = getTeamConfig();
+        const directory = getTeamDirectory();
         const draft = getTeamRequestDraft() || {};
         id('teamLeaderInput').value = team.leader || '';
         id('teamMembersList').innerHTML = (team.members || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamMember(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun membro inserito.</li>';
         id('teamVehiclesList').innerHTML = (team.vehicles || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamVehicle(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun mezzo inserito.</li>';
+        id('teamSheetUrlInput').value = directory.sheetUrl || '';
         id('teamRequestDate').value = draft.date || selectedMonthDay || tomorrowDateISO();
         id('teamRequestCantiere').value = draft.cantiere || '';
         id('teamRequestPersonnel').value = draft.personale || '';
         id('teamRequestVehicles').value = draft.mezzi || '';
         id('teamProgramId').value = '';
         id('teamImportPreview').textContent = 'Nessun testo estratto da screenshot.';
+        renderTeamDirectorySelects();
         renderTeamProgramsSelect();
+      }
+      function renderTeamDirectorySelects() {
+        const directory = getTeamDirectory();
+        id('teamMemberSelect').innerHTML = ['<option value="">Seleziona membro</option>']
+          .concat((directory.members || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}">${name}</option>`))
+          .join('');
+        id('teamVehicleSelect').innerHTML = ['<option value="">Seleziona mezzo</option>']
+          .concat((directory.vehicles || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}">${name}</option>`))
+          .join('');
+      }
+      function parseCsvRows(csvText='') {
+        const lines = String(csvText || '').split(/\r?\n/).map((row)=>row.trim()).filter(Boolean);
+        if (!lines.length) return [];
+        const delimiter = lines[0].includes(';') ? ';' : ',';
+        return lines.map((line)=>line.split(delimiter).map((cell)=>cell.replace(/^"|"$/g, '').trim()));
+      }
+      function buildDirectoryFromCsv(csvText='') {
+        const rows = parseCsvRows(csvText);
+        if (!rows.length) return { members:[], vehicles:[] };
+        const header = rows[0].map((cell)=>cell.toLowerCase());
+        const memberIdx = header.findIndex((cell)=>/(personale|membro|nome|operaio)/.test(cell));
+        const vehicleIdx = header.findIndex((cell)=>/(mezzo|veicolo|targa|furgone)/.test(cell));
+        const dataRows = rows.slice(1);
+        const members = dataRows.map((row)=>row[memberIdx >= 0 ? memberIdx : 0]).map((v)=>String(v || '').trim()).filter(Boolean);
+        const vehicles = dataRows.map((row)=>row[vehicleIdx >= 0 ? vehicleIdx : 1]).map((v)=>String(v || '').trim()).filter(Boolean);
+        return {
+          members: [...new Set(members)],
+          vehicles: [...new Set(vehicles)]
+        };
+      }
+      async function loadTeamDirectoryFromSheet() {
+        const url = id('teamSheetUrlInput').value.trim();
+        if (!url) { showTeamMsg('Inserisci URL CSV del Google Sheet.', 'err'); return; }
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const csv = await response.text();
+          const parsed = buildDirectoryFromCsv(csv);
+          setTeamDirectory({ sheetUrl:url, members:parsed.members, vehicles:parsed.vehicles });
+          renderTeamDirectorySelects();
+          showTeamMsg(`Elenco caricato da Google Sheet: ${parsed.members.length} membri, ${parsed.vehicles.length} mezzi.`, 'ok');
+        } catch (error) {
+          console.warn('Errore caricamento Google Sheet squadra:', error);
+          showTeamMsg('Impossibile leggere il Google Sheet. Verifica URL CSV pubblico.', 'err');
+        }
       }
       function renderTeamProgramsSelect() {
         const rows = getTeamPrograms().slice().sort((a,b)=>a.date > b.date ? 1 : -1);
@@ -908,23 +973,25 @@
         showTeamMsg('Caposquadra salvato.', 'ok');
         renderTeamUI();
       }
-      function addTeamMember() {
-        const value = id('teamMemberInput').value.trim();
+      function addTeamMember(forcedValue='') {
+        const value = (forcedValue || id('teamMemberInput').value).trim();
         if (!value) { showTeamMsg('Inserisci un nome membro valido.', 'err'); return; }
         const team = getTeamConfig();
         team.members = [...new Set([...(team.members || []), value])];
         setTeamConfig(team);
         id('teamMemberInput').value = '';
+        id('teamMemberSelect').value = '';
         showTeamMsg('Membro aggiunto.', 'ok');
         renderTeamUI();
       }
-      function addTeamVehicle() {
-        const value = id('teamVehicleInput').value.trim();
+      function addTeamVehicle(forcedValue='') {
+        const value = (forcedValue || id('teamVehicleInput').value).trim();
         if (!value) { showTeamMsg('Inserisci un mezzo valido.', 'err'); return; }
         const team = getTeamConfig();
         team.vehicles = [...new Set([...(team.vehicles || []), value])];
         setTeamConfig(team);
         id('teamVehicleInput').value = '';
+        id('teamVehicleSelect').value = '';
         showTeamMsg('Mezzo aggiunto.', 'ok');
         renderTeamUI();
       }
@@ -1770,9 +1837,12 @@
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
         id('saveProfile').addEventListener('click', saveProfile);
+        id('loadTeamSheetBtn').addEventListener('click', loadTeamDirectoryFromSheet);
         id('saveTeamLeaderBtn').addEventListener('click', saveTeamLeader);
         id('addTeamMemberBtn').addEventListener('click', addTeamMember);
+        id('addTeamMemberFromListBtn').addEventListener('click', ()=>addTeamMember(id('teamMemberSelect').value));
         id('addTeamVehicleBtn').addEventListener('click', addTeamVehicle);
+        id('addTeamVehicleFromListBtn').addEventListener('click', ()=>addTeamVehicle(id('teamVehicleSelect').value));
         id('extractTeamScreenshotBtn').addEventListener('click', extractTeamFromScreenshot);
         id('prefillTeamRequestBtn').addEventListener('click', prefillTeamRequestFromSavedTeam);
         id('saveTeamProgramBtn').addEventListener('click', saveTeamProgram);
