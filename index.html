@@ -412,6 +412,7 @@
               <label>Entrata<input type="time" id="entrata"></label>
               <label>Uscita<input type="time" id="uscita"></label>
               <label>Pausa (minuti)<input type="number" id="pausa" min="0" value="0"></label>
+              <label><span>Correggi timbratura: nessuna pausa pranzo auto</span><input type="checkbox" id="disableAutoLunchBreak"></label>
               <label>Causale
                 <select id="causale">
                   <option value="LAV">LAV - Lavoro ordinario</option><option value="FER">FER - Ferie</option><option value="MAL">MAL - Malattia</option><option value="PIO">PIO - Pioggia</option><option value="PER">PER - Permesso</option><option value="TRA">TRA - Trasferta</option><option value="FES">FES - Festivo</option><option value="SW">SW - Smart working</option>
@@ -648,7 +649,8 @@
         const breakMin = Math.max(Number(breakMinutes) || 0, 0);
         return +(Math.max(end - start - breakMin, 0) / 60).toFixed(2);
       }
-      function lunchBreakByContract(dateValue, entrata, uscita, currentPause=0) {
+      function lunchBreakByContract(dateValue, entrata, uscita, currentPause=0, skipAuto=false) {
+        if (skipAuto) return Math.max(Number(currentPause || 0), 0);
         const program = programForDate(dateValue || nowDateISO());
         if (!program?.break_enabled) return Math.max(Number(currentPause || 0), 0);
         const inMin = parseTimeToMinutes(entrata);
@@ -1617,6 +1619,7 @@
           entrata:id('entrata').value,
           uscita:id('uscita').value,
           pausaMinuti:Number(id('pausa').value||0),
+          noLunchBreakAuto:Boolean(id('disableAutoLunchBreak').checked),
           causale:id('causale').value,
           note:id('note').value,
           cantiere:id('cantiere').value.trim(),
@@ -1640,7 +1643,7 @@
         const profile = getProfile();
         const calc = computeHours(payload.entrata, payload.uscita, payload.pausaMinuti, payload.causale, resolveRulesForDate(payload.data).rules);
         const rowSegments = payload.segments || [];
-        const row = { nome: profile.nome || '', azienda: profile.azienda || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, contratto:payload.contratto || 'DET', meteoGestione:payload.meteoGestione || '', team_leader:payload.team_leader || '', team_members:Array.isArray(payload.team_members) ? payload.team_members : [], team_vehicles:Array.isArray(payload.team_vehicles) ? payload.team_vehicles : [], segments: rowSegments, cantiereHours: computeHoursByCantiere(rowSegments), ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, clock_in_source:payload.clock_in_source || 'manual', clock_out_source:payload.clock_out_source || 'manual', clock_in_auto_note:payload.clock_in_auto_note || '', clock_out_auto_note:payload.clock_out_auto_note || '', clock_in_distance_m:payload.clock_in_distance_m ?? null, clock_out_distance_m:payload.clock_out_distance_m ?? null, updated_at:new Date().toISOString() };
+        const row = { nome: profile.nome || '', azienda: profile.azienda || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, no_lunch_break_auto:Boolean(payload.noLunchBreakAuto), causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, contratto:payload.contratto || 'DET', meteoGestione:payload.meteoGestione || '', team_leader:payload.team_leader || '', team_members:Array.isArray(payload.team_members) ? payload.team_members : [], team_vehicles:Array.isArray(payload.team_vehicles) ? payload.team_vehicles : [], segments: rowSegments, cantiereHours: computeHoursByCantiere(rowSegments), ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, clock_in_source:payload.clock_in_source || 'manual', clock_out_source:payload.clock_out_source || 'manual', clock_in_auto_note:payload.clock_in_auto_note || '', clock_out_auto_note:payload.clock_out_auto_note || '', clock_in_distance_m:payload.clock_in_distance_m ?? null, clock_out_distance_m:payload.clock_out_distance_m ?? null, updated_at:new Date().toISOString() };
         const records = getRecords().filter((r)=>r.data !== payload.data);
         records.push(row);
         records.sort((a,b)=>a.data > b.data ? 1 : -1);
@@ -1715,7 +1718,7 @@
         const n = nowLocalDateAndTime();
         id('data').value = id('data').value || opts.forceDate || n.date;
         id('uscita').value=opts.forceTime || n.time;
-        id('pausa').value = lunchBreakByContract(id('data').value, id('entrata').value, id('uscita').value, Number(id('pausa').value || 0));
+        id('pausa').value = lunchBreakByContract(id('data').value, id('entrata').value, id('uscita').value, Number(id('pausa').value || 0), id('disableAutoLunchBreak').checked);
         closeCurrentSegment(id('uscita').value);
         const payload = collectPayload('COMPLETATA', {
           clock_in_source: (getRecords().find((r)=>r.data === id('data').value)?.clock_in_source || 'manual'),
@@ -1814,8 +1817,8 @@
         const today = nowDateISO();
         id('data').value = today;
         const found = getRecords().find((r)=>r.data === today);
-        if (!found) { id('entrata').value=''; id('uscita').value=''; id('pausa').value=0; id('causale').value='LAV'; id('note').value=''; id('cantiere').value=''; id('caposquadra').value=''; id('contratto').value='DET'; id('meteoGestione').value=''; todaySegments = []; applyDefaultBreakForDate(today, true); setPunchStatus('NONE'); return; }
-        id('entrata').value=found.entrata||''; id('uscita').value=found.uscita||''; id('pausa').value=found.pausa||0; id('causale').value=found.causale||'LAV'; id('note').value=found.note||''; id('cantiere').value=found.cantiere||''; id('caposquadra').value=found.caposquadra||''; id('contratto').value=found.contratto||'DET'; id('meteoGestione').value=found.meteoGestione||'';
+        if (!found) { id('entrata').value=''; id('uscita').value=''; id('pausa').value=0; id('disableAutoLunchBreak').checked=false; id('causale').value='LAV'; id('note').value=''; id('cantiere').value=''; id('caposquadra').value=''; id('contratto').value='DET'; id('meteoGestione').value=''; todaySegments = []; applyDefaultBreakForDate(today, true); setPunchStatus('NONE'); return; }
+        id('entrata').value=found.entrata||''; id('uscita').value=found.uscita||''; id('pausa').value=found.pausa||0; id('disableAutoLunchBreak').checked = Boolean(found.no_lunch_break_auto); id('causale').value=found.causale||'LAV'; id('note').value=found.note||''; id('cantiere').value=found.cantiere||''; id('caposquadra').value=found.caposquadra||''; id('contratto').value=found.contratto||'DET'; id('meteoGestione').value=found.meteoGestione||'';
         todaySegments = Array.isArray(found.segments) ? found.segments : (found.entrata ? [{ start:found.entrata, end:found.uscita || '', cantiere:found.cantiere || '', caposquadra:found.caposquadra || '' }] : []);
         if (found.stato === 'COMPLETATA') setPunchStatus('COMPLETATA', found.entrata, found.uscita); else if (found.entrata) setPunchStatus('IN_SERVIZIO', found.entrata); else setPunchStatus('NONE');
       }
@@ -2072,7 +2075,7 @@
         id('saveDraftBtn').addEventListener('click', ()=>upsertRecord(collectPayload('BOZZA'), 'Timbratura corretta e salvata in bozza.'));
         id('saveDayBtn').addEventListener('click', ()=>upsertRecord(collectPayload('COMPLETATA'), 'Timbratura corretta e giornata confermata.'));
         id('data').addEventListener('change', ()=>{ applyDefaultBreakForDate(id('data').value || nowDateISO(), true); refreshPunchSummary(); });
-        ['entrata','uscita','cantiere','caposquadra','pausa','causale'].forEach((fieldId)=>id(fieldId).addEventListener('change', refreshPunchSummary));
+        ['entrata','uscita','cantiere','caposquadra','pausa','causale','disableAutoLunchBreak'].forEach((fieldId)=>id(fieldId).addEventListener('change', refreshPunchSummary));
         formatDateTimeLarge();
         refreshPunchSummary();
         if (liveClockTimer) clearInterval(liveClockTimer);
