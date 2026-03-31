@@ -285,6 +285,7 @@
               </label>
             </div>
             <input type="hidden" id="teamProgramId" />
+            <input type="hidden" id="teamProgramStatus" value="IN_ATTESA" />
             <div class="grid">
               <label>Seleziona programmazione salvata
                 <select id="teamProgramSelect"></select>
@@ -301,6 +302,11 @@
               <button type="button" class="secondary" id="updateTeamProgramBtn">Correggi programmazione</button>
               <button type="button" class="secondary" id="deleteTeamProgramBtn">Elimina programmazione</button>
               <button type="button" id="sendTeamRequestWhatsappBtn">Finalizza e apri WhatsApp</button>
+            </div>
+            <p class="small" id="teamProgramStatusLabel">Stato programmazione: IN_ATTESA</p>
+            <div class="inline-actions">
+              <button type="button" class="secondary" id="markTeamApprovedBtn">Segna APPROVATA</button>
+              <button type="button" class="secondary" id="markTeamRectifyBtn">Segna RETTIFICA</button>
             </div>
             <p class="small">Compila per il giorno successivo, correggi/elimina e inoltra via WhatsApp.</p>
           </div>
@@ -791,6 +797,8 @@
         id('teamRequestPersonSuggest').value = '';
         id('teamRequestVehicleSuggest').value = '';
         id('teamProgramId').value = '';
+        id('teamProgramStatus').value = draft.status || 'IN_ATTESA';
+        id('teamProgramStatusLabel').textContent = `Stato programmazione: ${id('teamProgramStatus').value}`;
         id('teamImportPreview').textContent = 'Nessun testo estratto da screenshot.';
         renderTeamDirectorySelects();
         renderTeamProgramsSelect();
@@ -897,7 +905,7 @@
       function renderTeamProgramsSelect() {
         const rows = getTeamPrograms().slice().sort((a,b)=>a.date > b.date ? 1 : -1);
         id('teamProgramSelect').innerHTML = ['<option value="">Nuova programmazione</option>']
-          .concat(rows.map((row)=>`<option value="${row.id}">${row.date} • ${row.cantiere || 'Cantiere n/d'}</option>`))
+          .concat(rows.map((row)=>`<option value="${row.id}">${row.date} • ${row.cantiere || 'Cantiere n/d'} • ${row.status || 'IN_ATTESA'}</option>`))
           .join('');
       }
       function saveTeamRequestDraft() {
@@ -905,7 +913,8 @@
           date: id('teamRequestDate').value,
           cantiere: id('teamRequestCantiere').value.trim(),
           personale: id('teamRequestPersonnel').value.trim(),
-          mezzi: id('teamRequestVehicles').value.trim()
+          mezzi: id('teamRequestVehicles').value.trim(),
+          status: id('teamProgramStatus').value || 'IN_ATTESA'
         });
       }
       function normalizeListText(value='') {
@@ -959,6 +968,8 @@
           cantiere: id('teamRequestCantiere').value.trim(),
           personale: normalizeListText(id('teamRequestPersonnel').value),
           mezzi: normalizeListText(id('teamRequestVehicles').value),
+          status: id('teamProgramStatus').value || 'IN_ATTESA',
+          status_updated_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
       }
@@ -971,7 +982,24 @@
         id('teamRequestCantiere').value = row.cantiere || '';
         id('teamRequestPersonnel').value = row.personale || '';
         id('teamRequestVehicles').value = row.mezzi || '';
+        id('teamProgramStatus').value = row.status || 'IN_ATTESA';
+        id('teamProgramStatusLabel').textContent = `Stato programmazione: ${id('teamProgramStatus').value}`;
         saveTeamRequestDraft();
+      }
+      function setTeamProgramStatus(status='IN_ATTESA') {
+        id('teamProgramStatus').value = status;
+        id('teamProgramStatusLabel').textContent = `Stato programmazione: ${status}`;
+        saveTeamRequestDraft();
+        const programId = id('teamProgramId').value || id('teamProgramSelect').value;
+        if (!programId) { showTeamMsg(`Stato impostato su ${status}. Salva la programmazione per confermare.`, 'ok'); return; }
+        const rows = getTeamPrograms();
+        const idx = rows.findIndex((entry)=>entry.id === programId);
+        if (idx < 0) { showTeamMsg(`Stato impostato su ${status}. Salva la programmazione per confermare.`, 'ok'); return; }
+        rows[idx] = { ...rows[idx], status, status_updated_at: new Date().toISOString() };
+        setTeamPrograms(rows);
+        renderTeamProgramsSelect();
+        id('teamProgramSelect').value = programId;
+        showTeamMsg(`Programmazione marcata come ${status}.`, 'ok');
       }
       function saveTeamProgram() {
         const payload = buildTeamProgramPayload();
@@ -1071,6 +1099,7 @@
           `Personale richiesto: ${personale}`,
           `Mezzi richiesti: ${mezzi}`,
           `Caposquadra: ${liveCapo || team.leader || 'non indicato'}`,
+          'Rispondi con: APPROVO oppure RETTIFICO.',
           'Confermate disponibilità, grazie.'
         ].join('\n');
         saveTeamRequestDraft();
@@ -1898,6 +1927,8 @@
         id('saveTeamProgramBtn').addEventListener('click', saveTeamProgram);
         id('updateTeamProgramBtn').addEventListener('click', updateTeamProgram);
         id('deleteTeamProgramBtn').addEventListener('click', deleteTeamProgram);
+        id('markTeamApprovedBtn').addEventListener('click', ()=>setTeamProgramStatus('APPROVATA'));
+        id('markTeamRectifyBtn').addEventListener('click', ()=>setTeamProgramStatus('RETTIFICA'));
         id('teamProgramSelect').addEventListener('change', (e)=>loadTeamProgramById(e.target.value || ''));
         id('sendTeamRequestWhatsappBtn').addEventListener('click', openWhatsAppTeamRequest);
         ['teamRequestDate','teamRequestCantiere','teamRequestPersonnel','teamRequestVehicles'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveTeamRequestDraft));
