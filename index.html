@@ -260,62 +260,8 @@
         </div>
 
         <div class="card hidden" id="teamCard">
-          <h2>Gestione caposquadra e squadra</h2>
-          <p class="small">Inserisci il caposquadra, i membri della squadra e i mezzi utilizzati.</p>
-          <div class="grid">
-            <label>Caposquadra
-              <input type="text" id="teamLeaderInput" list="memberSuggestionsList" placeholder="Nome caposquadra" />
-            </label>
-            <label>Nuovo membro squadra
-              <input type="text" id="teamMemberInput" list="memberSuggestionsList" placeholder="Nome membro" />
-            </label>
-            <label>Nuovo mezzo utilizzato
-              <input type="text" id="teamVehicleInput" list="vehicleSuggestionsList" placeholder="Es. Furgone AB123CD" />
-            </label>
-          </div>
-          <div class="grid">
-            <label>URL CSV Google Sheet (personale/mezzi)
-              <input type="url" id="teamSheetUrlInput" placeholder="https://docs.google.com/...output=csv" />
-            </label>
-            <label>Membro da elenco Google Sheet
-              <input type="text" id="teamMemberSelect" list="memberSuggestionsList" placeholder="Scrivi per cercare (es. V)" />
-            </label>
-            <label>Mezzo da elenco Google Sheet
-              <input type="text" id="teamVehicleSelect" list="vehicleSuggestionsList" placeholder="Scrivi per cercare mezzo" />
-            </label>
-          </div>
-          <div class="grid">
-            <label>URL CSV Google Sheet (personale/mezzi)
-              <input type="url" id="teamSheetUrlInput" placeholder="https://docs.google.com/...output=csv" />
-            </label>
-            <label>Membro da elenco Google Sheet
-              <select id="teamMemberSelect"></select>
-            </label>
-            <label>Mezzo da elenco Google Sheet
-              <select id="teamVehicleSelect"></select>
-            </label>
-          </div>
-          <div class="inline-actions">
-            <button type="button" class="secondary" id="loadTeamSheetBtn">Aggiorna elenco Google Sheet</button>
-            <button type="button" class="secondary" id="saveTeamLeaderBtn">Salva caposquadra</button>
-            <button type="button" class="secondary" id="addTeamMemberBtn">Aggiungi membro</button>
-            <button type="button" class="secondary" id="addTeamMemberFromListBtn">Aggiungi membro da elenco</button>
-            <button type="button" class="secondary" id="addTeamVehicleBtn">Aggiungi mezzo</button>
-            <button type="button" class="secondary" id="addTeamVehicleFromListBtn">Aggiungi mezzo da elenco</button>
-          </div>
-          <p class="small" id="teamSheetStatus">Elenco Google Sheet: non sincronizzato.</p>
-          <div class="grid">
-            <div>
-              <h3>Membri squadra</h3>
-              <ul id="teamMembersList" class="segments-list"></ul>
-            </div>
-            <div>
-              <h3>Mezzi utilizzati</h3>
-              <ul id="teamVehiclesList" class="segments-list"></ul>
-            </div>
-          </div>
+          <h2>Programmazione squadra (giorno successivo)</h2>
           <div class="simple-shift" style="margin-top:12px;">
-            <h3>Programmazione squadra (giorno successivo)</h3>
             <div class="grid">
               <label>Data richiesta
                 <input type="date" id="teamRequestDate" />
@@ -343,20 +289,20 @@
               <label>Seleziona programmazione salvata
                 <select id="teamProgramSelect"></select>
               </label>
-              <label>Importa screenshot
+              <label>Importa screenshot (opzionale)
                 <input type="file" id="teamScreenshotInput" accept="image/*" />
               </label>
             </div>
             <div id="teamImportPreview" class="import-preview">Nessun testo estratto da screenshot.</div>
             <div class="inline-actions">
               <button type="button" class="secondary" id="extractTeamScreenshotBtn">Leggi screenshot</button>
-              <button type="button" class="secondary" id="prefillTeamRequestBtn">Usa squadra salvata</button>
+              <button type="button" class="secondary" id="prefillTeamRequestBtn">Usa elenco persone/mezzi</button>
               <button type="button" class="secondary" id="saveTeamProgramBtn">Salva programmazione</button>
               <button type="button" class="secondary" id="updateTeamProgramBtn">Correggi programmazione</button>
               <button type="button" class="secondary" id="deleteTeamProgramBtn">Elimina programmazione</button>
               <button type="button" id="sendTeamRequestWhatsappBtn">Finalizza e apri WhatsApp</button>
             </div>
-            <p class="small">Puoi compilare a mano oppure importare uno screenshot. Poi puoi salvare, correggere, eliminare e inoltrare su WhatsApp.</p>
+            <p class="small">Compila per il giorno successivo, correggi/elimina e inoltra via WhatsApp.</p>
           </div>
           <p id="teamEsito" class="msg"></p>
         </div>
@@ -837,17 +783,7 @@
         id('email').value = p.email || '';
       }
       function renderTeamUI() {
-        const team = getTeamConfig();
-        const directory = getTeamDirectory();
         const draft = getTeamRequestDraft() || {};
-        id('teamLeaderInput').value = team.leader || '';
-        id('teamMembersList').innerHTML = (team.members || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamMember(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun membro inserito.</li>';
-        id('teamVehiclesList').innerHTML = (team.vehicles || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamVehicle(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun mezzo inserito.</li>';
-        id('teamSheetUrlInput').value = FIXED_TEAM_SHEET_URL;
-        id('teamSheetUrlInput').readOnly = true;
-        id('teamSheetStatus').textContent = directory.synced_at
-          ? `Elenco Google Sheet aggiornato: ${new Date(directory.synced_at).toLocaleString('it-IT')}.`
-          : 'Elenco Google Sheet: non sincronizzato.';
         id('teamRequestDate').value = draft.date || selectedMonthDay || tomorrowDateISO();
         id('teamRequestCantiere').value = draft.cantiere || '';
         id('teamRequestPersonnel').value = draft.personale || '';
@@ -949,14 +885,12 @@
           const syncedAt = new Date().toISOString();
           setTeamDirectory({ sheetUrl:finalUrl, members:parsed.members, vehicles:parsed.vehicles, synced_at:syncedAt });
           renderTeamDirectorySelects();
-          id('teamSheetStatus').textContent = `Elenco Google Sheet aggiornato: ${new Date(syncedAt).toLocaleString('it-IT')}.`;
           if (!silent) showTeamMsg(`Elenco aggiornato: ${parsed.members.length} membri, ${parsed.vehicles.length} mezzi.`, 'ok');
         } catch (error) {
           console.warn('Errore caricamento Google Sheet squadra:', error);
           const fallback = { sheetUrl: FIXED_TEAM_SHEET_URL, members: defaultTeamMembersList(), vehicles: defaultTeamVehiclesList(), synced_at:'' };
           setTeamDirectory(fallback);
           renderTeamDirectorySelects();
-          id('teamSheetStatus').textContent = 'Elenco Google Sheet: errore sincronizzazione.';
           if (!silent) showTeamMsg('Impossibile aggiornare dal foglio: caricato elenco interno predefinito.', 'err');
         }
       }
@@ -1117,11 +1051,11 @@
         renderTeamUI();
       }
       function prefillTeamRequestFromSavedTeam() {
-        const team = getTeamConfig();
-        if (!id('teamRequestPersonnel').value.trim()) id('teamRequestPersonnel').value = (team.members || []).join(', ');
-        if (!id('teamRequestVehicles').value.trim()) id('teamRequestVehicles').value = (team.vehicles || []).join(', ');
+        const directory = getTeamDirectory();
+        if (!id('teamRequestPersonnel').value.trim()) id('teamRequestPersonnel').value = (directory.members || []).join(', ');
+        if (!id('teamRequestVehicles').value.trim()) id('teamRequestVehicles').value = (directory.vehicles || []).join(', ');
         saveTeamRequestDraft();
-        showTeamMsg('Richiesta precompilata con squadra/mezzi salvati.', 'ok');
+        showTeamMsg('Richiesta precompilata con persone/mezzi dal foglio.', 'ok');
       }
       function openWhatsAppTeamRequest() {
         const date = id('teamRequestDate').value || nowDateISO();
@@ -1130,12 +1064,13 @@
         const mezzi = id('teamRequestVehicles').value.trim();
         if (!date || !cantiere || !personale || !mezzi) { showTeamMsg('Compila data, cantiere, personale e mezzi prima di finalizzare.', 'err'); return; }
         const team = getTeamConfig();
+        const liveCapo = id('caposquadra')?.value?.trim() || '';
         const message = [
           `Buongiorno, richiesta squadra per il giorno ${date}.`,
           `Cantiere: ${cantiere}`,
           `Personale richiesto: ${personale}`,
           `Mezzi richiesti: ${mezzi}`,
-          `Caposquadra: ${team.leader || 'non indicato'}`,
+          `Caposquadra: ${liveCapo || team.leader || 'non indicato'}`,
           'Confermate disponibilità, grazie.'
         ].join('\n');
         saveTeamRequestDraft();
@@ -1954,12 +1889,6 @@
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
         id('saveProfile').addEventListener('click', saveProfile);
-        id('loadTeamSheetBtn').addEventListener('click', loadTeamDirectoryFromSheet);
-        id('saveTeamLeaderBtn').addEventListener('click', saveTeamLeader);
-        id('addTeamMemberBtn').addEventListener('click', addTeamMember);
-        id('addTeamMemberFromListBtn').addEventListener('click', ()=>addTeamMember(id('teamMemberSelect').value));
-        id('addTeamVehicleBtn').addEventListener('click', addTeamVehicle);
-        id('addTeamVehicleFromListBtn').addEventListener('click', ()=>addTeamVehicle(id('teamVehicleSelect').value));
         id('teamRequestPersonSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'));
         id('teamRequestVehicleSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'));
         id('teamRequestPersonSuggest').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'); } });
