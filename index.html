@@ -205,6 +205,12 @@
             <label>Raggio geofence (metri)
               <input type="number" id="worksiteRadius" min="50" max="5000" step="10" value="1000" />
             </label>
+            <label>Modalità lavoro
+              <select id="workMode">
+                <option value="AZIENDA">Lavoro in azienda</option>
+                <option value="TERRENO">Lavoro sul terreno</option>
+              </select>
+            </label>
           </div>
           <div class="simple-shift">
             <h3>Giorni non lavorativi / festivi</h3>
@@ -307,6 +313,14 @@
             <div class="inline-actions">
               <button type="button" class="secondary" id="markTeamApprovedBtn">Segna APPROVATA</button>
               <button type="button" class="secondary" id="markTeamRectifyBtn">Segna RETTIFICA</button>
+            </div>
+            <div class="grid">
+              <label>Risposta WhatsApp ricevuta
+                <input type="text" id="teamWhatsappReplyInput" placeholder="Incolla: APPROVO / RETTIFICO" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button type="button" class="secondary" id="applyWhatsappReplyBtn">Applica risposta WhatsApp</button>
             </div>
             <p class="small">Compila per il giorno successivo, correggi/elimina e inoltra via WhatsApp.</p>
           </div>
@@ -459,6 +473,7 @@
       const TEAM_REQUEST_DRAFT_KEY = 'timbrature.local.team.request.draft';
       const TEAM_PROGRAMS_KEY = 'timbrature.local.team.programs';
       const TEAM_DIRECTORY_KEY = 'timbrature.local.team.directory';
+      const AUTO_PUNCH_STATE_KEY = 'timbrature.local.auto.punch.state';
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
@@ -633,6 +648,18 @@
         const breakMin = Math.max(Number(breakMinutes) || 0, 0);
         return +(Math.max(end - start - breakMin, 0) / 60).toFixed(2);
       }
+      function lunchBreakByContract(dateValue, entrata, uscita, currentPause=0) {
+        const program = programForDate(dateValue || nowDateISO());
+        if (!program?.break_enabled) return Math.max(Number(currentPause || 0), 0);
+        const inMin = parseTimeToMinutes(entrata);
+        const outMin = parseTimeToMinutes(uscita);
+        if (inMin == null || outMin == null) return Math.max(Number(currentPause || 0), 0);
+        const lunchStart = 12 * 60;
+        const lunchEnd = 13 * 60;
+        const overlapsLunch = inMin <= lunchStart && outMin >= lunchEnd;
+        if (!overlapsLunch) return Math.max(Number(currentPause || 0), 0);
+        return Math.max(Number(currentPause || 0), 60);
+      }
       function roundMinutes(minutes, step) { return !step || step<=0 ? minutes : Math.round(minutes / step) * step; }
       function computeHours(entrata, uscita, pausaMinuti, causale, rules) {
         if (!CAUSALI_LAVORATIVE.includes(causale)) return { worked:0, ord:0, stra:0 };
@@ -660,6 +687,8 @@
       function setTeamRequestDraft(v) { writeJSON(TEAM_REQUEST_DRAFT_KEY, v); }
       function getTeamPrograms() { return readJSON(TEAM_PROGRAMS_KEY, []); }
       function setTeamPrograms(v) { writeJSON(TEAM_PROGRAMS_KEY, v); }
+      function getAutoPunchState() { return readJSON(AUTO_PUNCH_STATE_KEY, {}); }
+      function setAutoPunchState(v) { writeJSON(AUTO_PUNCH_STATE_KEY, v); }
       function defaultTeamMembersList() { return [...new Set(DEFAULT_TEAM_MEMBERS_TEXT.split('|').map((v)=>v.trim()).filter(Boolean))]; }
       function defaultTeamVehiclesList() { return [...new Set(DEFAULT_TEAM_VEHICLES_TEXT.split('|').map((v)=>v.trim()).filter(Boolean))]; }
       function getTeamDirectory() { return readJSON(TEAM_DIRECTORY_KEY, { sheetUrl:FIXED_TEAM_SHEET_URL, members:defaultTeamMembersList(), vehicles:defaultTeamVehiclesList(), synced_at:'' }); }
@@ -754,6 +783,7 @@
           worksite_lat: id('worksiteLat').value,
           worksite_lng: id('worksiteLng').value,
           worksite_radius_m: id('worksiteRadius').value,
+          work_mode: id('workMode').value || 'AZIENDA',
           non_working_days: getSelectedNonWorkingDays(),
           auto_italian_holidays: id('autoItalianHolidays').value,
           simple_start: id('simpleStartCommon').value,
@@ -776,6 +806,7 @@
         if (draft.worksite_lat != null) id('worksiteLat').value = draft.worksite_lat;
         if (draft.worksite_lng != null) id('worksiteLng').value = draft.worksite_lng;
         if (draft.worksite_radius_m != null) id('worksiteRadius').value = draft.worksite_radius_m;
+        if (draft.work_mode) id('workMode').value = draft.work_mode;
         setSelectedNonWorkingDays(draft.non_working_days || []);
         if (draft.auto_italian_holidays != null) id('autoItalianHolidays').value = draft.auto_italian_holidays;
         if (draft.simple_start) id('simpleStartCommon').value = draft.simple_start;
@@ -796,6 +827,7 @@
         id('teamRequestVehicles').value = draft.mezzi || '';
         id('teamRequestPersonSuggest').value = '';
         id('teamRequestVehicleSuggest').value = '';
+        id('teamWhatsappReplyInput').value = '';
         id('teamProgramId').value = '';
         id('teamProgramStatus').value = draft.status || 'IN_ATTESA';
         id('teamProgramStatusLabel').textContent = `Stato programmazione: ${id('teamProgramStatus').value}`;
@@ -986,20 +1018,54 @@
         id('teamProgramStatusLabel').textContent = `Stato programmazione: ${id('teamProgramStatus').value}`;
         saveTeamRequestDraft();
       }
+      function updateStoredProgramStatus(programId, status) {
+        const rows = getTeamPrograms();
+        const idx = rows.findIndex((entry)=>entry.id === programId);
+        if (idx < 0) return false;
+        rows[idx] = { ...rows[idx], status, status_updated_at: new Date().toISOString() };
+        setTeamPrograms(rows);
+        renderTeamProgramsSelect();
+        id('teamProgramSelect').value = programId;
+        return true;
+      }
       function setTeamProgramStatus(status='IN_ATTESA') {
         id('teamProgramStatus').value = status;
         id('teamProgramStatusLabel').textContent = `Stato programmazione: ${status}`;
         saveTeamRequestDraft();
         const programId = id('teamProgramId').value || id('teamProgramSelect').value;
-        if (!programId) { showTeamMsg(`Stato impostato su ${status}. Salva la programmazione per confermare.`, 'ok'); return; }
-        const rows = getTeamPrograms();
-        const idx = rows.findIndex((entry)=>entry.id === programId);
-        if (idx < 0) { showTeamMsg(`Stato impostato su ${status}. Salva la programmazione per confermare.`, 'ok'); return; }
-        rows[idx] = { ...rows[idx], status, status_updated_at: new Date().toISOString() };
-        setTeamPrograms(rows);
-        renderTeamProgramsSelect();
-        id('teamProgramSelect').value = programId;
+        if (!programId || !updateStoredProgramStatus(programId, status)) { showTeamMsg(`Stato impostato su ${status}. Salva la programmazione per confermare.`, 'ok'); return; }
         showTeamMsg(`Programmazione marcata come ${status}.`, 'ok');
+      }
+      function applyWhatsappReplyStatus() {
+        const text = (id('teamWhatsappReplyInput').value || '').trim().toUpperCase();
+        if (!text) { showTeamMsg('Incolla prima la risposta WhatsApp.', 'err'); return; }
+        if (text.includes('APPROV')) { setTeamProgramStatus('APPROVATA'); return; }
+        if (text.includes('RETTIFIC') || text.includes('RETIFIC')) { setTeamProgramStatus('RETTIFICA'); return; }
+        showTeamMsg('Risposta non riconosciuta. Usa APPROVO o RETTIFICO.', 'err');
+      }
+      function buildStatusLink(statusValue, programId='') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('teamStatus', statusValue);
+        if (programId) url.searchParams.set('teamProgramId', programId);
+        return url.toString();
+      }
+      function applyStatusFromQueryParams() {
+        const params = new URLSearchParams(window.location.search);
+        const status = (params.get('teamStatus') || '').toUpperCase();
+        const programId = params.get('teamProgramId') || '';
+        if (!status) return;
+        const normalized = status.includes('APPROV') ? 'APPROVATA' : (status.includes('RETT') ? 'RETTIFICA' : '');
+        if (!normalized) return;
+        if (programId && updateStoredProgramStatus(programId, normalized)) {
+          id('teamProgramId').value = programId;
+          id('teamProgramStatus').value = normalized;
+          id('teamProgramStatusLabel').textContent = `Stato programmazione: ${normalized}`;
+          showTeamMsg(`Stato aggiornato da link WhatsApp: ${normalized}.`, 'ok');
+        }
+        params.delete('teamStatus');
+        params.delete('teamProgramId');
+        const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+        window.history.replaceState({}, '', nextUrl);
       }
       function saveTeamProgram() {
         const payload = buildTeamProgramPayload();
@@ -1093,13 +1159,18 @@
         if (!date || !cantiere || !personale || !mezzi) { showTeamMsg('Compila data, cantiere, personale e mezzi prima di finalizzare.', 'err'); return; }
         const team = getTeamConfig();
         const liveCapo = id('caposquadra')?.value?.trim() || '';
+        const currentProgramId = id('teamProgramId').value || id('teamProgramSelect').value || '';
+        const approveLink = buildStatusLink('APPROVATA', currentProgramId);
+        const rectifyLink = buildStatusLink('RETTIFICA', currentProgramId);
         const message = [
           `Buongiorno, richiesta squadra per il giorno ${date}.`,
           `Cantiere: ${cantiere}`,
           `Personale richiesto: ${personale}`,
           `Mezzi richiesti: ${mezzi}`,
           `Caposquadra: ${liveCapo || team.leader || 'non indicato'}`,
-          'Rispondi con: APPROVO oppure RETTIFICO.',
+          'Conferma con un tap:',
+          `✅ APPROVO: ${approveLink}`,
+          `✏️ RETTIFICO: ${rectifyLink}`,
           'Confermate disponibilità, grazie.'
         ].join('\n');
         saveTeamRequestDraft();
@@ -1133,6 +1204,7 @@
           worksite_lat: Number(id('worksiteLat').value || 0) || null,
           worksite_lng: Number(id('worksiteLng').value || 0) || null,
           worksite_radius_m: Math.max(Number(id('worksiteRadius').value || 1000), 50),
+          work_mode: id('workMode').value || 'AZIENDA',
           non_working_days: getSelectedNonWorkingDays(),
           auto_italian_holidays: id('autoItalianHolidays').value === 'true',
           monday_start:id('startMon').value, monday_end:id('endMon').value, monday_break_minutes:Number(id('breakMon').value||0), monday_hours:Number(id('hoursMon').value||0),
@@ -1157,6 +1229,7 @@
         id('worksiteLat').value = Number.isFinite(Number(p.worksite_lat)) ? Number(p.worksite_lat) : '';
         id('worksiteLng').value = Number.isFinite(Number(p.worksite_lng)) ? Number(p.worksite_lng) : '';
         id('worksiteRadius').value = Math.max(Number(p.worksite_radius_m || 1000), 50);
+        id('workMode').value = p.work_mode || 'AZIENDA';
         setSelectedNonWorkingDays(p.non_working_days || []);
         id('autoItalianHolidays').value = String(p.auto_italian_holidays !== false);
         id('startMon').value = p.monday_start || ''; id('endMon').value = p.monday_end || ''; id('breakMon').value = Number(p.monday_break_minutes ?? p.break_minutes ?? 0); id('hoursMon').value = Number(p.monday_hours||0);
@@ -1325,7 +1398,7 @@
           ? `${Number(program.worksite_lat).toFixed(6)}, ${Number(program.worksite_lng).toFixed(6)} (raggio ${Math.max(Number(program.worksite_radius_m || 1000), 50)}m)`
           : 'non configurato';
         const italianFest = program.auto_italian_holidays === false ? 'No' : 'Sì';
-        id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Gruppi: ${customSummary || '-'} • Geofence: ${geo} • Giorni non lavorativi: ${nonWorking} • Festività italiane auto: ${italianFest}</p>`;
+        id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Gruppi: ${customSummary || '-'} • Geofence: ${geo} • Modalità lavoro: ${program.work_mode || 'AZIENDA'} • Giorni non lavorativi: ${nonWorking} • Festività italiane auto: ${italianFest}</p>`;
         id('programSummary').classList.remove('hidden');
       }
       function autoFillHoursFromContract() {
@@ -1642,6 +1715,7 @@
         const n = nowLocalDateAndTime();
         id('data').value = id('data').value || opts.forceDate || n.date;
         id('uscita').value=opts.forceTime || n.time;
+        id('pausa').value = lunchBreakByContract(id('data').value, id('entrata').value, id('uscita').value, Number(id('pausa').value || 0));
         closeCurrentSegment(id('uscita').value);
         const payload = collectPayload('COMPLETATA', {
           clock_in_source: (getRecords().find((r)=>r.data === id('data').value)?.clock_in_source || 'manual'),
@@ -1653,6 +1727,11 @@
           ? `Timbratura automatica uscita effettuata alle ${id('uscita').value}.`
           : `Uscita registrata alle ${id('uscita').value}.`;
         const r = upsertRecord(payload, msg);
+        if (r) {
+          const state = getAutoPunchState();
+          delete state[id('data').value];
+          setAutoPunchState(state);
+        }
         if (r) setPunchStatus('COMPLETATA', id('entrata').value, id('uscita').value);
       }
       async function autoPunchTick() {
@@ -1666,9 +1745,9 @@
         }
         const geofence = geofenceConfigFromProgram(program);
         if (!geofence) { updateAutoPunchStatus('Timbratura automatica disattivata: geofence non configurato.', false); return; }
+        const workMode = (program.work_mode || 'AZIENDA').toUpperCase();
         const dayIdx = weekDayIndex(today);
         const dayCfg = getProgramDayConfig(program, dayIdx);
-        const dayTargetHours = Number(getProgramHoursByDay(program, dayIdx) || 0);
         const record = getRecords().find((r)=>r.data === today);
         autoPunchInProgress = true;
         try {
@@ -1689,31 +1768,43 @@
                 });
                 return;
               }
-              updateAutoPunchStatus(`Auto entrata non eseguita: ${geo.reason}`, false);
+              updateAutoPunchStatus('Auto entrata in attesa: verrà fatta quando arrivi in azienda.', false);
             }
           }
           const current = getRecords().find((r)=>r.data === today);
-          if (current?.entrata && !current?.uscita && dayTargetHours > 0) {
-            const worked = computeHours(current.entrata, nowLocalDateAndTime().time, Number(current.pausa || 0), current.causale || 'LAV', resolveRulesForDate(today).rules).worked;
-            if (Number(worked) >= dayTargetHours) {
-              const geo = await checkInsideGeofence(program);
-              if (geo.inside) {
-                const scheduledEnd = dayCfg.end || addMinutesToTime(dayCfg.start || current.entrata, Math.round((dayTargetHours * 60) + Number(dayCfg.breakMin || 0)));
-                const nowTime = nowLocalDateAndTime().time;
-                const nowMin = parseTimeToMinutes(nowTime);
-                const endMin = parseTimeToMinutes(scheduledEnd);
-                const useRecovered = endMin != null && nowMin != null && (nowMin - endMin > 15);
+          if (current?.entrata && !current?.uscita) {
+            const geo = await checkInsideGeofence(program);
+            const autoState = getAutoPunchState();
+            const dayState = autoState[today] || { leftCompany:false };
+            if (!geo.inside) dayState.leftCompany = true;
+            autoState[today] = dayState;
+            setAutoPunchState(autoState);
+            if (workMode === 'TERRENO') {
+              if (dayState.leftCompany && geo.inside) {
                 clockOutNow({
                   source:'auto',
-                  note: useRecovered ? 'Auto uscita recuperata dopo riapertura app' : 'Auto uscita da geofence',
+                  note:'Auto uscita rientro in azienda (modalità TERRENO)',
                   distanceM: Math.round(Number(geo.distanceM || 0)),
                   forceDate: today,
-                  forceTime: useRecovered ? scheduledEnd : nowTime
+                  forceTime: nowLocalDateAndTime().time
                 });
                 return;
               }
-              updateAutoPunchStatus(`Auto uscita non eseguita: ${geo.reason}`, false);
+              updateAutoPunchStatus('Modalità TERRENO: uscita automatica quando rientri in azienda.', false);
+              return;
             }
+            const distance = Number(geo.distanceM || 0);
+            if (!geo.inside && distance > 1000) {
+              clockOutNow({
+                source:'auto',
+                note:'Auto uscita: allontanamento oltre 1km (modalità AZIENDA)',
+                distanceM: Math.round(distance),
+                forceDate: today,
+                forceTime: nowLocalDateAndTime().time
+              });
+              return;
+            }
+            updateAutoPunchStatus('Modalità AZIENDA: uscita automatica oltre 1km dall’azienda.', false);
           }
         } finally {
           autoPunchInProgress = false;
@@ -1929,6 +2020,7 @@
         id('deleteTeamProgramBtn').addEventListener('click', deleteTeamProgram);
         id('markTeamApprovedBtn').addEventListener('click', ()=>setTeamProgramStatus('APPROVATA'));
         id('markTeamRectifyBtn').addEventListener('click', ()=>setTeamProgramStatus('RETTIFICA'));
+        id('applyWhatsappReplyBtn').addEventListener('click', applyWhatsappReplyStatus);
         id('teamProgramSelect').addEventListener('change', (e)=>loadTeamProgramById(e.target.value || ''));
         id('sendTeamRequestWhatsappBtn').addEventListener('click', openWhatsAppTeamRequest);
         ['teamRequestDate','teamRequestCantiere','teamRequestPersonnel','teamRequestVehicles'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveTeamRequestDraft));
@@ -1937,7 +2029,7 @@
         id('contractTemplate').addEventListener('change', ()=>{ buildContractLevelsOptions(); saveProgramDraftUI(); });
         id('contractLevel').addEventListener('change', ()=>{ updateContractHintAndRates(); saveProgramDraftUI(); });
         id('contractEmploymentType').addEventListener('change', ()=>{ updateContractHintAndRates(); saveProgramDraftUI(); });
-        ['programBreakMinutes','nightBonusPercent','overtimeBonusPercent','simpleStartCommon','simpleBreakCommon','worksiteLat','worksiteLng','worksiteRadius','autoItalianHolidays'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveProgramDraftUI));
+        ['programBreakMinutes','nightBonusPercent','overtimeBonusPercent','simpleStartCommon','simpleBreakCommon','worksiteLat','worksiteLng','worksiteRadius','workMode','autoItalianHolidays'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveProgramDraftUI));
         document.querySelectorAll('#nonWorkingDaysSelector input[type="checkbox"]').forEach((checkbox)=>checkbox.addEventListener('change', saveProgramDraftUI));
         id('programBreakEnabled').addEventListener('change', ()=>{
           if (id('programBreakEnabled').value === 'true' && Number(id('programBreakMinutes').value || 0) <= 0) id('programBreakMinutes').value = 60;
@@ -1988,6 +2080,7 @@
         if (autoPunchTimer) clearInterval(autoPunchTimer);
         autoPunchTimer = window.setInterval(()=>{ autoPunchTick(); }, 30000);
         autoPunchTick();
+        applyStatusFromQueryParams();
       }
 
       window.onload = init;
