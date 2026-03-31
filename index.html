@@ -284,6 +284,17 @@
               <input type="text" id="teamVehicleSelect" list="vehicleSuggestionsList" placeholder="Scrivi per cercare mezzo" />
             </label>
           </div>
+          <div class="grid">
+            <label>URL CSV Google Sheet (personale/mezzi)
+              <input type="url" id="teamSheetUrlInput" placeholder="https://docs.google.com/...output=csv" />
+            </label>
+            <label>Membro da elenco Google Sheet
+              <select id="teamMemberSelect"></select>
+            </label>
+            <label>Mezzo da elenco Google Sheet
+              <select id="teamVehicleSelect"></select>
+            </label>
+          </div>
           <div class="inline-actions">
             <button type="button" class="secondary" id="loadTeamSheetBtn">Aggiorna elenco Google Sheet</button>
             <button type="button" class="secondary" id="saveTeamLeaderBtn">Salva caposquadra</button>
