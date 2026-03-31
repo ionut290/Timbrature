@@ -132,6 +132,7 @@
             <div class="menu-links">
               <button type="button" class="menu-link active" data-menu-target="timbratureCard">Nuova timbratura / giornata</button>
               <button type="button" class="menu-link" data-menu-target="programCard">Impostazioni contratto</button>
+              <button type="button" class="menu-link" data-menu-target="teamCard">Caposquadra / squadra</button>
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
@@ -194,6 +195,34 @@
             <label>Maggiorazione straordinario (%)
               <input type="number" id="overtimeBonusPercent" min="0" step="0.1" value="0" />
             </label>
+            <label>Latitudine luogo lavoro
+              <input type="number" id="worksiteLat" min="-90" max="90" step="0.000001" placeholder="45.464200" />
+            </label>
+            <label>Longitudine luogo lavoro
+              <input type="number" id="worksiteLng" min="-180" max="180" step="0.000001" placeholder="9.190000" />
+            </label>
+            <label>Raggio geofence (metri)
+              <input type="number" id="worksiteRadius" min="50" max="5000" step="10" value="1000" />
+            </label>
+          </div>
+          <div class="simple-shift">
+            <h3>Giorni non lavorativi / festivi</h3>
+            <p class="small">Se timbri in questi giorni, le ore verranno pagate come festive.</p>
+            <div class="day-selector" id="nonWorkingDaysSelector">
+              <label><input type="checkbox" value="0"> Lun</label>
+              <label><input type="checkbox" value="1"> Mar</label>
+              <label><input type="checkbox" value="2"> Mer</label>
+              <label><input type="checkbox" value="3"> Gio</label>
+              <label><input type="checkbox" value="4"> Ven</label>
+              <label><input type="checkbox" value="5"> Sab</label>
+              <label><input type="checkbox" value="6"> Dom</label>
+            </div>
+            <label style="margin-top:10px;">Usa automaticamente festività nazionali italiane?
+              <select id="autoItalianHolidays">
+                <option value="true">Sì</option>
+                <option value="false">No</option>
+              </select>
+            </label>
           </div>
           <div class="contract-grid">
             <div class="simple-shift">
@@ -229,6 +258,38 @@
           <div id="programSummary" class="program-summary hidden"></div>
         </div>
 
+        <div class="card hidden" id="teamCard">
+          <h2>Gestione caposquadra e squadra</h2>
+          <p class="small">Inserisci il caposquadra, i membri della squadra e i mezzi utilizzati.</p>
+          <div class="grid">
+            <label>Caposquadra
+              <input type="text" id="teamLeaderInput" placeholder="Nome caposquadra" />
+            </label>
+            <label>Nuovo membro squadra
+              <input type="text" id="teamMemberInput" placeholder="Nome membro" />
+            </label>
+            <label>Nuovo mezzo utilizzato
+              <input type="text" id="teamVehicleInput" placeholder="Es. Furgone AB123CD" />
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" class="secondary" id="saveTeamLeaderBtn">Salva caposquadra</button>
+            <button type="button" class="secondary" id="addTeamMemberBtn">Aggiungi membro</button>
+            <button type="button" class="secondary" id="addTeamVehicleBtn">Aggiungi mezzo</button>
+          </div>
+          <div class="grid">
+            <div>
+              <h3>Membri squadra</h3>
+              <ul id="teamMembersList" class="segments-list"></ul>
+            </div>
+            <div>
+              <h3>Mezzi utilizzati</h3>
+              <ul id="teamVehiclesList" class="segments-list"></ul>
+            </div>
+          </div>
+          <p id="teamEsito" class="msg"></p>
+        </div>
+
         <div class="card" id="timbratureCard">
           <div class="timbratura-head">
             <div>
@@ -245,6 +306,7 @@
             <button id="clockOutBtn" class="btn-red" type="button" disabled>🔴 Timbra uscita</button>
           </div>
           <p id="serviceStatus" class="status-line status-neutral">Non in servizio.</p>
+          <p id="autoPunchStatus" class="status-line status-neutral">Timbratura automatica: in attesa.</p>
           <p id="dayCompletedText" class="status-line status-ok hidden">Giornata completata, buon riposo.</p>
           <div class="setup-box hidden" id="clockInSetupBox">
             <div class="grid">
@@ -363,11 +425,13 @@
 
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
+      const FESTIVE_BONUS_PERCENT_DEFAULT = 30;
       const PROFILE_KEY = 'timbrature.local.profile';
       const RECORDS_KEY = 'timbrature.local.records';
       const PROGRAMS_KEY = 'timbrature.local.programs';
       const PROGRAM_DRAFT_KEY = 'timbrature.local.program.draft';
-      const menuPanelIds = ['timbratureCard', 'programCard', 'storicoCard', 'userBox'];
+      const TEAM_KEY = 'timbrature.local.team';
+      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
           label: 'Edilizia industria',
@@ -436,6 +500,8 @@
       let menuOpen = false;
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
       let liveClockTimer = null;
+      let autoPunchTimer = null;
+      let autoPunchInProgress = false;
       let todaySegments = [];
       let selectedMonthDay = '';
 
@@ -447,6 +513,57 @@
       const showMsg = (m, t='ok') => { id('esito').className = `msg ${t}`; id('esito').textContent = m; };
       const showProgramMsg = (m, t='ok') => { id('programEsito').className = `msg ${t}`; id('programEsito').textContent = m; };
       const showProfileMsg = (m, t='ok') => { id('profileEsito').className = `msg ${t}`; id('profileEsito').textContent = m; };
+      const showTeamMsg = (m, t='ok') => { id('teamEsito').className = `msg ${t}`; id('teamEsito').textContent = m; };
+      function getSelectedNonWorkingDays() {
+        return Array.from(document.querySelectorAll('#nonWorkingDaysSelector input[type="checkbox"]:checked'))
+          .map((el)=>Number(el.value))
+          .filter((idx)=>Number.isInteger(idx) && idx >= 0 && idx <= 6)
+          .sort((a,b)=>a-b);
+      }
+      function setSelectedNonWorkingDays(days=[]) {
+        const normalized = new Set((Array.isArray(days) ? days : []).map((x)=>Number(x)));
+        document.querySelectorAll('#nonWorkingDaysSelector input[type="checkbox"]').forEach((el)=>{
+          el.checked = normalized.has(Number(el.value));
+        });
+      }
+      function easterDate(year) {
+        const a = year % 19;
+        const b = Math.floor(year / 100);
+        const c = year % 100;
+        const d = Math.floor(b / 4);
+        const e = b % 4;
+        const f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3);
+        const h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4);
+        const k = c % 4;
+        const l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const month = Math.floor((h + l - 7 * m + 114) / 31);
+        const day = ((h + l - 7 * m + 114) % 31) + 1;
+        return new Date(year, month - 1, day);
+      }
+      function dateToISO(d) {
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }
+      function isItalianNationalHoliday(dateValue) {
+        const d = new Date(`${dateValue}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return false;
+        const y = d.getFullYear();
+        const md = `${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        const fixed = new Set(['01-01','01-06','04-25','05-01','06-02','08-15','11-01','12-08','12-25','12-26']);
+        if (fixed.has(md)) return true;
+        const pasquetta = new Date(easterDate(y));
+        pasquetta.setDate(pasquetta.getDate() + 1);
+        return dateToISO(pasquetta) === dateValue;
+      }
+      function isNonWorkingByProgram(program, dateValue) {
+        const dayIdx = weekDayIndex(dateValue);
+        const nonWorking = Array.isArray(program?.non_working_days) ? program.non_working_days.map((x)=>Number(x)) : [];
+        if (nonWorking.includes(dayIdx)) return true;
+        if (program?.auto_italian_holidays !== false && isItalianNationalHoliday(dateValue)) return true;
+        return false;
+      }
       function getPresetRate(templateKey, levelKey, employmentType='IND') {
         const preset = CONTRACT_PRESETS[templateKey];
         if (!preset) return null;
@@ -499,6 +616,8 @@
       function setRecords(v) { writeJSON(RECORDS_KEY, v); }
       function getProfile() { return readJSON(PROFILE_KEY, { nome:'', azienda:'', email:'' }); }
       function setProfile(v) { writeJSON(PROFILE_KEY, v); }
+      function getTeamConfig() { return readJSON(TEAM_KEY, { leader:'', members:[], vehicles:[] }); }
+      function setTeamConfig(v) { writeJSON(TEAM_KEY, v); }
       function getProgramDraft() { return readJSON(PROGRAM_DRAFT_KEY, null); }
       function setProgramDraft(v) { writeJSON(PROGRAM_DRAFT_KEY, v); }
       function updateWelcomeMessage() {
@@ -518,8 +637,8 @@
         return nearestPrevious || sorted[0] || null;
       }
       function getProgramDayConfig(program, dayIndex) {
-        if (dayIndex === 6 && program.holidays_non_working) return { hours:0, start:'', end:'', breakMin:0 };
-        if (dayIndex === 5 && program.prefestive_non_working) return { hours:0, start:'', end:'', breakMin:0 };
+        const nonWorking = Array.isArray(program?.non_working_days) ? program.non_working_days.map((x)=>Number(x)) : [];
+        if (nonWorking.includes(dayIndex)) return { hours:0, start:'', end:'', breakMin:0 };
         const dayMap = [
           { hours: Number(program.monday_hours||0), start: program.monday_start, end: program.monday_end, breakMin: Number(program.monday_break_minutes ?? program.break_minutes ?? 0) },
           { hours: Number(program.tuesday_hours||0), start: program.tuesday_start, end: program.tuesday_end, breakMin: Number(program.tuesday_break_minutes ?? program.break_minutes ?? 0) },
@@ -568,6 +687,11 @@
           break_minutes: id('programBreakMinutes').value,
           night_bonus_percent: id('nightBonusPercent').value,
           overtime_bonus_percent: id('overtimeBonusPercent').value,
+          worksite_lat: id('worksiteLat').value,
+          worksite_lng: id('worksiteLng').value,
+          worksite_radius_m: id('worksiteRadius').value,
+          non_working_days: getSelectedNonWorkingDays(),
+          auto_italian_holidays: id('autoItalianHolidays').value,
           simple_start: id('simpleStartCommon').value,
           simple_break: id('simpleBreakCommon').value,
           groups: getCustomGroups()
@@ -585,6 +709,11 @@
         if (draft.break_minutes != null) id('programBreakMinutes').value = draft.break_minutes;
         if (draft.night_bonus_percent != null) id('nightBonusPercent').value = draft.night_bonus_percent;
         if (draft.overtime_bonus_percent != null) id('overtimeBonusPercent').value = draft.overtime_bonus_percent;
+        if (draft.worksite_lat != null) id('worksiteLat').value = draft.worksite_lat;
+        if (draft.worksite_lng != null) id('worksiteLng').value = draft.worksite_lng;
+        if (draft.worksite_radius_m != null) id('worksiteRadius').value = draft.worksite_radius_m;
+        setSelectedNonWorkingDays(draft.non_working_days || []);
+        if (draft.auto_italian_holidays != null) id('autoItalianHolidays').value = draft.auto_italian_holidays;
         if (draft.simple_start) id('simpleStartCommon').value = draft.simple_start;
         if (draft.simple_break != null) id('simpleBreakCommon').value = draft.simple_break;
         setCustomGroups(draft.groups || [{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
@@ -594,6 +723,52 @@
         id('nome').value = p.nome || '';
         id('azienda').value = p.azienda || '';
         id('email').value = p.email || '';
+      }
+      function renderTeamUI() {
+        const team = getTeamConfig();
+        id('teamLeaderInput').value = team.leader || '';
+        id('teamMembersList').innerHTML = (team.members || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamMember(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun membro inserito.</li>';
+        id('teamVehiclesList').innerHTML = (team.vehicles || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamVehicle(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun mezzo inserito.</li>';
+      }
+      function saveTeamLeader() {
+        const team = getTeamConfig();
+        team.leader = id('teamLeaderInput').value.trim();
+        setTeamConfig(team);
+        if (!id('caposquadra').value && team.leader) id('caposquadra').value = team.leader;
+        showTeamMsg('Caposquadra salvato.', 'ok');
+        renderTeamUI();
+      }
+      function addTeamMember() {
+        const value = id('teamMemberInput').value.trim();
+        if (!value) { showTeamMsg('Inserisci un nome membro valido.', 'err'); return; }
+        const team = getTeamConfig();
+        team.members = [...new Set([...(team.members || []), value])];
+        setTeamConfig(team);
+        id('teamMemberInput').value = '';
+        showTeamMsg('Membro aggiunto.', 'ok');
+        renderTeamUI();
+      }
+      function addTeamVehicle() {
+        const value = id('teamVehicleInput').value.trim();
+        if (!value) { showTeamMsg('Inserisci un mezzo valido.', 'err'); return; }
+        const team = getTeamConfig();
+        team.vehicles = [...new Set([...(team.vehicles || []), value])];
+        setTeamConfig(team);
+        id('teamVehicleInput').value = '';
+        showTeamMsg('Mezzo aggiunto.', 'ok');
+        renderTeamUI();
+      }
+      function removeTeamMember(idx) {
+        const team = getTeamConfig();
+        team.members = (team.members || []).filter((_, i)=>i !== idx);
+        setTeamConfig(team);
+        renderTeamUI();
+      }
+      function removeTeamVehicle(idx) {
+        const team = getTeamConfig();
+        team.vehicles = (team.vehicles || []).filter((_, i)=>i !== idx);
+        setTeamConfig(team);
+        renderTeamUI();
       }
 
       function collectProgramPayload() {
@@ -613,6 +788,11 @@
           hourly_rate: manualHourly,
           night_bonus_percent:Number(id('nightBonusPercent').value||0),
           overtime_bonus_percent:Number(id('overtimeBonusPercent').value||0),
+          worksite_lat: Number(id('worksiteLat').value || 0) || null,
+          worksite_lng: Number(id('worksiteLng').value || 0) || null,
+          worksite_radius_m: Math.max(Number(id('worksiteRadius').value || 1000), 50),
+          non_working_days: getSelectedNonWorkingDays(),
+          auto_italian_holidays: id('autoItalianHolidays').value === 'true',
           monday_start:id('startMon').value, monday_end:id('endMon').value, monday_break_minutes:Number(id('breakMon').value||0), monday_hours:Number(id('hoursMon').value||0),
           tuesday_start:id('startTue').value, tuesday_end:id('endTue').value, tuesday_break_minutes:Number(id('breakTue').value||0), tuesday_hours:Number(id('hoursTue').value||0),
           wednesday_start:id('startWed').value, wednesday_end:id('endWed').value, wednesday_break_minutes:Number(id('breakWed').value||0), wednesday_hours:Number(id('hoursWed').value||0),
@@ -632,6 +812,11 @@
         id('hourlyRate').value = Number(p.hourly_rate || 0);
         id('nightBonusPercent').value = Number(p.night_bonus_percent || 0);
         id('overtimeBonusPercent').value = Number(p.overtime_bonus_percent || 0);
+        id('worksiteLat').value = Number.isFinite(Number(p.worksite_lat)) ? Number(p.worksite_lat) : '';
+        id('worksiteLng').value = Number.isFinite(Number(p.worksite_lng)) ? Number(p.worksite_lng) : '';
+        id('worksiteRadius').value = Math.max(Number(p.worksite_radius_m || 1000), 50);
+        setSelectedNonWorkingDays(p.non_working_days || []);
+        id('autoItalianHolidays').value = String(p.auto_italian_holidays !== false);
         id('startMon').value = p.monday_start || ''; id('endMon').value = p.monday_end || ''; id('breakMon').value = Number(p.monday_break_minutes ?? p.break_minutes ?? 0); id('hoursMon').value = Number(p.monday_hours||0);
         id('startTue').value = p.tuesday_start || ''; id('endTue').value = p.tuesday_end || ''; id('breakTue').value = Number(p.tuesday_break_minutes ?? p.break_minutes ?? 0); id('hoursTue').value = Number(p.tuesday_hours||0);
         id('startWed').value = p.wednesday_start || ''; id('endWed').value = p.wednesday_end || ''; id('breakWed').value = Number(p.wednesday_break_minutes ?? p.break_minutes ?? 0); id('hoursWed').value = Number(p.wednesday_hours||0);
@@ -792,7 +977,13 @@
           return `<li><strong>${name}</strong>: ${day.start || '-'} → ${day.hours || 0}h (pausa ${day.breakMin || 0} min)</li>`;
         }).join('');
         const customSummary = getCustomGroups().map((group)=>`${group.hours}h: ${group.days}`).join(' | ');
-        id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Gruppi: ${customSummary || '-'}</p>`;
+        const daysLabel = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+        const nonWorking = (program.non_working_days || []).map((idx)=>daysLabel[Number(idx)]).filter(Boolean).join(', ') || 'nessuno';
+        const geo = (Number.isFinite(Number(program.worksite_lat)) && Number.isFinite(Number(program.worksite_lng)))
+          ? `${Number(program.worksite_lat).toFixed(6)}, ${Number(program.worksite_lng).toFixed(6)} (raggio ${Math.max(Number(program.worksite_radius_m || 1000), 50)}m)`
+          : 'non configurato';
+        const italianFest = program.auto_italian_holidays === false ? 'No' : 'Sì';
+        id('programSummary').innerHTML = `<strong>Riepilogo contratto salvato</strong><ul>${rows}</ul><p class="small">Paga oraria: € ${Number(program.hourly_rate || 0).toFixed(2)} • Gruppi: ${customSummary || '-'} • Geofence: ${geo} • Giorni non lavorativi: ${nonWorking} • Festività italiane auto: ${italianFest}</p>`;
         id('programSummary').classList.remove('hidden');
       }
       function autoFillHoursFromContract() {
@@ -832,19 +1023,65 @@
         const safeHourlyRate = Math.max(effectiveProgramHourlyRate(program), 0);
         const overtimeBonus = Math.max(Number(program?.overtime_bonus_percent || 0), 0) / 100;
         const nightBonus = Math.max(Number(program?.night_bonus_percent || 0), 0) / 100;
+        const festiveBonus = Math.max(Number(program?.holiday_bonus_percent || FESTIVE_BONUS_PERCENT_DEFAULT), 0) / 100;
         const ordinaryHours = Math.max(Number(record?.ord || 0), 0);
         const overtimeHours = Math.max(Number(record?.stra || 0), 0);
         const nightHours = Math.max(Number(record?.nightHours || 0), 0);
         const ordinaryPay = ordinaryHours * safeHourlyRate;
         const overtimePay = overtimeHours * safeHourlyRate * (1 + overtimeBonus);
         const nightPay = nightHours * safeHourlyRate * nightBonus;
-        return +(ordinaryPay + overtimePay + nightPay).toFixed(2);
+        const isFestiveDay = isNonWorkingByProgram(program, record?.data || '');
+        const festivePay = isFestiveDay ? (ordinaryHours + overtimeHours) * safeHourlyRate * festiveBonus : 0;
+        return +(ordinaryPay + overtimePay + nightPay + festivePay).toFixed(2);
       }
       function calculateCumulativeEarnings(records, program) {
-        return +(records.reduce((sum, row)=>sum + calculateRecordEarnings(row, program), 0)).toFixed(2);
+        return +(records.reduce((sum, row)=>sum + calculateRecordEarnings(row, programForDate(row.data) || program), 0)).toFixed(2);
       }
 
       function nowLocalDateAndTime() { const n = new Date(); return { date:`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`, time:`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`}; }
+      function haversineDistanceMeters(lat1, lng1, lat2, lng2) {
+        const R = 6371000;
+        const toRad = (v) => (v * Math.PI) / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a = Math.sin(dLat / 2) ** 2
+          + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+      function getCurrentPositionSafe(timeoutMs=12000) {
+        return new Promise((resolve, reject) => {
+          if (!navigator.geolocation) { reject(new Error('Geolocalizzazione non supportata dal browser.')); return; }
+          navigator.geolocation.getCurrentPosition(
+            (pos)=>resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy || null }),
+            (err)=>reject(new Error(err?.message || 'Posizione non disponibile.')),
+            { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 }
+          );
+        });
+      }
+      function geofenceConfigFromProgram(program) {
+        const lat = Number(program?.worksite_lat);
+        const lng = Number(program?.worksite_lng);
+        const radius = Math.max(Number(program?.worksite_radius_m || 1000), 50);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+        return { lat, lng, radius };
+      }
+      function updateAutoPunchStatus(text, ok=false) {
+        const node = id('autoPunchStatus');
+        node.className = `status-line ${ok ? 'status-ok' : 'status-neutral'}`;
+        node.textContent = text;
+      }
+      async function checkInsideGeofence(program) {
+        const conf = geofenceConfigFromProgram(program);
+        if (!conf) return { inside:false, distanceM:null, reason:'Geofence non configurato nelle impostazioni contratto.' };
+        try {
+          const pos = await getCurrentPositionSafe();
+          const distanceM = haversineDistanceMeters(conf.lat, conf.lng, pos.lat, pos.lng);
+          return { inside: distanceM <= conf.radius, distanceM, reason: distanceM <= conf.radius ? '' : `Fuori raggio (${Math.round(distanceM)}m > ${conf.radius}m).` };
+        } catch (error) {
+          return { inside:false, distanceM:null, reason:error.message || 'Posizione non disponibile.' };
+        }
+      }
       function formatDateTimeLarge() {
         const now = new Date();
         id('liveDateLarge').textContent = now.toLocaleDateString('it-IT', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
@@ -910,6 +1147,20 @@
         id('summaryExitCapo').textContent = id('caposquadra').value || '-';
         renderSegmentsList();
         updateServiceTotals();
+        const today = id('data').value || nowDateISO();
+        const row = getRecords().find((r)=>r.data === today);
+        if (!row) { updateAutoPunchStatus('Timbratura automatica: in attesa.', false); return; }
+        if (row.clock_out_source === 'auto' && row.uscita) {
+          const dist = Number.isFinite(Number(row.clock_out_distance_m)) ? ` (${Math.round(Number(row.clock_out_distance_m))}m)` : '';
+          updateAutoPunchStatus(`Timbratura automatica uscita effettuata alle ${row.uscita}${dist}.`, true);
+          return;
+        }
+        if (row.clock_in_source === 'auto' && row.entrata) {
+          const dist = Number.isFinite(Number(row.clock_in_distance_m)) ? ` (${Math.round(Number(row.clock_in_distance_m))}m)` : '';
+          updateAutoPunchStatus(`Timbratura automatica entrata effettuata alle ${row.entrata}${dist}.`, true);
+          return;
+        }
+        updateAutoPunchStatus('Timbratura automatica: nessun evento automatico oggi.', false);
       }
       function setBtnState(btnId, label, disabled, extraClass='', muted=false) {
         const btn = id(btnId);
@@ -944,7 +1195,7 @@
         id('serviceStatus').textContent='Non in servizio.';
         refreshPunchSummary();
       }
-      function collectPayload(stato) {
+      function collectPayload(stato, meta={}) {
         return {
           data:id('data').value || nowDateISO(),
           entrata:id('entrata').value,
@@ -957,14 +1208,20 @@
           contratto:id('contratto').value,
           meteoGestione:id('meteoGestione').value,
           segments: todaySegments,
-          stato
+          stato,
+          clock_in_source: meta.clock_in_source || 'manual',
+          clock_out_source: meta.clock_out_source || 'manual',
+          clock_in_auto_note: meta.clock_in_auto_note || '',
+          clock_out_auto_note: meta.clock_out_auto_note || '',
+          clock_in_distance_m: meta.clock_in_distance_m ?? null,
+          clock_out_distance_m: meta.clock_out_distance_m ?? null
         };
       }
       function upsertRecord(payload, customMessage='') {
         const profile = getProfile();
         const calc = computeHours(payload.entrata, payload.uscita, payload.pausaMinuti, payload.causale, resolveRulesForDate(payload.data).rules);
         const rowSegments = payload.segments || [];
-        const row = { nome: profile.nome || '', azienda: profile.azienda || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, contratto:payload.contratto || 'DET', meteoGestione:payload.meteoGestione || '', segments: rowSegments, cantiereHours: computeHoursByCantiere(rowSegments), ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, updated_at:new Date().toISOString() };
+        const row = { nome: profile.nome || '', azienda: profile.azienda || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, contratto:payload.contratto || 'DET', meteoGestione:payload.meteoGestione || '', segments: rowSegments, cantiereHours: computeHoursByCantiere(rowSegments), ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, clock_in_source:payload.clock_in_source || 'manual', clock_out_source:payload.clock_out_source || 'manual', clock_in_auto_note:payload.clock_in_auto_note || '', clock_out_auto_note:payload.clock_out_auto_note || '', clock_in_distance_m:payload.clock_in_distance_m ?? null, clock_out_distance_m:payload.clock_out_distance_m ?? null, updated_at:new Date().toISOString() };
         const records = getRecords().filter((r)=>r.data !== payload.data);
         records.push(row);
         records.sort((a,b)=>a.data > b.data ? 1 : -1);
@@ -974,16 +1231,17 @@
         return row;
       }
       function openClockInSetup() {
+        const teamLeader = getTeamConfig().leader || '';
         id('clockInTipoLavoro').value = id('causale').value || 'LAV';
         id('clockInCantiere').value = id('cantiere').value || '';
-        id('clockInCaposquadra').value = id('caposquadra').value || '';
+        id('clockInCaposquadra').value = id('caposquadra').value || teamLeader;
         id('clockInSetupBox').classList.remove('hidden');
       }
       function closeClockInSetup() { id('clockInSetupBox').classList.add('hidden'); }
-      function clockInNow() {
+      function clockInNow(opts={}) {
         const n = nowLocalDateAndTime();
-        id('data').value=n.date;
-        id('entrata').value=n.time;
+        id('data').value=opts.forceDate || n.date;
+        id('entrata').value=opts.forceTime || n.time;
         id('uscita').value='';
         id('causale').value=id('clockInTipoLavoro').value || 'LAV';
         id('cantiere').value=id('clockInCantiere').value.trim();
@@ -991,10 +1249,18 @@
         const activeProgram = programForDate(n.date);
         if (activeProgram?.contract_employment_type) id('contratto').value = activeProgram.contract_employment_type;
         applyDefaultBreakForDate(n.date, true);
-        todaySegments = [{ start:n.time, end:'', cantiere:id('cantiere').value, caposquadra:id('caposquadra').value }];
-        const r = upsertRecord(collectPayload('IN_SERVIZIO'), `Entrata registrata alle ${n.time}. In servizio.`);
+        todaySegments = [{ start:id('entrata').value, end:'', cantiere:id('cantiere').value, caposquadra:id('caposquadra').value }];
+        const payload = collectPayload('IN_SERVIZIO', {
+          clock_in_source: opts.source || 'manual',
+          clock_in_auto_note: opts.note || '',
+          clock_in_distance_m: opts.distanceM ?? null
+        });
+        const msg = opts.source === 'auto'
+          ? `Timbratura automatica entrata effettuata alle ${id('entrata').value}.`
+          : `Entrata registrata alle ${id('entrata').value}. In servizio.`;
+        const r = upsertRecord(payload, msg);
         closeClockInSetup();
-        if (r) setPunchStatus('IN_SERVIZIO', n.time);
+        if (r) setPunchStatus('IN_SERVIZIO', id('entrata').value);
       }
       function closeCurrentSegment(endTime) {
         if (!todaySegments.length) return;
@@ -1025,14 +1291,87 @@
         const today = id('data').value || nowDateISO();
         correctSegmentsByDate(today);
       }
-      function clockOutNow() {
+      function clockOutNow(opts={}) {
         if (!id('entrata').value) { showMsg('Prima devi timbrare l’entrata.', 'err'); return; }
         const n = nowLocalDateAndTime();
-        id('data').value = id('data').value || n.date;
-        id('uscita').value=n.time;
-        closeCurrentSegment(n.time);
-        const r = upsertRecord(collectPayload('COMPLETATA'), `Uscita registrata alle ${n.time}.`);
-        if (r) setPunchStatus('COMPLETATA', id('entrata').value, n.time);
+        id('data').value = id('data').value || opts.forceDate || n.date;
+        id('uscita').value=opts.forceTime || n.time;
+        closeCurrentSegment(id('uscita').value);
+        const payload = collectPayload('COMPLETATA', {
+          clock_in_source: (getRecords().find((r)=>r.data === id('data').value)?.clock_in_source || 'manual'),
+          clock_out_source: opts.source || 'manual',
+          clock_out_auto_note: opts.note || '',
+          clock_out_distance_m: opts.distanceM ?? null
+        });
+        const msg = opts.source === 'auto'
+          ? `Timbratura automatica uscita effettuata alle ${id('uscita').value}.`
+          : `Uscita registrata alle ${id('uscita').value}.`;
+        const r = upsertRecord(payload, msg);
+        if (r) setPunchStatus('COMPLETATA', id('entrata').value, id('uscita').value);
+      }
+      async function autoPunchTick() {
+        if (autoPunchInProgress) return;
+        const today = nowDateISO();
+        const program = programForDate(today);
+        if (!program) return;
+        if (isNonWorkingByProgram(program, today)) {
+          updateAutoPunchStatus('Oggi è non lavorativo/festivo: auto-timbratura disattivata.', false);
+          return;
+        }
+        const geofence = geofenceConfigFromProgram(program);
+        if (!geofence) { updateAutoPunchStatus('Timbratura automatica disattivata: geofence non configurato.', false); return; }
+        const dayIdx = weekDayIndex(today);
+        const dayCfg = getProgramDayConfig(program, dayIdx);
+        const dayTargetHours = Number(getProgramHoursByDay(program, dayIdx) || 0);
+        const record = getRecords().find((r)=>r.data === today);
+        autoPunchInProgress = true;
+        try {
+          if (!record?.entrata && dayCfg?.start) {
+            const nowMinutes = parseTimeToMinutes(nowLocalDateAndTime().time);
+            const startMinutes = parseTimeToMinutes(dayCfg.start);
+            if (nowMinutes != null && startMinutes != null && nowMinutes >= startMinutes) {
+              const geo = await checkInsideGeofence(program);
+              if (geo.inside) {
+                const lateMinutes = nowMinutes - startMinutes;
+                const recoveredTime = lateMinutes > 15 ? dayCfg.start : nowLocalDateAndTime().time;
+                clockInNow({
+                  source:'auto',
+                  note: lateMinutes > 15 ? 'Auto entrata recuperata dopo riapertura app' : 'Auto entrata da geofence',
+                  distanceM: Math.round(Number(geo.distanceM || 0)),
+                  forceDate: today,
+                  forceTime: recoveredTime
+                });
+                return;
+              }
+              updateAutoPunchStatus(`Auto entrata non eseguita: ${geo.reason}`, false);
+            }
+          }
+          const current = getRecords().find((r)=>r.data === today);
+          if (current?.entrata && !current?.uscita && dayTargetHours > 0) {
+            const worked = computeHours(current.entrata, nowLocalDateAndTime().time, Number(current.pausa || 0), current.causale || 'LAV', resolveRulesForDate(today).rules).worked;
+            if (Number(worked) >= dayTargetHours) {
+              const geo = await checkInsideGeofence(program);
+              if (geo.inside) {
+                const scheduledEnd = dayCfg.end || addMinutesToTime(dayCfg.start || current.entrata, Math.round((dayTargetHours * 60) + Number(dayCfg.breakMin || 0)));
+                const nowTime = nowLocalDateAndTime().time;
+                const nowMin = parseTimeToMinutes(nowTime);
+                const endMin = parseTimeToMinutes(scheduledEnd);
+                const useRecovered = endMin != null && nowMin != null && (nowMin - endMin > 15);
+                clockOutNow({
+                  source:'auto',
+                  note: useRecovered ? 'Auto uscita recuperata dopo riapertura app' : 'Auto uscita da geofence',
+                  distanceM: Math.round(Number(geo.distanceM || 0)),
+                  forceDate: today,
+                  forceTime: useRecovered ? scheduledEnd : nowTime
+                });
+                return;
+              }
+              updateAutoPunchStatus(`Auto uscita non eseguita: ${geo.reason}`, false);
+            }
+          }
+        } finally {
+          autoPunchInProgress = false;
+        }
       }
       function loadTodayPunch() {
         const today = nowDateISO();
@@ -1202,6 +1541,7 @@
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
         loadProfileUI();
+        renderTeamUI();
         updateWelcomeMessage();
         loadTodayPunch();
         loadMyMonth();
@@ -1218,12 +1558,16 @@
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
         id('saveProfile').addEventListener('click', saveProfile);
+        id('saveTeamLeaderBtn').addEventListener('click', saveTeamLeader);
+        id('addTeamMemberBtn').addEventListener('click', addTeamMember);
+        id('addTeamVehicleBtn').addEventListener('click', addTeamVehicle);
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
         id('contractTemplate').addEventListener('change', ()=>{ buildContractLevelsOptions(); saveProgramDraftUI(); });
         id('contractLevel').addEventListener('change', ()=>{ updateContractHintAndRates(); saveProgramDraftUI(); });
         id('contractEmploymentType').addEventListener('change', ()=>{ updateContractHintAndRates(); saveProgramDraftUI(); });
-        ['programBreakMinutes','nightBonusPercent','overtimeBonusPercent','simpleStartCommon','simpleBreakCommon'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveProgramDraftUI));
+        ['programBreakMinutes','nightBonusPercent','overtimeBonusPercent','simpleStartCommon','simpleBreakCommon','worksiteLat','worksiteLng','worksiteRadius','autoItalianHolidays'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveProgramDraftUI));
+        document.querySelectorAll('#nonWorkingDaysSelector input[type="checkbox"]').forEach((checkbox)=>checkbox.addEventListener('change', saveProgramDraftUI));
         id('programBreakEnabled').addEventListener('change', ()=>{
           if (id('programBreakEnabled').value === 'true' && Number(id('programBreakMinutes').value || 0) <= 0) id('programBreakMinutes').value = 60;
           if (id('programBreakEnabled').value === 'false') id('programBreakMinutes').value = 0;
@@ -1270,6 +1614,9 @@
         refreshPunchSummary();
         if (liveClockTimer) clearInterval(liveClockTimer);
         liveClockTimer = window.setInterval(()=>{ formatDateTimeLarge(); refreshPunchSummary(); }, 1000);
+        if (autoPunchTimer) clearInterval(autoPunchTimer);
+        autoPunchTimer = window.setInterval(()=>{ autoPunchTick(); }, 30000);
+        autoPunchTick();
       }
 
       window.onload = init;
@@ -1279,6 +1626,8 @@
       window.deleteTimbraturaByDate = deleteTimbraturaByDate;
       window.correctSegmentsByDate = correctSegmentsByDate;
       window.showDaySummary = showDaySummary;
+      window.removeTeamMember = removeTeamMember;
+      window.removeTeamVehicle = removeTeamVehicle;
     </script>
   </body>
 </html>
