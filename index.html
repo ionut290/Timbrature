@@ -1117,6 +1117,7 @@
         team.members = [...new Set([...(team.members || []), value])];
         setTeamConfig(team);
         id('teamMemberInput').value = '';
+        id('teamMemberSelect').value = '';
         showTeamMsg('Membro aggiunto.', 'ok');
         renderTeamUI();
       }
@@ -1127,6 +1128,7 @@
         team.vehicles = [...new Set([...(team.vehicles || []), value])];
         setTeamConfig(team);
         id('teamVehicleInput').value = '';
+        id('teamVehicleSelect').value = '';
         showTeamMsg('Mezzo aggiunto.', 'ok');
         renderTeamUI();
       }
