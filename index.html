@@ -287,6 +287,28 @@
               <ul id="teamVehiclesList" class="segments-list"></ul>
             </div>
           </div>
+          <div class="simple-shift" style="margin-top:12px;">
+            <h3>Richiesta squadra per il giorno selezionato</h3>
+            <div class="grid">
+              <label>Data richiesta
+                <input type="date" id="teamRequestDate" />
+              </label>
+              <label>Cantiere richiesto
+                <input type="text" id="teamRequestCantiere" placeholder="Nome cantiere" />
+              </label>
+              <label>Personale richiesto
+                <textarea id="teamRequestPersonnel" rows="3" placeholder="Es. Mario Rossi, Luca Bianchi"></textarea>
+              </label>
+              <label>Mezzi richiesti
+                <textarea id="teamRequestVehicles" rows="3" placeholder="Es. Furgone + piattaforma"></textarea>
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button type="button" class="secondary" id="prefillTeamRequestBtn">Usa squadra salvata</button>
+              <button type="button" id="sendTeamRequestWhatsappBtn">Finalizza e apri WhatsApp</button>
+            </div>
+            <p class="small">Dopo il click si apre WhatsApp con il testo precompilato: scegli solo il contatto responsabile e invia.</p>
+          </div>
           <p id="teamEsito" class="msg"></p>
         </div>
 
@@ -431,6 +453,7 @@
       const PROGRAMS_KEY = 'timbrature.local.programs';
       const PROGRAM_DRAFT_KEY = 'timbrature.local.program.draft';
       const TEAM_KEY = 'timbrature.local.team';
+      const TEAM_REQUEST_DRAFT_KEY = 'timbrature.local.team.request.draft';
       const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
@@ -620,6 +643,8 @@
       function setTeamConfig(v) { writeJSON(TEAM_KEY, v); }
       function getProgramDraft() { return readJSON(PROGRAM_DRAFT_KEY, null); }
       function setProgramDraft(v) { writeJSON(PROGRAM_DRAFT_KEY, v); }
+      function getTeamRequestDraft() { return readJSON(TEAM_REQUEST_DRAFT_KEY, null); }
+      function setTeamRequestDraft(v) { writeJSON(TEAM_REQUEST_DRAFT_KEY, v); }
       function updateWelcomeMessage() {
         const profile = getProfile();
         const displayName = (profile.nome || 'Ionel Varga').trim();
@@ -726,9 +751,22 @@
       }
       function renderTeamUI() {
         const team = getTeamConfig();
+        const draft = getTeamRequestDraft() || {};
         id('teamLeaderInput').value = team.leader || '';
         id('teamMembersList').innerHTML = (team.members || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamMember(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun membro inserito.</li>';
         id('teamVehiclesList').innerHTML = (team.vehicles || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamVehicle(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun mezzo inserito.</li>';
+        id('teamRequestDate').value = draft.date || selectedMonthDay || nowDateISO();
+        id('teamRequestCantiere').value = draft.cantiere || '';
+        id('teamRequestPersonnel').value = draft.personale || '';
+        id('teamRequestVehicles').value = draft.mezzi || '';
+      }
+      function saveTeamRequestDraft() {
+        setTeamRequestDraft({
+          date: id('teamRequestDate').value,
+          cantiere: id('teamRequestCantiere').value.trim(),
+          personale: id('teamRequestPersonnel').value.trim(),
+          mezzi: id('teamRequestVehicles').value.trim()
+        });
       }
       function saveTeamLeader() {
         const team = getTeamConfig();
@@ -769,6 +807,38 @@
         team.vehicles = (team.vehicles || []).filter((_, i)=>i !== idx);
         setTeamConfig(team);
         renderTeamUI();
+      }
+      function prefillTeamRequestFromSavedTeam() {
+        const team = getTeamConfig();
+        if (!id('teamRequestPersonnel').value.trim()) id('teamRequestPersonnel').value = (team.members || []).join(', ');
+        if (!id('teamRequestVehicles').value.trim()) id('teamRequestVehicles').value = (team.vehicles || []).join(', ');
+        saveTeamRequestDraft();
+        showTeamMsg('Richiesta precompilata con squadra/mezzi salvati.', 'ok');
+      }
+      function openWhatsAppTeamRequest() {
+        const date = id('teamRequestDate').value || nowDateISO();
+        const cantiere = id('teamRequestCantiere').value.trim();
+        const personale = id('teamRequestPersonnel').value.trim();
+        const mezzi = id('teamRequestVehicles').value.trim();
+        if (!date || !cantiere || !personale || !mezzi) { showTeamMsg('Compila data, cantiere, personale e mezzi prima di finalizzare.', 'err'); return; }
+        const team = getTeamConfig();
+        const message = [
+          `Buongiorno, richiesta squadra per il giorno ${date}.`,
+          `Cantiere: ${cantiere}`,
+          `Personale richiesto: ${personale}`,
+          `Mezzi richiesti: ${mezzi}`,
+          `Caposquadra: ${team.leader || 'non indicato'}`,
+          'Confermate disponibilità, grazie.'
+        ].join('\n');
+        saveTeamRequestDraft();
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+        showTeamMsg('WhatsApp aperto con messaggio precompilato. Scegli il contatto responsabile e invia.', 'ok');
+      }
+      function openTeamRequestForDate(dateValue='') {
+        setMenuSection('teamCard');
+        if (dateValue) id('teamRequestDate').value = dateValue;
+        if (!id('teamRequestDate').value) id('teamRequestDate').value = nowDateISO();
+        saveTeamRequestDraft();
       }
 
       function collectProgramPayload() {
@@ -1480,7 +1550,7 @@
         const perCantiere = cantiereHours.length
           ? cantiereHours.map((entry)=>`<div class="summary-line"><strong>${entry.cantiere}</strong>: ${Number(entry.hours || 0).toFixed(2)}h</div>`).join('')
           : '<div class="summary-line">Nessun dettaglio cantiere</div>';
-        id('selectedDaySummary').innerHTML = `<h3>Riepilogo ${dateValue}</h3><div class="summary-column"><div class="summary-line"><strong>Entrata:</strong> ${record.entrata || '-'}</div><div class="summary-line"><strong>Uscita:</strong> ${record.uscita || '-'}</div><div class="summary-line"><strong>Pausa:</strong> ${record.pausa || 0} min</div><div class="summary-line"><strong>Causale:</strong> ${record.causale || '-'}</div><div class="summary-line"><strong>Ore lavorate:</strong> ${Number(record.ore || 0).toFixed(2)}</div><div class="summary-line"><strong>Ordinarie:</strong> ${Number(record.ord || 0).toFixed(2)}</div><div class="summary-line"><strong>Straordinario:</strong> ${Number(record.stra || 0).toFixed(2)}</div><div class="summary-line"><strong>Guadagno giorno:</strong> € ${dayEarnings.toFixed(2)}</div><div class="summary-line"><strong>Stato:</strong> ${record.stato || '-'}</div><div class="summary-line"><strong>Caposquadra gestione:</strong> ${teamLeader}</div><div class="summary-line"><strong>Membri squadra:</strong> ${teamMembers}</div><div class="summary-line"><strong>Mezzi squadra:</strong> ${teamVehicles}</div><div class="summary-line"><strong>Dettaglio cantieri:</strong></div>${perCantiere}<div class="inline-actions"><button type="button" class="secondary" onclick="correctSegmentsByDate('${record.data}')">Correggi cantieri</button> <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${record.data}')">Elimina</button></div></div>`;
+        id('selectedDaySummary').innerHTML = `<h3>Riepilogo ${dateValue}</h3><div class="summary-column"><div class="summary-line"><strong>Entrata:</strong> ${record.entrata || '-'}</div><div class="summary-line"><strong>Uscita:</strong> ${record.uscita || '-'}</div><div class="summary-line"><strong>Pausa:</strong> ${record.pausa || 0} min</div><div class="summary-line"><strong>Causale:</strong> ${record.causale || '-'}</div><div class="summary-line"><strong>Ore lavorate:</strong> ${Number(record.ore || 0).toFixed(2)}</div><div class="summary-line"><strong>Ordinarie:</strong> ${Number(record.ord || 0).toFixed(2)}</div><div class="summary-line"><strong>Straordinario:</strong> ${Number(record.stra || 0).toFixed(2)}</div><div class="summary-line"><strong>Guadagno giorno:</strong> € ${dayEarnings.toFixed(2)}</div><div class="summary-line"><strong>Stato:</strong> ${record.stato || '-'}</div><div class="summary-line"><strong>Caposquadra gestione:</strong> ${teamLeader}</div><div class="summary-line"><strong>Membri squadra:</strong> ${teamMembers}</div><div class="summary-line"><strong>Mezzi squadra:</strong> ${teamVehicles}</div><div class="summary-line"><strong>Dettaglio cantieri:</strong></div>${perCantiere}<div class="inline-actions"><button type="button" class="secondary" onclick="openTeamRequestForDate('${record.data}')">Richiesta squadra</button> <button type="button" class="secondary" onclick="correctSegmentsByDate('${record.data}')">Correggi cantieri</button> <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${record.data}')">Elimina</button></div></div>`;
         const month = normalizeMonthValue(id('mese').value);
         const rows = getRecords().filter((r)=> String(r.data||'').startsWith(month));
         renderMonthCalendar(month, rows);
@@ -1571,6 +1641,9 @@
         id('saveTeamLeaderBtn').addEventListener('click', saveTeamLeader);
         id('addTeamMemberBtn').addEventListener('click', addTeamMember);
         id('addTeamVehicleBtn').addEventListener('click', addTeamVehicle);
+        id('prefillTeamRequestBtn').addEventListener('click', prefillTeamRequestFromSavedTeam);
+        id('sendTeamRequestWhatsappBtn').addEventListener('click', openWhatsAppTeamRequest);
+        ['teamRequestDate','teamRequestCantiere','teamRequestPersonnel','teamRequestVehicles'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveTeamRequestDraft));
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
         id('contractTemplate').addEventListener('change', ()=>{ buildContractLevelsOptions(); saveProgramDraftUI(); });
@@ -1638,6 +1711,7 @@
       window.showDaySummary = showDaySummary;
       window.removeTeamMember = removeTeamMember;
       window.removeTeamVehicle = removeTeamVehicle;
+      window.openTeamRequestForDate = openTeamRequestForDate;
     </script>
   </body>
 </html>
