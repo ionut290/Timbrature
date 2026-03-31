@@ -486,7 +486,7 @@
       const TEAM_REQUEST_DRAFT_KEY = 'timbrature.local.team.request.draft';
       const TEAM_PROGRAMS_KEY = 'timbrature.local.team.programs';
       const TEAM_DIRECTORY_KEY = 'timbrature.local.team.directory';
-      const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/gviz/tq?tqx=out:csv&gid=0';
+      const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
@@ -693,7 +693,19 @@
         const gidMatch = text.match(/gid=(\d+)/);
         if (!idMatch) return text;
         const gid = gidMatch ? gidMatch[1] : '0';
-        return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:csv&gid=${gid}`;
+        return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=csv&gid=${gid}`;
+      }
+      function buildGoogleSheetSources(url='') {
+        const text = String(url || '').trim();
+        const idMatch = text.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        const gidMatch = text.match(/gid=(\d+)/);
+        if (!idMatch) return [{ url:text, type:'csv' }];
+        const gid = gidMatch ? gidMatch[1] : '0';
+        return [
+          { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=csv&gid=${gid}`, type:'csv' },
+          { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:csv&gid=${gid}`, type:'csv' },
+          { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:json&gid=${gid}`, type:'gviz_json' }
+        ];
       }
       function updateWelcomeMessage() {
         const profile = getProfile();
@@ -835,29 +847,70 @@
         const delimiter = lines[0].includes(';') ? ';' : ',';
         return lines.map((line)=>line.split(delimiter).map((cell)=>cell.replace(/^"|"$/g, '').trim()));
       }
-      function buildDirectoryFromCsv(csvText='') {
-        const rows = parseCsvRows(csvText);
-        if (!rows.length) return { members:[], vehicles:[] };
-        const header = rows[0].map((cell)=>cell.toLowerCase());
+      function isGarbageDirectoryEntry(value='') {
+        const text = String(value || '').trim().toLowerCase();
+        if (!text) return true;
+        return /(<[^>]+>|[{}`]|minmax\(|padding:|font-size|position:|calc\(|#|http|select\s*$|body\s*\{|class=|style=|@media)/i.test(text);
+      }
+      function cleanDirectoryValues(values=[]) {
+        return [...new Set(
+          (values || [])
+            .map((value)=>String(value || '').replace(/^["']|["']$/g, '').trim())
+            .filter((value)=>value && !isGarbageDirectoryEntry(value))
+        )];
+      }
+      function buildDirectoryFromRows(rows=[]) {
+        if (!Array.isArray(rows) || !rows.length) return { members:[], vehicles:[] };
+        const normalizedRows = rows.map((row)=>Array.isArray(row) ? row : [row]);
+        const headerRowIndex = normalizedRows.findIndex((row)=>row.some((cell)=>/(personale|membro|nome|operaio|mezzo|veicolo|targa|furgone)/i.test(String(cell || ''))));
+        const header = (normalizedRows[headerRowIndex >= 0 ? headerRowIndex : 0] || []).map((cell)=>String(cell || '').toLowerCase());
         const memberIdx = header.findIndex((cell)=>/(personale|membro|nome|operaio)/.test(cell));
         const vehicleIdx = header.findIndex((cell)=>/(mezzo|veicolo|targa|furgone)/.test(cell));
-        const dataRows = rows.slice(1);
-        const members = dataRows.map((row)=>row[memberIdx >= 0 ? memberIdx : 0]).map((v)=>String(v || '').trim()).filter(Boolean);
-        const vehicles = dataRows.map((row)=>row[vehicleIdx >= 0 ? vehicleIdx : 1]).map((v)=>String(v || '').trim()).filter(Boolean);
-        return {
-          members: [...new Set(members)],
-          vehicles: [...new Set(vehicles)]
-        };
+        const dataRows = normalizedRows.slice((headerRowIndex >= 0 ? headerRowIndex : 0) + 1);
+        const members = cleanDirectoryValues(dataRows.map((row)=>row[memberIdx >= 0 ? memberIdx : 0]));
+        const vehicles = cleanDirectoryValues(dataRows.map((row)=>row[vehicleIdx >= 0 ? vehicleIdx : 1]));
+        return { members, vehicles };
+      }
+      function parseGvizJsonRows(rawText='') {
+        const text = String(rawText || '').trim();
+        const jsonMatch = text.match(/setResponse\(([\s\S]+)\);?$/);
+        if (!jsonMatch) return [];
+        try {
+          const payload = JSON.parse(jsonMatch[1]);
+          const columns = (payload?.table?.cols || []).map((col)=>col?.label || '');
+          const bodyRows = (payload?.table?.rows || []).map((row)=>(row.c || []).map((cell)=>cell?.v ?? ''));
+          return [columns, ...bodyRows];
+        } catch (_) {
+          return [];
+        }
+      }
+      function buildDirectoryFromCsv(csvText='') {
+        const raw = String(csvText || '').trim();
+        if (!raw) return { members:[], vehicles:[] };
+        if (/<html|<!doctype|<style|<script/i.test(raw)) return { members:[], vehicles:[] };
+        return buildDirectoryFromRows(parseCsvRows(csvText));
       }
       async function loadTeamDirectoryFromSheet(silent=false) {
-        const url = normalizeGoogleSheetCsvUrl(FIXED_TEAM_SHEET_URL);
+        const sources = buildGoogleSheetSources(FIXED_TEAM_SHEET_URL);
         try {
-          const response = await fetch(url);
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const csv = await response.text();
-          const parsed = buildDirectoryFromCsv(csv);
+          let parsed = { members:[], vehicles:[] };
+          let finalUrl = sources[0]?.url || FIXED_TEAM_SHEET_URL;
+          for (const source of sources) {
+            const response = await fetch(source.url);
+            if (!response.ok) continue;
+            const body = await response.text();
+            const current = source.type === 'gviz_json'
+              ? buildDirectoryFromRows(parseGvizJsonRows(body))
+              : buildDirectoryFromCsv(body);
+            if (current.members.length || current.vehicles.length) {
+              parsed = current;
+              finalUrl = source.url;
+              break;
+            }
+          }
+          if (!parsed.members.length && !parsed.vehicles.length) throw new Error('Nessun dato valido trovato nel foglio.');
           const syncedAt = new Date().toISOString();
-          setTeamDirectory({ sheetUrl:url, members:parsed.members, vehicles:parsed.vehicles, synced_at:syncedAt });
+          setTeamDirectory({ sheetUrl:finalUrl, members:parsed.members, vehicles:parsed.vehicles, synced_at:syncedAt });
           renderTeamDirectorySelects();
           id('teamSheetStatus').textContent = `Elenco Google Sheet aggiornato: ${new Date(syncedAt).toLocaleString('it-IT')}.`;
           if (!silent) showTeamMsg(`Elenco aggiornato: ${parsed.members.length} membri, ${parsed.vehicles.length} mezzi.`, 'ok');
