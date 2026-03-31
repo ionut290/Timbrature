@@ -308,6 +308,14 @@
               <button type="button" class="secondary" id="markTeamApprovedBtn">Segna APPROVATA</button>
               <button type="button" class="secondary" id="markTeamRectifyBtn">Segna RETTIFICA</button>
             </div>
+            <div class="grid">
+              <label>Risposta WhatsApp ricevuta
+                <input type="text" id="teamWhatsappReplyInput" placeholder="Incolla: APPROVO / RETTIFICO" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button type="button" class="secondary" id="applyWhatsappReplyBtn">Applica risposta WhatsApp</button>
+            </div>
             <p class="small">Compila per il giorno successivo, correggi/elimina e inoltra via WhatsApp.</p>
           </div>
           <p id="teamEsito" class="msg"></p>
@@ -796,6 +804,7 @@
         id('teamRequestVehicles').value = draft.mezzi || '';
         id('teamRequestPersonSuggest').value = '';
         id('teamRequestVehicleSuggest').value = '';
+        id('teamWhatsappReplyInput').value = '';
         id('teamProgramId').value = '';
         id('teamProgramStatus').value = draft.status || 'IN_ATTESA';
         id('teamProgramStatusLabel').textContent = `Stato programmazione: ${id('teamProgramStatus').value}`;
@@ -986,20 +995,54 @@
         id('teamProgramStatusLabel').textContent = `Stato programmazione: ${id('teamProgramStatus').value}`;
         saveTeamRequestDraft();
       }
+      function updateStoredProgramStatus(programId, status) {
+        const rows = getTeamPrograms();
+        const idx = rows.findIndex((entry)=>entry.id === programId);
+        if (idx < 0) return false;
+        rows[idx] = { ...rows[idx], status, status_updated_at: new Date().toISOString() };
+        setTeamPrograms(rows);
+        renderTeamProgramsSelect();
+        id('teamProgramSelect').value = programId;
+        return true;
+      }
       function setTeamProgramStatus(status='IN_ATTESA') {
         id('teamProgramStatus').value = status;
         id('teamProgramStatusLabel').textContent = `Stato programmazione: ${status}`;
         saveTeamRequestDraft();
         const programId = id('teamProgramId').value || id('teamProgramSelect').value;
-        if (!programId) { showTeamMsg(`Stato impostato su ${status}. Salva la programmazione per confermare.`, 'ok'); return; }
-        const rows = getTeamPrograms();
-        const idx = rows.findIndex((entry)=>entry.id === programId);
-        if (idx < 0) { showTeamMsg(`Stato impostato su ${status}. Salva la programmazione per confermare.`, 'ok'); return; }
-        rows[idx] = { ...rows[idx], status, status_updated_at: new Date().toISOString() };
-        setTeamPrograms(rows);
-        renderTeamProgramsSelect();
-        id('teamProgramSelect').value = programId;
+        if (!programId || !updateStoredProgramStatus(programId, status)) { showTeamMsg(`Stato impostato su ${status}. Salva la programmazione per confermare.`, 'ok'); return; }
         showTeamMsg(`Programmazione marcata come ${status}.`, 'ok');
+      }
+      function applyWhatsappReplyStatus() {
+        const text = (id('teamWhatsappReplyInput').value || '').trim().toUpperCase();
+        if (!text) { showTeamMsg('Incolla prima la risposta WhatsApp.', 'err'); return; }
+        if (text.includes('APPROV')) { setTeamProgramStatus('APPROVATA'); return; }
+        if (text.includes('RETTIFIC') || text.includes('RETIFIC')) { setTeamProgramStatus('RETTIFICA'); return; }
+        showTeamMsg('Risposta non riconosciuta. Usa APPROVO o RETTIFICO.', 'err');
+      }
+      function buildStatusLink(statusValue, programId='') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('teamStatus', statusValue);
+        if (programId) url.searchParams.set('teamProgramId', programId);
+        return url.toString();
+      }
+      function applyStatusFromQueryParams() {
+        const params = new URLSearchParams(window.location.search);
+        const status = (params.get('teamStatus') || '').toUpperCase();
+        const programId = params.get('teamProgramId') || '';
+        if (!status) return;
+        const normalized = status.includes('APPROV') ? 'APPROVATA' : (status.includes('RETT') ? 'RETTIFICA' : '');
+        if (!normalized) return;
+        if (programId && updateStoredProgramStatus(programId, normalized)) {
+          id('teamProgramId').value = programId;
+          id('teamProgramStatus').value = normalized;
+          id('teamProgramStatusLabel').textContent = `Stato programmazione: ${normalized}`;
+          showTeamMsg(`Stato aggiornato da link WhatsApp: ${normalized}.`, 'ok');
+        }
+        params.delete('teamStatus');
+        params.delete('teamProgramId');
+        const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
+        window.history.replaceState({}, '', nextUrl);
       }
       function saveTeamProgram() {
         const payload = buildTeamProgramPayload();
@@ -1093,13 +1136,18 @@
         if (!date || !cantiere || !personale || !mezzi) { showTeamMsg('Compila data, cantiere, personale e mezzi prima di finalizzare.', 'err'); return; }
         const team = getTeamConfig();
         const liveCapo = id('caposquadra')?.value?.trim() || '';
+        const currentProgramId = id('teamProgramId').value || id('teamProgramSelect').value || '';
+        const approveLink = buildStatusLink('APPROVATA', currentProgramId);
+        const rectifyLink = buildStatusLink('RETTIFICA', currentProgramId);
         const message = [
           `Buongiorno, richiesta squadra per il giorno ${date}.`,
           `Cantiere: ${cantiere}`,
           `Personale richiesto: ${personale}`,
           `Mezzi richiesti: ${mezzi}`,
           `Caposquadra: ${liveCapo || team.leader || 'non indicato'}`,
-          'Rispondi con: APPROVO oppure RETTIFICO.',
+          'Conferma con un tap:',
+          `✅ APPROVO: ${approveLink}`,
+          `✏️ RETTIFICO: ${rectifyLink}`,
           'Confermate disponibilità, grazie.'
         ].join('\n');
         saveTeamRequestDraft();
@@ -1929,6 +1977,7 @@
         id('deleteTeamProgramBtn').addEventListener('click', deleteTeamProgram);
         id('markTeamApprovedBtn').addEventListener('click', ()=>setTeamProgramStatus('APPROVATA'));
         id('markTeamRectifyBtn').addEventListener('click', ()=>setTeamProgramStatus('RETTIFICA'));
+        id('applyWhatsappReplyBtn').addEventListener('click', applyWhatsappReplyStatus);
         id('teamProgramSelect').addEventListener('change', (e)=>loadTeamProgramById(e.target.value || ''));
         id('sendTeamRequestWhatsappBtn').addEventListener('click', openWhatsAppTeamRequest);
         ['teamRequestDate','teamRequestCantiere','teamRequestPersonnel','teamRequestVehicles'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveTeamRequestDraft));
@@ -1988,6 +2037,7 @@
         if (autoPunchTimer) clearInterval(autoPunchTimer);
         autoPunchTimer = window.setInterval(()=>{ autoPunchTick(); }, 30000);
         autoPunchTick();
+        applyStatusFromQueryParams();
       }
 
       window.onload = init;
