@@ -132,6 +132,7 @@
             <div class="menu-links">
               <button type="button" class="menu-link active" data-menu-target="timbratureCard">Nuova timbratura / giornata</button>
               <button type="button" class="menu-link" data-menu-target="programCard">Impostazioni contratto</button>
+              <button type="button" class="menu-link" data-menu-target="teamCard">Caposquadra / squadra</button>
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
@@ -255,6 +256,38 @@
           </div>
           <p id="programEsito" class="msg"></p>
           <div id="programSummary" class="program-summary hidden"></div>
+        </div>
+
+        <div class="card hidden" id="teamCard">
+          <h2>Gestione caposquadra e squadra</h2>
+          <p class="small">Inserisci il caposquadra, i membri della squadra e i mezzi utilizzati.</p>
+          <div class="grid">
+            <label>Caposquadra
+              <input type="text" id="teamLeaderInput" placeholder="Nome caposquadra" />
+            </label>
+            <label>Nuovo membro squadra
+              <input type="text" id="teamMemberInput" placeholder="Nome membro" />
+            </label>
+            <label>Nuovo mezzo utilizzato
+              <input type="text" id="teamVehicleInput" placeholder="Es. Furgone AB123CD" />
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" class="secondary" id="saveTeamLeaderBtn">Salva caposquadra</button>
+            <button type="button" class="secondary" id="addTeamMemberBtn">Aggiungi membro</button>
+            <button type="button" class="secondary" id="addTeamVehicleBtn">Aggiungi mezzo</button>
+          </div>
+          <div class="grid">
+            <div>
+              <h3>Membri squadra</h3>
+              <ul id="teamMembersList" class="segments-list"></ul>
+            </div>
+            <div>
+              <h3>Mezzi utilizzati</h3>
+              <ul id="teamVehiclesList" class="segments-list"></ul>
+            </div>
+          </div>
+          <p id="teamEsito" class="msg"></p>
         </div>
 
         <div class="card" id="timbratureCard">
@@ -397,7 +430,8 @@
       const RECORDS_KEY = 'timbrature.local.records';
       const PROGRAMS_KEY = 'timbrature.local.programs';
       const PROGRAM_DRAFT_KEY = 'timbrature.local.program.draft';
-      const menuPanelIds = ['timbratureCard', 'programCard', 'storicoCard', 'userBox'];
+      const TEAM_KEY = 'timbrature.local.team';
+      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
           label: 'Edilizia industria',
@@ -479,6 +513,7 @@
       const showMsg = (m, t='ok') => { id('esito').className = `msg ${t}`; id('esito').textContent = m; };
       const showProgramMsg = (m, t='ok') => { id('programEsito').className = `msg ${t}`; id('programEsito').textContent = m; };
       const showProfileMsg = (m, t='ok') => { id('profileEsito').className = `msg ${t}`; id('profileEsito').textContent = m; };
+      const showTeamMsg = (m, t='ok') => { id('teamEsito').className = `msg ${t}`; id('teamEsito').textContent = m; };
       function getSelectedNonWorkingDays() {
         return Array.from(document.querySelectorAll('#nonWorkingDaysSelector input[type="checkbox"]:checked'))
           .map((el)=>Number(el.value))
@@ -581,6 +616,8 @@
       function setRecords(v) { writeJSON(RECORDS_KEY, v); }
       function getProfile() { return readJSON(PROFILE_KEY, { nome:'', azienda:'', email:'' }); }
       function setProfile(v) { writeJSON(PROFILE_KEY, v); }
+      function getTeamConfig() { return readJSON(TEAM_KEY, { leader:'', members:[], vehicles:[] }); }
+      function setTeamConfig(v) { writeJSON(TEAM_KEY, v); }
       function getProgramDraft() { return readJSON(PROGRAM_DRAFT_KEY, null); }
       function setProgramDraft(v) { writeJSON(PROGRAM_DRAFT_KEY, v); }
       function updateWelcomeMessage() {
@@ -686,6 +723,52 @@
         id('nome').value = p.nome || '';
         id('azienda').value = p.azienda || '';
         id('email').value = p.email || '';
+      }
+      function renderTeamUI() {
+        const team = getTeamConfig();
+        id('teamLeaderInput').value = team.leader || '';
+        id('teamMembersList').innerHTML = (team.members || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamMember(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun membro inserito.</li>';
+        id('teamVehiclesList').innerHTML = (team.vehicles || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamVehicle(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun mezzo inserito.</li>';
+      }
+      function saveTeamLeader() {
+        const team = getTeamConfig();
+        team.leader = id('teamLeaderInput').value.trim();
+        setTeamConfig(team);
+        if (!id('caposquadra').value && team.leader) id('caposquadra').value = team.leader;
+        showTeamMsg('Caposquadra salvato.', 'ok');
+        renderTeamUI();
+      }
+      function addTeamMember() {
+        const value = id('teamMemberInput').value.trim();
+        if (!value) { showTeamMsg('Inserisci un nome membro valido.', 'err'); return; }
+        const team = getTeamConfig();
+        team.members = [...new Set([...(team.members || []), value])];
+        setTeamConfig(team);
+        id('teamMemberInput').value = '';
+        showTeamMsg('Membro aggiunto.', 'ok');
+        renderTeamUI();
+      }
+      function addTeamVehicle() {
+        const value = id('teamVehicleInput').value.trim();
+        if (!value) { showTeamMsg('Inserisci un mezzo valido.', 'err'); return; }
+        const team = getTeamConfig();
+        team.vehicles = [...new Set([...(team.vehicles || []), value])];
+        setTeamConfig(team);
+        id('teamVehicleInput').value = '';
+        showTeamMsg('Mezzo aggiunto.', 'ok');
+        renderTeamUI();
+      }
+      function removeTeamMember(idx) {
+        const team = getTeamConfig();
+        team.members = (team.members || []).filter((_, i)=>i !== idx);
+        setTeamConfig(team);
+        renderTeamUI();
+      }
+      function removeTeamVehicle(idx) {
+        const team = getTeamConfig();
+        team.vehicles = (team.vehicles || []).filter((_, i)=>i !== idx);
+        setTeamConfig(team);
+        renderTeamUI();
       }
 
       function collectProgramPayload() {
@@ -1148,9 +1231,10 @@
         return row;
       }
       function openClockInSetup() {
+        const teamLeader = getTeamConfig().leader || '';
         id('clockInTipoLavoro').value = id('causale').value || 'LAV';
         id('clockInCantiere').value = id('cantiere').value || '';
-        id('clockInCaposquadra').value = id('caposquadra').value || '';
+        id('clockInCaposquadra').value = id('caposquadra').value || teamLeader;
         id('clockInSetupBox').classList.remove('hidden');
       }
       function closeClockInSetup() { id('clockInSetupBox').classList.add('hidden'); }
@@ -1457,6 +1541,7 @@
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
         loadProfileUI();
+        renderTeamUI();
         updateWelcomeMessage();
         loadTodayPunch();
         loadMyMonth();
@@ -1473,6 +1558,9 @@
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
         id('saveProfile').addEventListener('click', saveProfile);
+        id('saveTeamLeaderBtn').addEventListener('click', saveTeamLeader);
+        id('addTeamMemberBtn').addEventListener('click', addTeamMember);
+        id('addTeamVehicleBtn').addEventListener('click', addTeamVehicle);
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
         id('contractTemplate').addEventListener('change', ()=>{ buildContractLevelsOptions(); saveProgramDraftUI(); });
@@ -1538,6 +1626,8 @@
       window.deleteTimbraturaByDate = deleteTimbraturaByDate;
       window.correctSegmentsByDate = correctSegmentsByDate;
       window.showDaySummary = showDaySummary;
+      window.removeTeamMember = removeTeamMember;
+      window.removeTeamVehicle = removeTeamVehicle;
     </script>
   </body>
 </html>
