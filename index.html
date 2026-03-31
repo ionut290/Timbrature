@@ -1072,8 +1072,8 @@
       function closeClockInSetup() { id('clockInSetupBox').classList.add('hidden'); }
       function clockInNow(opts={}) {
         const n = nowLocalDateAndTime();
-        id('data').value=n.date;
-        id('entrata').value=n.time;
+        id('data').value=opts.forceDate || n.date;
+        id('entrata').value=opts.forceTime || n.time;
         id('uscita').value='';
         id('causale').value=id('clockInTipoLavoro').value || 'LAV';
         id('cantiere').value=id('clockInCantiere').value.trim();
@@ -1081,18 +1081,18 @@
         const activeProgram = programForDate(n.date);
         if (activeProgram?.contract_employment_type) id('contratto').value = activeProgram.contract_employment_type;
         applyDefaultBreakForDate(n.date, true);
-        todaySegments = [{ start:n.time, end:'', cantiere:id('cantiere').value, caposquadra:id('caposquadra').value }];
+        todaySegments = [{ start:id('entrata').value, end:'', cantiere:id('cantiere').value, caposquadra:id('caposquadra').value }];
         const payload = collectPayload('IN_SERVIZIO', {
           clock_in_source: opts.source || 'manual',
           clock_in_auto_note: opts.note || '',
           clock_in_distance_m: opts.distanceM ?? null
         });
         const msg = opts.source === 'auto'
-          ? `Timbratura automatica entrata effettuata alle ${n.time}.`
-          : `Entrata registrata alle ${n.time}. In servizio.`;
+          ? `Timbratura automatica entrata effettuata alle ${id('entrata').value}.`
+          : `Entrata registrata alle ${id('entrata').value}. In servizio.`;
         const r = upsertRecord(payload, msg);
         closeClockInSetup();
-        if (r) setPunchStatus('IN_SERVIZIO', n.time);
+        if (r) setPunchStatus('IN_SERVIZIO', id('entrata').value);
       }
       function closeCurrentSegment(endTime) {
         if (!todaySegments.length) return;
@@ -1126,9 +1126,9 @@
       function clockOutNow(opts={}) {
         if (!id('entrata').value) { showMsg('Prima devi timbrare l’entrata.', 'err'); return; }
         const n = nowLocalDateAndTime();
-        id('data').value = id('data').value || n.date;
-        id('uscita').value=n.time;
-        closeCurrentSegment(n.time);
+        id('data').value = id('data').value || opts.forceDate || n.date;
+        id('uscita').value=opts.forceTime || n.time;
+        closeCurrentSegment(id('uscita').value);
         const payload = collectPayload('COMPLETATA', {
           clock_in_source: (getRecords().find((r)=>r.data === id('data').value)?.clock_in_source || 'manual'),
           clock_out_source: opts.source || 'manual',
@@ -1136,10 +1136,70 @@
           clock_out_distance_m: opts.distanceM ?? null
         });
         const msg = opts.source === 'auto'
-          ? `Timbratura automatica uscita effettuata alle ${n.time}.`
-          : `Uscita registrata alle ${n.time}.`;
+          ? `Timbratura automatica uscita effettuata alle ${id('uscita').value}.`
+          : `Uscita registrata alle ${id('uscita').value}.`;
         const r = upsertRecord(payload, msg);
-        if (r) setPunchStatus('COMPLETATA', id('entrata').value, n.time);
+        if (r) setPunchStatus('COMPLETATA', id('entrata').value, id('uscita').value);
+      }
+      async function autoPunchTick() {
+        if (autoPunchInProgress) return;
+        const today = nowDateISO();
+        const program = programForDate(today);
+        if (!program) return;
+        const geofence = geofenceConfigFromProgram(program);
+        if (!geofence) { updateAutoPunchStatus('Timbratura automatica disattivata: geofence non configurato.', false); return; }
+        const dayIdx = weekDayIndex(today);
+        const dayCfg = getProgramDayConfig(program, dayIdx);
+        const dayTargetHours = Number(getProgramHoursByDay(program, dayIdx) || 0);
+        const record = getRecords().find((r)=>r.data === today);
+        autoPunchInProgress = true;
+        try {
+          if (!record?.entrata && dayCfg?.start) {
+            const nowMinutes = parseTimeToMinutes(nowLocalDateAndTime().time);
+            const startMinutes = parseTimeToMinutes(dayCfg.start);
+            if (nowMinutes != null && startMinutes != null && nowMinutes >= startMinutes) {
+              const geo = await checkInsideGeofence(program);
+              if (geo.inside) {
+                const lateMinutes = nowMinutes - startMinutes;
+                const recoveredTime = lateMinutes > 15 ? dayCfg.start : nowLocalDateAndTime().time;
+                clockInNow({
+                  source:'auto',
+                  note: lateMinutes > 15 ? 'Auto entrata recuperata dopo riapertura app' : 'Auto entrata da geofence',
+                  distanceM: Math.round(Number(geo.distanceM || 0)),
+                  forceDate: today,
+                  forceTime: recoveredTime
+                });
+                return;
+              }
+              updateAutoPunchStatus(`Auto entrata non eseguita: ${geo.reason}`, false);
+            }
+          }
+          const current = getRecords().find((r)=>r.data === today);
+          if (current?.entrata && !current?.uscita && dayTargetHours > 0) {
+            const worked = computeHours(current.entrata, nowLocalDateAndTime().time, Number(current.pausa || 0), current.causale || 'LAV', resolveRulesForDate(today).rules).worked;
+            if (Number(worked) >= dayTargetHours) {
+              const geo = await checkInsideGeofence(program);
+              if (geo.inside) {
+                const scheduledEnd = dayCfg.end || addMinutesToTime(dayCfg.start || current.entrata, Math.round((dayTargetHours * 60) + Number(dayCfg.breakMin || 0)));
+                const nowTime = nowLocalDateAndTime().time;
+                const nowMin = parseTimeToMinutes(nowTime);
+                const endMin = parseTimeToMinutes(scheduledEnd);
+                const useRecovered = endMin != null && nowMin != null && (nowMin - endMin > 15);
+                clockOutNow({
+                  source:'auto',
+                  note: useRecovered ? 'Auto uscita recuperata dopo riapertura app' : 'Auto uscita da geofence',
+                  distanceM: Math.round(Number(geo.distanceM || 0)),
+                  forceDate: today,
+                  forceTime: useRecovered ? scheduledEnd : nowTime
+                });
+                return;
+              }
+              updateAutoPunchStatus(`Auto uscita non eseguita: ${geo.reason}`, false);
+            }
+          }
+        } finally {
+          autoPunchInProgress = false;
+        }
       }
       async function autoPunchTick() {
         if (autoPunchInProgress) return;
