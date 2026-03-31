@@ -115,6 +115,7 @@
       .summary-line { font-size:13px; color:#1e293b; }
       .segments-list { margin:8px 0 0; padding-left:18px; font-size:13px; color:#334155; }
       .segments-list li { margin-bottom:3px; }
+      .import-preview { margin-top:8px; padding:8px; border:1px dashed #93c5fd; border-radius:8px; background:#f8fbff; font-size:12px; color:#1e293b; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
     </style>
@@ -259,36 +260,8 @@
         </div>
 
         <div class="card hidden" id="teamCard">
-          <h2>Gestione caposquadra e squadra</h2>
-          <p class="small">Inserisci il caposquadra, i membri della squadra e i mezzi utilizzati.</p>
-          <div class="grid">
-            <label>Caposquadra
-              <input type="text" id="teamLeaderInput" placeholder="Nome caposquadra" />
-            </label>
-            <label>Nuovo membro squadra
-              <input type="text" id="teamMemberInput" placeholder="Nome membro" />
-            </label>
-            <label>Nuovo mezzo utilizzato
-              <input type="text" id="teamVehicleInput" placeholder="Es. Furgone AB123CD" />
-            </label>
-          </div>
-          <div class="inline-actions">
-            <button type="button" class="secondary" id="saveTeamLeaderBtn">Salva caposquadra</button>
-            <button type="button" class="secondary" id="addTeamMemberBtn">Aggiungi membro</button>
-            <button type="button" class="secondary" id="addTeamVehicleBtn">Aggiungi mezzo</button>
-          </div>
-          <div class="grid">
-            <div>
-              <h3>Membri squadra</h3>
-              <ul id="teamMembersList" class="segments-list"></ul>
-            </div>
-            <div>
-              <h3>Mezzi utilizzati</h3>
-              <ul id="teamVehiclesList" class="segments-list"></ul>
-            </div>
-          </div>
+          <h2>Programmazione squadra (giorno successivo)</h2>
           <div class="simple-shift" style="margin-top:12px;">
-            <h3>Richiesta squadra per il giorno selezionato</h3>
             <div class="grid">
               <label>Data richiesta
                 <input type="date" id="teamRequestDate" />
@@ -303,11 +276,33 @@
                 <textarea id="teamRequestVehicles" rows="3" placeholder="Es. Furgone + piattaforma"></textarea>
               </label>
             </div>
+            <div class="grid">
+              <label>Aggiungi persona da elenco
+                <input type="text" id="teamRequestPersonSuggest" list="memberSuggestionsList" placeholder="Scrivi e scegli un nome" />
+              </label>
+              <label>Aggiungi mezzo da elenco
+                <input type="text" id="teamRequestVehicleSuggest" list="vehicleSuggestionsList" placeholder="Scrivi e scegli un mezzo" />
+              </label>
+            </div>
+            <input type="hidden" id="teamProgramId" />
+            <div class="grid">
+              <label>Seleziona programmazione salvata
+                <select id="teamProgramSelect"></select>
+              </label>
+              <label>Importa screenshot (opzionale)
+                <input type="file" id="teamScreenshotInput" accept="image/*" />
+              </label>
+            </div>
+            <div id="teamImportPreview" class="import-preview">Nessun testo estratto da screenshot.</div>
             <div class="inline-actions">
-              <button type="button" class="secondary" id="prefillTeamRequestBtn">Usa squadra salvata</button>
+              <button type="button" class="secondary" id="extractTeamScreenshotBtn">Leggi screenshot</button>
+              <button type="button" class="secondary" id="prefillTeamRequestBtn">Usa elenco persone/mezzi</button>
+              <button type="button" class="secondary" id="saveTeamProgramBtn">Salva programmazione</button>
+              <button type="button" class="secondary" id="updateTeamProgramBtn">Correggi programmazione</button>
+              <button type="button" class="secondary" id="deleteTeamProgramBtn">Elimina programmazione</button>
               <button type="button" id="sendTeamRequestWhatsappBtn">Finalizza e apri WhatsApp</button>
             </div>
-            <p class="small">Dopo il click si apre WhatsApp con il testo precompilato: scegli solo il contatto responsabile e invia.</p>
+            <p class="small">Compila per il giorno successivo, correggi/elimina e inoltra via WhatsApp.</p>
           </div>
           <p id="teamEsito" class="msg"></p>
         </div>
@@ -341,7 +336,7 @@
                 </select>
               </label>
               <label>Cantiere<input type="text" id="clockInCantiere" placeholder="Nome cantiere"></label>
-              <label>Caposquadra<input type="text" id="clockInCaposquadra" placeholder="Nome caposquadra"></label>
+              <label>Caposquadra<input type="text" id="clockInCaposquadra" list="memberSuggestionsList" placeholder="Nome caposquadra"></label>
             </div>
             <div class="actions">
               <button type="button" class="secondary" id="cancelClockInSetupBtn">Annulla</button>
@@ -360,7 +355,7 @@
                   <input type="text" id="nextCantiere" placeholder="Nuovo cantiere" />
                 </label>
                 <label>Nuovo caposquadra
-                  <input type="text" id="nextCaposquadra" placeholder="Nuovo caposquadra" />
+                  <input type="text" id="nextCaposquadra" list="memberSuggestionsList" placeholder="Nuovo caposquadra" />
                 </label>
               </div>
               <div class="actions">
@@ -404,7 +399,7 @@
               </label>
               <label>Note<textarea id="note" rows="2"></textarea></label>
               <label>Cantiere<input type="text" id="cantiere" /></label>
-              <label>Caposquadra<input type="text" id="caposquadra" /></label>
+              <label>Caposquadra<input type="text" id="caposquadra" list="memberSuggestionsList" /></label>
               <label>Tipo contratto
                 <select id="contratto">
                   <option value="DET">Determinato</option>
@@ -444,6 +439,8 @@
         </div>
       </div>
     </div>
+    <datalist id="memberSuggestionsList"></datalist>
+    <datalist id="vehicleSuggestionsList"></datalist>
 
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
@@ -454,6 +451,11 @@
       const PROGRAM_DRAFT_KEY = 'timbrature.local.program.draft';
       const TEAM_KEY = 'timbrature.local.team';
       const TEAM_REQUEST_DRAFT_KEY = 'timbrature.local.team.request.draft';
+      const TEAM_PROGRAMS_KEY = 'timbrature.local.team.programs';
+      const TEAM_DIRECTORY_KEY = 'timbrature.local.team.directory';
+      const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
+      const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY`;
+      const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60`;
       const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
@@ -532,6 +534,11 @@
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
       const writeJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
       const nowDateISO = () => new Date().toISOString().slice(0, 10);
+      const tomorrowDateISO = () => {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().slice(0, 10);
+      };
       const currentMonthValueUTC = () => { const n = new Date(); return `${n.getUTCFullYear()}-${String(n.getUTCMonth()+1).padStart(2,'0')}`; };
       const showMsg = (m, t='ok') => { id('esito').className = `msg ${t}`; id('esito').textContent = m; };
       const showProgramMsg = (m, t='ok') => { id('programEsito').className = `msg ${t}`; id('programEsito').textContent = m; };
@@ -645,6 +652,32 @@
       function setProgramDraft(v) { writeJSON(PROGRAM_DRAFT_KEY, v); }
       function getTeamRequestDraft() { return readJSON(TEAM_REQUEST_DRAFT_KEY, null); }
       function setTeamRequestDraft(v) { writeJSON(TEAM_REQUEST_DRAFT_KEY, v); }
+      function getTeamPrograms() { return readJSON(TEAM_PROGRAMS_KEY, []); }
+      function setTeamPrograms(v) { writeJSON(TEAM_PROGRAMS_KEY, v); }
+      function defaultTeamMembersList() { return [...new Set(DEFAULT_TEAM_MEMBERS_TEXT.split('|').map((v)=>v.trim()).filter(Boolean))]; }
+      function defaultTeamVehiclesList() { return [...new Set(DEFAULT_TEAM_VEHICLES_TEXT.split('|').map((v)=>v.trim()).filter(Boolean))]; }
+      function getTeamDirectory() { return readJSON(TEAM_DIRECTORY_KEY, { sheetUrl:FIXED_TEAM_SHEET_URL, members:defaultTeamMembersList(), vehicles:defaultTeamVehiclesList(), synced_at:'' }); }
+      function setTeamDirectory(v) { writeJSON(TEAM_DIRECTORY_KEY, v); }
+      function normalizeGoogleSheetCsvUrl(url='') {
+        const text = String(url || '').trim();
+        const idMatch = text.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        const gidMatch = text.match(/gid=(\d+)/);
+        if (!idMatch) return text;
+        const gid = gidMatch ? gidMatch[1] : '0';
+        return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=csv&gid=${gid}`;
+      }
+      function buildGoogleSheetSources(url='') {
+        const text = String(url || '').trim();
+        const idMatch = text.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        const gidMatch = text.match(/gid=(\d+)/);
+        if (!idMatch) return [{ url:text, type:'csv' }];
+        const gid = gidMatch ? gidMatch[1] : '0';
+        return [
+          { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=csv&gid=${gid}`, type:'csv' },
+          { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:csv&gid=${gid}`, type:'csv' },
+          { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:json&gid=${gid}`, type:'gviz_json' }
+        ];
+      }
       function updateWelcomeMessage() {
         const profile = getProfile();
         const displayName = (profile.nome || 'Ionel Varga').trim();
@@ -750,15 +783,122 @@
         id('email').value = p.email || '';
       }
       function renderTeamUI() {
-        const team = getTeamConfig();
         const draft = getTeamRequestDraft() || {};
-        id('teamLeaderInput').value = team.leader || '';
-        id('teamMembersList').innerHTML = (team.members || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamMember(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun membro inserito.</li>';
-        id('teamVehiclesList').innerHTML = (team.vehicles || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamVehicle(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun mezzo inserito.</li>';
-        id('teamRequestDate').value = draft.date || selectedMonthDay || nowDateISO();
+        id('teamRequestDate').value = draft.date || selectedMonthDay || tomorrowDateISO();
         id('teamRequestCantiere').value = draft.cantiere || '';
         id('teamRequestPersonnel').value = draft.personale || '';
         id('teamRequestVehicles').value = draft.mezzi || '';
+        id('teamRequestPersonSuggest').value = '';
+        id('teamRequestVehicleSuggest').value = '';
+        id('teamProgramId').value = '';
+        id('teamImportPreview').textContent = 'Nessun testo estratto da screenshot.';
+        renderTeamDirectorySelects();
+        renderTeamProgramsSelect();
+      }
+      function renderTeamDirectorySelects() {
+        const directory = getTeamDirectory();
+        const memberOptions = (directory.members || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
+        const vehicleOptions = (directory.vehicles || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
+        id('memberSuggestionsList').innerHTML = memberOptions;
+        id('vehicleSuggestionsList').innerHTML = vehicleOptions;
+      }
+      function appendSuggestionToTextarea(inputId, textareaId) {
+        const value = id(inputId).value.trim();
+        if (!value) return;
+        const existing = normalizeListText(id(textareaId).value);
+        const merged = normalizeListText([existing, value].filter(Boolean).join(', '));
+        id(textareaId).value = merged;
+        id(inputId).value = '';
+        saveTeamRequestDraft();
+      }
+      function parseCsvRows(csvText='') {
+        const lines = String(csvText || '').split(/\r?\n/).map((row)=>row.trim()).filter(Boolean);
+        if (!lines.length) return [];
+        const delimiter = lines[0].includes(';') ? ';' : ',';
+        return lines.map((line)=>line.split(delimiter).map((cell)=>cell.replace(/^"|"$/g, '').trim()));
+      }
+      function isGarbageDirectoryEntry(value='') {
+        const text = String(value || '').trim().toLowerCase();
+        if (!text) return true;
+        return /(<[^>]+>|[{}`]|minmax\(|padding:|font-size|position:|calc\(|#|http|select\s*$|body\s*\{|class=|style=|@media)/i.test(text);
+      }
+      function cleanDirectoryValues(values=[]) {
+        return [...new Set(
+          (values || [])
+            .map((value)=>String(value || '').replace(/^["']|["']$/g, '').trim())
+            .filter((value)=>value && !isGarbageDirectoryEntry(value))
+        )];
+      }
+      function buildDirectoryFromRows(rows=[]) {
+        if (!Array.isArray(rows) || !rows.length) return { members:[], vehicles:[] };
+        const normalizedRows = rows.map((row)=>Array.isArray(row) ? row : [row]);
+        const headerRowIndex = normalizedRows.findIndex((row)=>row.some((cell)=>/(personale|membro|nome|operaio|mezzo|veicolo|targa|furgone)/i.test(String(cell || ''))));
+        const header = (normalizedRows[headerRowIndex >= 0 ? headerRowIndex : 0] || []).map((cell)=>String(cell || '').toLowerCase());
+        const memberIdx = header.findIndex((cell)=>/(personale|membro|nome|operaio)/.test(cell));
+        const vehicleIdx = header.findIndex((cell)=>/(mezzo|veicolo|targa|furgone)/.test(cell));
+        const dataRows = normalizedRows.slice((headerRowIndex >= 0 ? headerRowIndex : 0) + 1);
+        const members = cleanDirectoryValues(dataRows.map((row)=>row[memberIdx >= 0 ? memberIdx : 0]));
+        const vehicles = cleanDirectoryValues(dataRows.map((row)=>row[vehicleIdx >= 0 ? vehicleIdx : 1]));
+        return { members, vehicles };
+      }
+      function parseGvizJsonRows(rawText='') {
+        const text = String(rawText || '').trim();
+        const jsonMatch = text.match(/setResponse\(([\s\S]+)\);?$/);
+        if (!jsonMatch) return [];
+        try {
+          const payload = JSON.parse(jsonMatch[1]);
+          const columns = (payload?.table?.cols || []).map((col)=>col?.label || '');
+          const bodyRows = (payload?.table?.rows || []).map((row)=>(row.c || []).map((cell)=>cell?.v ?? ''));
+          return [columns, ...bodyRows];
+        } catch (_) {
+          return [];
+        }
+      }
+      function buildDirectoryFromCsv(csvText='') {
+        const raw = String(csvText || '').trim();
+        if (!raw) return { members:[], vehicles:[] };
+        if (/<html|<!doctype|<style|<script/i.test(raw)) return { members:[], vehicles:[] };
+        return buildDirectoryFromRows(parseCsvRows(csvText));
+      }
+      async function loadTeamDirectoryFromSheet(silent=false) {
+        const sources = buildGoogleSheetSources(FIXED_TEAM_SHEET_URL);
+        try {
+          let parsed = { members:[], vehicles:[] };
+          let finalUrl = sources[0]?.url || FIXED_TEAM_SHEET_URL;
+          for (const source of sources) {
+            const response = await fetch(source.url);
+            if (!response.ok) continue;
+            const body = await response.text();
+            const current = source.type === 'gviz_json'
+              ? buildDirectoryFromRows(parseGvizJsonRows(body))
+              : buildDirectoryFromCsv(body);
+            if (current.members.length || current.vehicles.length) {
+              parsed = current;
+              finalUrl = source.url;
+              break;
+            }
+          }
+          if (!parsed.members.length && !parsed.vehicles.length) {
+            parsed = { members: defaultTeamMembersList(), vehicles: defaultTeamVehiclesList() };
+            if (!silent) showTeamMsg('Foglio non leggibile: uso elenco interno precompilato.', 'err');
+          }
+          const syncedAt = new Date().toISOString();
+          setTeamDirectory({ sheetUrl:finalUrl, members:parsed.members, vehicles:parsed.vehicles, synced_at:syncedAt });
+          renderTeamDirectorySelects();
+          if (!silent) showTeamMsg(`Elenco aggiornato: ${parsed.members.length} membri, ${parsed.vehicles.length} mezzi.`, 'ok');
+        } catch (error) {
+          console.warn('Errore caricamento Google Sheet squadra:', error);
+          const fallback = { sheetUrl: FIXED_TEAM_SHEET_URL, members: defaultTeamMembersList(), vehicles: defaultTeamVehiclesList(), synced_at:'' };
+          setTeamDirectory(fallback);
+          renderTeamDirectorySelects();
+          if (!silent) showTeamMsg('Impossibile aggiornare dal foglio: caricato elenco interno predefinito.', 'err');
+        }
+      }
+      function renderTeamProgramsSelect() {
+        const rows = getTeamPrograms().slice().sort((a,b)=>a.date > b.date ? 1 : -1);
+        id('teamProgramSelect').innerHTML = ['<option value="">Nuova programmazione</option>']
+          .concat(rows.map((row)=>`<option value="${row.id}">${row.date} • ${row.cantiere || 'Cantiere n/d'}</option>`))
+          .join('');
       }
       function saveTeamRequestDraft() {
         setTeamRequestDraft({
@@ -768,6 +908,106 @@
           mezzi: id('teamRequestVehicles').value.trim()
         });
       }
+      function normalizeListText(value='') {
+        return String(value || '').split(/[\n,;|]+/).map((item)=>item.trim()).filter(Boolean).join(', ');
+      }
+      function parseNamesAndVehiclesFromText(raw='') {
+        const lines = String(raw || '').split(/\n+/).map((line)=>line.trim()).filter(Boolean);
+        const vehicleHints = /(furgone|mezzo|camion|auto|pickup|piattaforma|escavatore|gru|van|targa|[a-z]{2}\d{3}[a-z]{2}|[a-z]{2}\d{4}[a-z]{1,2})/i;
+        const names = [];
+        const vehicles = [];
+        lines.forEach((line)=> (vehicleHints.test(line) ? vehicles : names).push(line));
+        return { personnel: normalizeListText(names.join('\n')), vehicles: normalizeListText(vehicles.join('\n')) };
+      }
+      async function extractTextFromImageFile(file) {
+        if (!file || !('TextDetector' in window)) return '';
+        const bitmap = await createImageBitmap(file);
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0);
+        const detector = new window.TextDetector();
+        const blocks = await detector.detect(canvas);
+        return blocks.map((block)=>block.rawValue || '').join('\n').trim();
+      }
+      async function extractTeamFromScreenshot() {
+        const file = id('teamScreenshotInput').files?.[0];
+        if (!file) { showTeamMsg('Seleziona prima uno screenshot.', 'err'); return; }
+        try {
+          const extracted = await extractTextFromImageFile(file);
+          if (!extracted) {
+            id('teamImportPreview').textContent = 'OCR non disponibile in questo browser: compila manualmente i campi.';
+            showTeamMsg('OCR non supportato qui. Puoi compilare manualmente personale e mezzi.', 'err');
+            return;
+          }
+          const parsed = parseNamesAndVehiclesFromText(extracted);
+          if (parsed.personnel) id('teamRequestPersonnel').value = parsed.personnel;
+          if (parsed.vehicles) id('teamRequestVehicles').value = parsed.vehicles;
+          id('teamImportPreview').textContent = `Testo estratto: ${extracted.slice(0, 280)}${extracted.length > 280 ? '…' : ''}`;
+          saveTeamRequestDraft();
+          showTeamMsg('Screenshot analizzato: campi aggiornati automaticamente.', 'ok');
+        } catch (error) {
+          console.warn('Errore OCR screenshot:', error);
+          showTeamMsg('Errore durante l’analisi screenshot. Compila manualmente i campi.', 'err');
+        }
+      }
+      function buildTeamProgramPayload() {
+        return {
+          id: id('teamProgramId').value || `team-program-${Date.now()}`,
+          date: id('teamRequestDate').value || tomorrowDateISO(),
+          cantiere: id('teamRequestCantiere').value.trim(),
+          personale: normalizeListText(id('teamRequestPersonnel').value),
+          mezzi: normalizeListText(id('teamRequestVehicles').value),
+          updated_at: new Date().toISOString()
+        };
+      }
+      function loadTeamProgramById(programId='') {
+        if (!programId) { id('teamProgramId').value = ''; return; }
+        const row = getTeamPrograms().find((entry)=>entry.id === programId);
+        if (!row) return;
+        id('teamProgramId').value = row.id;
+        id('teamRequestDate').value = row.date || tomorrowDateISO();
+        id('teamRequestCantiere').value = row.cantiere || '';
+        id('teamRequestPersonnel').value = row.personale || '';
+        id('teamRequestVehicles').value = row.mezzi || '';
+        saveTeamRequestDraft();
+      }
+      function saveTeamProgram() {
+        const payload = buildTeamProgramPayload();
+        if (!payload.date || !payload.cantiere || !payload.personale || !payload.mezzi) { showTeamMsg('Compila tutti i campi prima di salvare.', 'err'); return; }
+        const rows = getTeamPrograms().filter((entry)=>entry.id !== payload.id);
+        rows.push(payload);
+        setTeamPrograms(rows);
+        renderTeamProgramsSelect();
+        id('teamProgramId').value = payload.id;
+        id('teamProgramSelect').value = payload.id;
+        saveTeamRequestDraft();
+        showTeamMsg(`Programmazione salvata per il ${payload.date}.`, 'ok');
+      }
+      function updateTeamProgram() {
+        const payload = buildTeamProgramPayload();
+        const rows = getTeamPrograms();
+        const idx = rows.findIndex((entry)=>entry.id === payload.id);
+        if (idx < 0) { showTeamMsg('Seleziona una programmazione da correggere.', 'err'); return; }
+        rows[idx] = payload;
+        setTeamPrograms(rows);
+        renderTeamProgramsSelect();
+        id('teamProgramSelect').value = payload.id;
+        saveTeamRequestDraft();
+        showTeamMsg(`Programmazione aggiornata per il ${payload.date}.`, 'ok');
+      }
+      function deleteTeamProgram() {
+        const programId = id('teamProgramId').value || id('teamProgramSelect').value;
+        if (!programId) { showTeamMsg('Seleziona una programmazione da eliminare.', 'err'); return; }
+        const row = getTeamPrograms().find((entry)=>entry.id === programId);
+        if (!row) { showTeamMsg('Programmazione non trovata.', 'err'); return; }
+        if (!window.confirm(`Eliminare la programmazione del ${row.date}?`)) return;
+        setTeamPrograms(getTeamPrograms().filter((entry)=>entry.id !== programId));
+        id('teamProgramId').value = '';
+        renderTeamProgramsSelect();
+        showTeamMsg(`Programmazione del ${row.date} eliminata.`, 'ok');
+      }
       function saveTeamLeader() {
         const team = getTeamConfig();
         team.leader = id('teamLeaderInput').value.trim();
@@ -776,8 +1016,8 @@
         showTeamMsg('Caposquadra salvato.', 'ok');
         renderTeamUI();
       }
-      function addTeamMember() {
-        const value = id('teamMemberInput').value.trim();
+      function addTeamMember(forcedValue='') {
+        const value = (forcedValue || id('teamMemberInput').value).trim();
         if (!value) { showTeamMsg('Inserisci un nome membro valido.', 'err'); return; }
         const team = getTeamConfig();
         team.members = [...new Set([...(team.members || []), value])];
@@ -786,8 +1026,8 @@
         showTeamMsg('Membro aggiunto.', 'ok');
         renderTeamUI();
       }
-      function addTeamVehicle() {
-        const value = id('teamVehicleInput').value.trim();
+      function addTeamVehicle(forcedValue='') {
+        const value = (forcedValue || id('teamVehicleInput').value).trim();
         if (!value) { showTeamMsg('Inserisci un mezzo valido.', 'err'); return; }
         const team = getTeamConfig();
         team.vehicles = [...new Set([...(team.vehicles || []), value])];
@@ -809,11 +1049,11 @@
         renderTeamUI();
       }
       function prefillTeamRequestFromSavedTeam() {
-        const team = getTeamConfig();
-        if (!id('teamRequestPersonnel').value.trim()) id('teamRequestPersonnel').value = (team.members || []).join(', ');
-        if (!id('teamRequestVehicles').value.trim()) id('teamRequestVehicles').value = (team.vehicles || []).join(', ');
+        const directory = getTeamDirectory();
+        if (!id('teamRequestPersonnel').value.trim()) id('teamRequestPersonnel').value = (directory.members || []).join(', ');
+        if (!id('teamRequestVehicles').value.trim()) id('teamRequestVehicles').value = (directory.vehicles || []).join(', ');
         saveTeamRequestDraft();
-        showTeamMsg('Richiesta precompilata con squadra/mezzi salvati.', 'ok');
+        showTeamMsg('Richiesta precompilata con persone/mezzi dal foglio.', 'ok');
       }
       function openWhatsAppTeamRequest() {
         const date = id('teamRequestDate').value || nowDateISO();
@@ -822,12 +1062,13 @@
         const mezzi = id('teamRequestVehicles').value.trim();
         if (!date || !cantiere || !personale || !mezzi) { showTeamMsg('Compila data, cantiere, personale e mezzi prima di finalizzare.', 'err'); return; }
         const team = getTeamConfig();
+        const liveCapo = id('caposquadra')?.value?.trim() || '';
         const message = [
           `Buongiorno, richiesta squadra per il giorno ${date}.`,
           `Cantiere: ${cantiere}`,
           `Personale richiesto: ${personale}`,
           `Mezzi richiesti: ${mezzi}`,
-          `Caposquadra: ${team.leader || 'non indicato'}`,
+          `Caposquadra: ${liveCapo || team.leader || 'non indicato'}`,
           'Confermate disponibilità, grazie.'
         ].join('\n');
         saveTeamRequestDraft();
@@ -837,7 +1078,7 @@
       function openTeamRequestForDate(dateValue='') {
         setMenuSection('teamCard');
         if (dateValue) id('teamRequestDate').value = dateValue;
-        if (!id('teamRequestDate').value) id('teamRequestDate').value = nowDateISO();
+        if (!id('teamRequestDate').value) id('teamRequestDate').value = tomorrowDateISO();
         saveTeamRequestDraft();
       }
 
@@ -1605,7 +1846,14 @@
         URL.revokeObjectURL(url);
       }
 
-      function setMenuSection(panelId) { if (!menuPanelIds.includes(panelId)) return; activeMenuPanel = panelId; menuPanelIds.forEach((name)=>id(name).classList.toggle('hidden', name !== panelId)); document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId)); setMenuOpen(false); }
+      function setMenuSection(panelId) {
+        if (!menuPanelIds.includes(panelId)) return;
+        activeMenuPanel = panelId;
+        menuPanelIds.forEach((name)=>id(name).classList.toggle('hidden', name !== panelId));
+        document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId));
+        if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
+        setMenuOpen(false);
+      }
       function setMenuOpen(open) { menuOpen = !!open; id('leftMenu').classList.toggle('hidden', !menuOpen); id('menuToggleBtn').setAttribute('aria-expanded', menuOpen ? 'true' : 'false'); }
 
       async function registerServiceWorker() {
@@ -1622,6 +1870,7 @@
         id('mese').value = currentMonthValueUTC();
         loadProfileUI();
         renderTeamUI();
+        loadTeamDirectoryFromSheet(true);
         updateWelcomeMessage();
         loadTodayPunch();
         loadMyMonth();
@@ -1638,10 +1887,16 @@
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
         id('saveProfile').addEventListener('click', saveProfile);
-        id('saveTeamLeaderBtn').addEventListener('click', saveTeamLeader);
-        id('addTeamMemberBtn').addEventListener('click', addTeamMember);
-        id('addTeamVehicleBtn').addEventListener('click', addTeamVehicle);
+        id('teamRequestPersonSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'));
+        id('teamRequestVehicleSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'));
+        id('teamRequestPersonSuggest').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'); } });
+        id('teamRequestVehicleSuggest').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'); } });
+        id('extractTeamScreenshotBtn').addEventListener('click', extractTeamFromScreenshot);
         id('prefillTeamRequestBtn').addEventListener('click', prefillTeamRequestFromSavedTeam);
+        id('saveTeamProgramBtn').addEventListener('click', saveTeamProgram);
+        id('updateTeamProgramBtn').addEventListener('click', updateTeamProgram);
+        id('deleteTeamProgramBtn').addEventListener('click', deleteTeamProgram);
+        id('teamProgramSelect').addEventListener('change', (e)=>loadTeamProgramById(e.target.value || ''));
         id('sendTeamRequestWhatsappBtn').addEventListener('click', openWhatsAppTeamRequest);
         ['teamRequestDate','teamRequestCantiere','teamRequestPersonnel','teamRequestVehicles'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveTeamRequestDraft));
         id('saveProgramBtn').addEventListener('click', saveProgram);
