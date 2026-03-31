@@ -285,13 +285,14 @@
             </label>
           </div>
           <div class="inline-actions">
-            <button type="button" class="secondary" id="loadTeamSheetBtn">Carica elenco Google Sheet</button>
+            <button type="button" class="secondary" id="loadTeamSheetBtn">Aggiorna elenco Google Sheet</button>
             <button type="button" class="secondary" id="saveTeamLeaderBtn">Salva caposquadra</button>
             <button type="button" class="secondary" id="addTeamMemberBtn">Aggiungi membro</button>
             <button type="button" class="secondary" id="addTeamMemberFromListBtn">Aggiungi membro da elenco</button>
             <button type="button" class="secondary" id="addTeamVehicleBtn">Aggiungi mezzo</button>
             <button type="button" class="secondary" id="addTeamVehicleFromListBtn">Aggiungi mezzo da elenco</button>
           </div>
+          <p class="small" id="teamSheetStatus">Elenco Google Sheet: non sincronizzato.</p>
           <div class="grid">
             <div>
               <h3>Membri squadra</h3>
@@ -485,6 +486,7 @@
       const TEAM_REQUEST_DRAFT_KEY = 'timbrature.local.team.request.draft';
       const TEAM_PROGRAMS_KEY = 'timbrature.local.team.programs';
       const TEAM_DIRECTORY_KEY = 'timbrature.local.team.directory';
+      const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/gviz/tq?tqx=out:csv&gid=0';
       const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
@@ -683,8 +685,16 @@
       function setTeamRequestDraft(v) { writeJSON(TEAM_REQUEST_DRAFT_KEY, v); }
       function getTeamPrograms() { return readJSON(TEAM_PROGRAMS_KEY, []); }
       function setTeamPrograms(v) { writeJSON(TEAM_PROGRAMS_KEY, v); }
-      function getTeamDirectory() { return readJSON(TEAM_DIRECTORY_KEY, { sheetUrl:'', members:[], vehicles:[] }); }
+      function getTeamDirectory() { return readJSON(TEAM_DIRECTORY_KEY, { sheetUrl:FIXED_TEAM_SHEET_URL, members:[], vehicles:[], synced_at:'' }); }
       function setTeamDirectory(v) { writeJSON(TEAM_DIRECTORY_KEY, v); }
+      function normalizeGoogleSheetCsvUrl(url='') {
+        const text = String(url || '').trim();
+        const idMatch = text.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        const gidMatch = text.match(/gid=(\d+)/);
+        if (!idMatch) return text;
+        const gid = gidMatch ? gidMatch[1] : '0';
+        return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:csv&gid=${gid}`;
+      }
       function updateWelcomeMessage() {
         const profile = getProfile();
         const displayName = (profile.nome || 'Ionel Varga').trim();
@@ -796,7 +806,11 @@
         id('teamLeaderInput').value = team.leader || '';
         id('teamMembersList').innerHTML = (team.members || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamMember(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun membro inserito.</li>';
         id('teamVehiclesList').innerHTML = (team.vehicles || []).map((name, idx)=>`<li>${name} <button type="button" class="secondary" onclick="removeTeamVehicle(${idx})">Rimuovi</button></li>`).join('') || '<li>Nessun mezzo inserito.</li>';
-        id('teamSheetUrlInput').value = directory.sheetUrl || '';
+        id('teamSheetUrlInput').value = FIXED_TEAM_SHEET_URL;
+        id('teamSheetUrlInput').readOnly = true;
+        id('teamSheetStatus').textContent = directory.synced_at
+          ? `Elenco Google Sheet aggiornato: ${new Date(directory.synced_at).toLocaleString('it-IT')}.`
+          : 'Elenco Google Sheet: non sincronizzato.';
         id('teamRequestDate').value = draft.date || selectedMonthDay || tomorrowDateISO();
         id('teamRequestCantiere').value = draft.cantiere || '';
         id('teamRequestPersonnel').value = draft.personale || '';
@@ -835,20 +849,22 @@
           vehicles: [...new Set(vehicles)]
         };
       }
-      async function loadTeamDirectoryFromSheet() {
-        const url = id('teamSheetUrlInput').value.trim();
-        if (!url) { showTeamMsg('Inserisci URL CSV del Google Sheet.', 'err'); return; }
+      async function loadTeamDirectoryFromSheet(silent=false) {
+        const url = normalizeGoogleSheetCsvUrl(FIXED_TEAM_SHEET_URL);
         try {
           const response = await fetch(url);
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const csv = await response.text();
           const parsed = buildDirectoryFromCsv(csv);
-          setTeamDirectory({ sheetUrl:url, members:parsed.members, vehicles:parsed.vehicles });
+          const syncedAt = new Date().toISOString();
+          setTeamDirectory({ sheetUrl:url, members:parsed.members, vehicles:parsed.vehicles, synced_at:syncedAt });
           renderTeamDirectorySelects();
-          showTeamMsg(`Elenco caricato da Google Sheet: ${parsed.members.length} membri, ${parsed.vehicles.length} mezzi.`, 'ok');
+          id('teamSheetStatus').textContent = `Elenco Google Sheet aggiornato: ${new Date(syncedAt).toLocaleString('it-IT')}.`;
+          if (!silent) showTeamMsg(`Elenco aggiornato: ${parsed.members.length} membri, ${parsed.vehicles.length} mezzi.`, 'ok');
         } catch (error) {
           console.warn('Errore caricamento Google Sheet squadra:', error);
-          showTeamMsg('Impossibile leggere il Google Sheet. Verifica URL CSV pubblico.', 'err');
+          id('teamSheetStatus').textContent = 'Elenco Google Sheet: errore sincronizzazione.';
+          if (!silent) showTeamMsg('Impossibile aggiornare dal Google Sheet fisso. Controlla condivisione pubblica.', 'err');
         }
       }
       function renderTeamProgramsSelect() {
@@ -1804,7 +1820,14 @@
         URL.revokeObjectURL(url);
       }
 
-      function setMenuSection(panelId) { if (!menuPanelIds.includes(panelId)) return; activeMenuPanel = panelId; menuPanelIds.forEach((name)=>id(name).classList.toggle('hidden', name !== panelId)); document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId)); setMenuOpen(false); }
+      function setMenuSection(panelId) {
+        if (!menuPanelIds.includes(panelId)) return;
+        activeMenuPanel = panelId;
+        menuPanelIds.forEach((name)=>id(name).classList.toggle('hidden', name !== panelId));
+        document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId));
+        if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
+        setMenuOpen(false);
+      }
       function setMenuOpen(open) { menuOpen = !!open; id('leftMenu').classList.toggle('hidden', !menuOpen); id('menuToggleBtn').setAttribute('aria-expanded', menuOpen ? 'true' : 'false'); }
 
       async function registerServiceWorker() {
@@ -1821,6 +1844,7 @@
         id('mese').value = currentMonthValueUTC();
         loadProfileUI();
         renderTeamUI();
+        loadTeamDirectoryFromSheet(true);
         updateWelcomeMessage();
         loadTodayPunch();
         loadMyMonth();
