@@ -1196,6 +1196,7 @@
         refreshPunchSummary();
       }
       function collectPayload(stato, meta={}) {
+        const team = getTeamConfig();
         return {
           data:id('data').value || nowDateISO(),
           entrata:id('entrata').value,
@@ -1208,6 +1209,9 @@
           contratto:id('contratto').value,
           meteoGestione:id('meteoGestione').value,
           segments: todaySegments,
+          team_leader: (team.leader || '').trim(),
+          team_members: Array.isArray(team.members) ? team.members : [],
+          team_vehicles: Array.isArray(team.vehicles) ? team.vehicles : [],
           stato,
           clock_in_source: meta.clock_in_source || 'manual',
           clock_out_source: meta.clock_out_source || 'manual',
@@ -1221,7 +1225,7 @@
         const profile = getProfile();
         const calc = computeHours(payload.entrata, payload.uscita, payload.pausaMinuti, payload.causale, resolveRulesForDate(payload.data).rules);
         const rowSegments = payload.segments || [];
-        const row = { nome: profile.nome || '', azienda: profile.azienda || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, contratto:payload.contratto || 'DET', meteoGestione:payload.meteoGestione || '', segments: rowSegments, cantiereHours: computeHoursByCantiere(rowSegments), ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, clock_in_source:payload.clock_in_source || 'manual', clock_out_source:payload.clock_out_source || 'manual', clock_in_auto_note:payload.clock_in_auto_note || '', clock_out_auto_note:payload.clock_out_auto_note || '', clock_in_distance_m:payload.clock_in_distance_m ?? null, clock_out_distance_m:payload.clock_out_distance_m ?? null, updated_at:new Date().toISOString() };
+        const row = { nome: profile.nome || '', azienda: profile.azienda || '', email: profile.email || '', data:payload.data, entrata:payload.entrata, uscita:payload.uscita, pausa:payload.pausaMinuti, causale:payload.causale, note:payload.note, cantiere:payload.cantiere, caposquadra:payload.caposquadra, contratto:payload.contratto || 'DET', meteoGestione:payload.meteoGestione || '', team_leader:payload.team_leader || '', team_members:Array.isArray(payload.team_members) ? payload.team_members : [], team_vehicles:Array.isArray(payload.team_vehicles) ? payload.team_vehicles : [], segments: rowSegments, cantiereHours: computeHoursByCantiere(rowSegments), ore:calc.worked, ord:calc.ord, stra:calc.stra, stato:payload.stato, clock_in_source:payload.clock_in_source || 'manual', clock_out_source:payload.clock_out_source || 'manual', clock_in_auto_note:payload.clock_in_auto_note || '', clock_out_auto_note:payload.clock_out_auto_note || '', clock_in_distance_m:payload.clock_in_distance_m ?? null, clock_out_distance_m:payload.clock_out_distance_m ?? null, updated_at:new Date().toISOString() };
         const records = getRecords().filter((r)=>r.data !== payload.data);
         records.push(row);
         records.sort((a,b)=>a.data > b.data ? 1 : -1);
@@ -1470,10 +1474,13 @@
         const cantiereHours = Array.isArray(record.cantiereHours) ? record.cantiereHours : computeHoursByCantiere(record.segments);
         const dailyProgram = programForDate(record.data);
         const dayEarnings = calculateRecordEarnings(record, dailyProgram);
+        const teamLeader = record.team_leader || '-';
+        const teamMembers = Array.isArray(record.team_members) && record.team_members.length ? record.team_members.join(', ') : '-';
+        const teamVehicles = Array.isArray(record.team_vehicles) && record.team_vehicles.length ? record.team_vehicles.join(', ') : '-';
         const perCantiere = cantiereHours.length
           ? cantiereHours.map((entry)=>`<div class="summary-line"><strong>${entry.cantiere}</strong>: ${Number(entry.hours || 0).toFixed(2)}h</div>`).join('')
           : '<div class="summary-line">Nessun dettaglio cantiere</div>';
-        id('selectedDaySummary').innerHTML = `<h3>Riepilogo ${dateValue}</h3><div class="summary-column"><div class="summary-line"><strong>Entrata:</strong> ${record.entrata || '-'}</div><div class="summary-line"><strong>Uscita:</strong> ${record.uscita || '-'}</div><div class="summary-line"><strong>Pausa:</strong> ${record.pausa || 0} min</div><div class="summary-line"><strong>Causale:</strong> ${record.causale || '-'}</div><div class="summary-line"><strong>Ore lavorate:</strong> ${Number(record.ore || 0).toFixed(2)}</div><div class="summary-line"><strong>Ordinarie:</strong> ${Number(record.ord || 0).toFixed(2)}</div><div class="summary-line"><strong>Straordinario:</strong> ${Number(record.stra || 0).toFixed(2)}</div><div class="summary-line"><strong>Guadagno giorno:</strong> € ${dayEarnings.toFixed(2)}</div><div class="summary-line"><strong>Stato:</strong> ${record.stato || '-'}</div><div class="summary-line"><strong>Dettaglio cantieri:</strong></div>${perCantiere}<div class="inline-actions"><button type="button" class="secondary" onclick="correctSegmentsByDate('${record.data}')">Correggi cantieri</button> <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${record.data}')">Elimina</button></div></div>`;
+        id('selectedDaySummary').innerHTML = `<h3>Riepilogo ${dateValue}</h3><div class="summary-column"><div class="summary-line"><strong>Entrata:</strong> ${record.entrata || '-'}</div><div class="summary-line"><strong>Uscita:</strong> ${record.uscita || '-'}</div><div class="summary-line"><strong>Pausa:</strong> ${record.pausa || 0} min</div><div class="summary-line"><strong>Causale:</strong> ${record.causale || '-'}</div><div class="summary-line"><strong>Ore lavorate:</strong> ${Number(record.ore || 0).toFixed(2)}</div><div class="summary-line"><strong>Ordinarie:</strong> ${Number(record.ord || 0).toFixed(2)}</div><div class="summary-line"><strong>Straordinario:</strong> ${Number(record.stra || 0).toFixed(2)}</div><div class="summary-line"><strong>Guadagno giorno:</strong> € ${dayEarnings.toFixed(2)}</div><div class="summary-line"><strong>Stato:</strong> ${record.stato || '-'}</div><div class="summary-line"><strong>Caposquadra gestione:</strong> ${teamLeader}</div><div class="summary-line"><strong>Membri squadra:</strong> ${teamMembers}</div><div class="summary-line"><strong>Mezzi squadra:</strong> ${teamVehicles}</div><div class="summary-line"><strong>Dettaglio cantieri:</strong></div>${perCantiere}<div class="inline-actions"><button type="button" class="secondary" onclick="correctSegmentsByDate('${record.data}')">Correggi cantieri</button> <button type="button" class="secondary" onclick="deleteTimbraturaByDate('${record.data}')">Elimina</button></div></div>`;
         const month = normalizeMonthValue(id('mese').value);
         const rows = getRecords().filter((r)=> String(r.data||'').startsWith(month));
         renderMonthCalendar(month, rows);
@@ -1502,7 +1509,7 @@
       }
       function exportExcel() {
         const records = getRecords().slice().sort((a,b)=>a.data > b.data ? 1 : -1);
-        const header = ['Data', 'Entrata', 'Uscita', 'Pausa', 'Causale', 'Cantiere', 'Caposquadra', 'Ore', 'Ordinarie', 'Straordinario', 'Stato'];
+        const header = ['Data', 'Entrata', 'Uscita', 'Pausa', 'Causale', 'Cantiere', 'Caposquadra', 'Caposquadra gestione', 'Membri squadra', 'Mezzi squadra', 'Ore', 'Ordinarie', 'Straordinario', 'Stato'];
         const lines = [header.join(';')];
         records.forEach((r)=>{
           lines.push([
@@ -1513,6 +1520,9 @@
             r.causale || '',
             (r.cantiere || '').replaceAll(';', ','),
             (r.caposquadra || '').replaceAll(';', ','),
+            (r.team_leader || '').replaceAll(';', ','),
+            (Array.isArray(r.team_members) ? r.team_members.join(' | ') : '').replaceAll(';', ','),
+            (Array.isArray(r.team_vehicles) ? r.team_vehicles.join(' | ') : '').replaceAll(';', ','),
             Number(r.ore || 0).toFixed(2),
             Number(r.ord || 0).toFixed(2),
             Number(r.stra || 0).toFixed(2),
