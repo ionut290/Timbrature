@@ -1292,18 +1292,13 @@
         if (!date || !cantiere || !personale || !mezzi) { showTeamMsg('Compila data, cantiere, personale e mezzi prima di finalizzare.', 'err'); return; }
         const team = getTeamConfig();
         const liveCapo = id('caposquadra')?.value?.trim() || '';
-        const currentProgramId = id('teamProgramId').value || id('teamProgramSelect').value || '';
-        const approveLink = buildStatusLink('APPROVATA', currentProgramId);
-        const rectifyLink = buildStatusLink('RETTIFICA', currentProgramId);
         const message = [
           `Buongiorno, richiesta squadra per il giorno ${date}.`,
           `Cantiere: ${cantiere}`,
           `👷 Personale richiesto: ${personale}`,
           `🚜 Mezzi richiesti: ${mezzi}`,
           `Caposquadra: ${liveCapo || team.leader || 'non indicato'}`,
-          'Conferma con un tap:',
-          `✅ *APPROVO* 👉 ${approveLink}`,
-          `✏️ *RETTIFICO* 👉 ${rectifyLink}`,
+          'Rispondi con APPROVO o RETTIFICO.',
           'Confermate disponibilità, grazie.'
         ].join('\n');
         saveTeamRequestDraft();
