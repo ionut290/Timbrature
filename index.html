@@ -40,6 +40,7 @@
       .small { color:#334155; font-size:13px; margin:0; }
       .pill { display:inline-block; background:#ecfeff; border:1px solid #bae6fd; color:#075985; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:600; }
       .hidden { display:none; }
+      .force-hidden { display:none !important; }
       .btn-green { background:#16a34a; }
       .btn-red { background:#dc2626; }
       .btn-disabled { background:#94a3b8 !important; color:#fff; }
@@ -349,15 +350,14 @@
         <div class="card" id="timbratureCard">
           <div class="timbratura-head">
             <div>
-              <h2>Timbrature di oggi</h2>
-              <p class="timbrature-subtitle">Interfaccia semplificata per entrata, uscita e riepilogo giornata.</p>
+              <h2>Timbrature Varga</h2>
               <div class="day-summary-card" id="todayAgendaWidget" style="margin-top:8px; cursor:pointer;">
                 <p class="small"><strong>Appuntamenti di oggi</strong></p>
                 <ul id="todayAgendaList" class="doc-list"></ul>
               </div>
             </div>
             <div>
-              <p class="pill" id="locationBadge">Luogo: Ionel Varga</p>
+              <p class="pill" id="locationBadge">Utente: Ionel Varga</p>
               <p class="welcome-box" id="welcomeText"></p>
             </div>
           </div>
@@ -366,8 +366,8 @@
             <button id="clockOutBtn" class="btn-red" type="button" disabled>🔴 Timbra uscita</button>
           </div>
           <p id="serviceStatus" class="status-line status-neutral">Non in servizio.</p>
-          <p id="autoPunchStatus" class="status-line status-neutral">Timbratura automatica: in attesa.</p>
-          <p id="dayCompletedText" class="status-line status-ok hidden">Giornata completata, buon riposo.</p>
+          <p id="autoPunchStatus" class="status-line status-neutral force-hidden">Timbratura automatica: in attesa.</p>
+          <p id="dayCompletedText" class="status-line status-ok hidden force-hidden">Giornata completata, buon riposo.</p>
           <div class="setup-box hidden" id="clockInSetupBox">
             <div class="grid">
               <label>Tipo lavoro
@@ -390,7 +390,7 @@
             <p class="small"><strong>Organizzazione cantieri di oggi</strong></p>
             <div class="split-top">
               <button type="button" class="secondary" id="splitCantiereBtn">Cambia cantiere</button>
-              <p id="splitSummaryText" class="split-summary">Cantieri di oggi: -</p>
+              <p id="splitSummaryText" class="split-summary force-hidden">Cantieri di oggi: -</p>
             </div>
             <div class="setup-box hidden" id="splitCantiereForm">
               <div class="grid">
@@ -407,7 +407,7 @@
                 <button type="button" class="secondary" id="correctTodaySegmentsBtn">Correggi ore/cantieri di oggi</button>
               </div>
             </div>
-            <ol id="segmentsList" class="segments-list"></ol>
+            <ol id="segmentsList" class="segments-list force-hidden"></ol>
           </div>
           <div class="punch-dashboard">
             <p id="liveDateLarge" class="live-date">--</p>
@@ -415,18 +415,18 @@
             <div class="punch-row">
               <span><strong>Entrata:</strong> <span id="summaryEntryTime">--:--</span></span>
               <span><strong>Uscita:</strong> <span id="summaryExitTime">--:--</span></span>
-              <span><strong>Ore servizio:</strong> <span id="summaryEntryCantiere">-</span></span>
+              <span class="force-hidden"><strong>Ore servizio:</strong> <span id="summaryEntryCantiere">-</span></span>
             </div>
             <div class="punch-row">
               <span><strong>Cantiere attuale:</strong> <span id="summaryExitCantiere">-</span></span>
-              <span><strong>Caposquadra attuale:</strong> <span id="summaryExitCapo">-</span></span>
+              <span class="force-hidden"><strong>Caposquadra attuale:</strong> <span id="summaryExitCapo">-</span></span>
               <span></span>
             </div>
-            <p id="serviceTotal" class="service-total">Totale ore in servizio: 00:00</p>
+            <p id="serviceTotal" class="service-total force-hidden">Totale ore in servizio: 00:00</p>
             <p id="serviceSubTotal" class="service-subtotal">Totale ore lavorate: 0.00</p>
-            <p id="serviceCantiereTotals" class="service-subtotal">Ore per cantiere: -</p>
-            <p id="serviceDayEarnings" class="service-subtotal">Guadagno giornata: € 0.00</p>
-            <p id="serviceTotalEarnings" class="service-subtotal">Fino adesso hai guadagnato circa: € 0.00</p>
+            <p id="serviceCantiereTotals" class="service-subtotal force-hidden">Ore per cantiere: -</p>
+            <p id="serviceDayEarnings" class="service-subtotal force-hidden">Guadagno giornata: € 0.00</p>
+            <p id="serviceTotalEarnings" class="service-subtotal force-hidden">Fino adesso hai guadagnato circa: € 0.00</p>
           </div>
 
           <div id="manualEditBox" class="hidden">
@@ -846,7 +846,7 @@
         const profile = getProfile();
         const displayName = (profile.nome || 'Ionel Varga').trim();
         id('welcomeText').textContent = 'Powered by Ionel Varga';
-        id('locationBadge').textContent = `Luogo: ${displayName}`;
+        id('locationBadge').textContent = `Utente: ${displayName}`;
       }
 
       function programForDate(dateValue) {
