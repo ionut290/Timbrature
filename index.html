@@ -389,13 +389,11 @@
               <button type="button" id="confirmClockInSetupBtn">Conferma entrata</button>
             </div>
           </div>
-          <div class="segments-box">
-            <p class="small"><strong>Organizzazione cantieri di oggi</strong></p>
-            <div class="split-top">
-              <button type="button" class="secondary swap-btn" id="splitCantiereBtn"><span class="icon">⇄</span><span class="label">Cambia cantiere</span></button>
-              <p id="splitSummaryText" class="split-summary force-hidden">Cantieri di oggi: -</p>
-            </div>
-            <div class="setup-box hidden force-hidden" id="splitCantiereForm">
+          <div id="cantiereSwapWrap" style="margin-top:10px; max-width:170px;">
+            <button type="button" class="secondary swap-btn" id="splitCantiereBtn"><span class="icon">⇄</span><span class="label">Cambia cantiere</span></button>
+          </div>
+          <p id="splitSummaryText" class="split-summary force-hidden">Cantieri di oggi: -</p>
+          <div class="setup-box hidden force-hidden" id="splitCantiereForm">
               <div class="grid">
                 <label>Nuovo cantiere
                   <input type="text" id="nextCantiere" placeholder="Nuovo cantiere" />
@@ -409,9 +407,8 @@
                 <button type="button" id="confirmSplitCantiereBtn">Conferma cambio cantiere</button>
                 <button type="button" class="secondary" id="correctTodaySegmentsBtn">Correggi ore/cantieri di oggi</button>
               </div>
-            </div>
-            <ol id="segmentsList" class="segments-list force-hidden"></ol>
           </div>
+          <ol id="segmentsList" class="segments-list force-hidden"></ol>
           <div class="punch-dashboard">
             <p id="liveDateLarge" class="live-date">--</p>
             <p id="liveTimeLarge" class="live-time">--:--:--</p>
