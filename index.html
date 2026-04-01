@@ -101,6 +101,18 @@
       .punch-dashboard .punch-row strong { color:#fff; }
       .punch-dashboard .service-total { color:#86efac; }
       .punch-dashboard .service-subtotal { color:#dbeafe; }
+      .work-total-highlight {
+        margin-top:8px;
+        font-size:28px;
+        font-weight:900;
+        color:#fef08a !important;
+        text-shadow:0 2px 10px rgba(0,0,0,.35);
+        background:rgba(15, 23, 42, 0.35);
+        border:1px solid rgba(250, 204, 21, 0.45);
+        border-radius:10px;
+        padding:8px 10px;
+        display:inline-block;
+      }
       #timbratureCard .segments-box, #timbratureCard .setup-box { border-radius:14px; border:1px solid #bfdbfe; background:#ffffffcc; backdrop-filter: blur(3px); }
       .segments-box { margin-top:10px; border:1px solid #dbeafe; background:#f8fafc; border-radius:10px; padding:10px; }
       .split-top { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
@@ -456,7 +468,7 @@
               <span></span>
             </div>
             <p id="serviceTotal" class="service-total force-hidden">Totale ore in servizio: 00:00</p>
-            <p id="serviceSubTotal" class="service-subtotal">Totale ore lavorate: 00:00</p>
+            <p id="serviceSubTotal" class="service-subtotal work-total-highlight">Totale ore lavorate: 00:00</p>
             <p id="serviceCantiereTotals" class="service-subtotal force-hidden">Ore per cantiere: -</p>
             <p id="serviceDayEarnings" class="service-subtotal force-hidden">Guadagno giornata: € 0.00</p>
             <p id="serviceTotalEarnings" class="service-subtotal force-hidden">Fino adesso hai guadagnato circa: € 0.00</p>
