@@ -40,6 +40,10 @@
       .small { color:#334155; font-size:13px; margin:0; }
       .pill { display:inline-block; background:#ecfeff; border:1px solid #bae6fd; color:#075985; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:600; }
       .hidden { display:none; }
+      .force-hidden { display:none !important; }
+      .swap-btn { min-width:120px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-weight:700; }
+      .swap-btn .icon { font-size:20px; line-height:1; }
+      .swap-btn .label { font-size:12px; line-height:1.1; }
       .btn-green { background:#16a34a; }
       .btn-red { background:#dc2626; }
       .btn-disabled { background:#94a3b8 !important; color:#fff; }
@@ -129,6 +133,14 @@
       .delete-doc-list { list-style:none; margin:8px 0 0; padding:0; display:grid; gap:8px; }
       .delete-doc-row { display:flex; align-items:center; gap:8px; border:1px solid #dbeafe; border-radius:8px; padding:8px; background:#f8fbff; }
       .doc-empty { margin-top:10px; font-size:13px; color:#475569; }
+      .commessa-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
+      .commessa-item { border:1px solid #dbeafe; border-radius:10px; padding:10px; background:#fff; cursor:pointer; }
+      .commessa-item h4 { margin:0 0 4px; font-size:15px; color:#0f172a; }
+      .commessa-item p { margin:0; font-size:12px; color:#475569; }
+      .journal-entry { border:1px solid #dbeafe; border-radius:10px; padding:10px; background:#f8fbff; margin-bottom:8px; }
+      .journal-entry h4 { margin:0 0 6px; font-size:14px; color:#1e3a8a; }
+      .photo-strip { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+      .photo-strip img { width:74px; height:74px; object-fit:cover; border-radius:8px; border:1px solid #bfdbfe; }
       .viewer-overlay { position:fixed; inset:0; z-index:9999; background:rgba(2,6,23,.92); display:flex; align-items:center; justify-content:center; padding:16px; }
       .viewer-overlay img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.45); }
       .viewer-close { position:fixed; top:12px; right:12px; min-height:40px; min-width:40px; border-radius:999px; font-size:18px; background:#ef4444; }
@@ -153,6 +165,7 @@
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
               <button type="button" class="menu-link" data-menu-target="calendarioCard">Calendario</button>
               <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
+              <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
           </aside>
@@ -348,15 +361,14 @@
         <div class="card" id="timbratureCard">
           <div class="timbratura-head">
             <div>
-              <h2>Timbrature di oggi</h2>
-              <p class="timbrature-subtitle">Interfaccia semplificata per entrata, uscita e riepilogo giornata.</p>
+              <h2>Timbrature Varga</h2>
               <div class="day-summary-card" id="todayAgendaWidget" style="margin-top:8px; cursor:pointer;">
                 <p class="small"><strong>Appuntamenti di oggi</strong></p>
                 <ul id="todayAgendaList" class="doc-list"></ul>
               </div>
             </div>
             <div>
-              <p class="pill" id="locationBadge">Luogo: Ionel Varga</p>
+              <p class="pill" id="locationBadge">Utente: Ionel Varga</p>
               <p class="welcome-box" id="welcomeText"></p>
             </div>
           </div>
@@ -365,8 +377,8 @@
             <button id="clockOutBtn" class="btn-red" type="button" disabled>🔴 Timbra uscita</button>
           </div>
           <p id="serviceStatus" class="status-line status-neutral">Non in servizio.</p>
-          <p id="autoPunchStatus" class="status-line status-neutral">Timbratura automatica: in attesa.</p>
-          <p id="dayCompletedText" class="status-line status-ok hidden">Giornata completata, buon riposo.</p>
+          <p id="autoPunchStatus" class="status-line status-neutral force-hidden">Timbratura automatica: in attesa.</p>
+          <p id="dayCompletedText" class="status-line status-ok hidden force-hidden">Giornata completata, buon riposo.</p>
           <div class="setup-box hidden" id="clockInSetupBox">
             <div class="grid">
               <label>Tipo lavoro
@@ -378,20 +390,24 @@
                 </select>
               </label>
               <label>Cantiere<input type="text" id="clockInCantiere" placeholder="Nome cantiere"></label>
+              <label>Commessa globale
+                <select id="globalCommessaSelect"><option value="">Seleziona commessa</option></select>
+              </label>
               <label>Caposquadra<input type="text" id="clockInCaposquadra" list="memberSuggestionsList" placeholder="Nome caposquadra"></label>
+            </div>
+            <div class="inline-actions">
+              <button type="button" class="secondary btn-small" id="globalAddCommessaBtn">Aggiungi commessa</button>
             </div>
             <div class="actions">
               <button type="button" class="secondary" id="cancelClockInSetupBtn">Annulla</button>
               <button type="button" id="confirmClockInSetupBtn">Conferma entrata</button>
             </div>
           </div>
-          <div class="segments-box">
-            <p class="small"><strong>Organizzazione cantieri di oggi</strong></p>
-            <div class="split-top">
-              <button type="button" class="secondary" id="splitCantiereBtn">Cambia cantiere</button>
-              <p id="splitSummaryText" class="split-summary">Cantieri di oggi: -</p>
-            </div>
-            <div class="setup-box hidden" id="splitCantiereForm">
+          <div id="cantiereSwapWrap" style="margin-top:10px; max-width:170px;">
+            <button type="button" class="secondary swap-btn" id="splitCantiereBtn"><span class="icon">⇄</span><span class="label">Cambia cantiere</span></button>
+          </div>
+          <p id="splitSummaryText" class="split-summary force-hidden">Cantieri di oggi: -</p>
+          <div class="setup-box hidden force-hidden" id="splitCantiereForm">
               <div class="grid">
                 <label>Nuovo cantiere
                   <input type="text" id="nextCantiere" placeholder="Nuovo cantiere" />
@@ -405,27 +421,26 @@
                 <button type="button" id="confirmSplitCantiereBtn">Conferma cambio cantiere</button>
                 <button type="button" class="secondary" id="correctTodaySegmentsBtn">Correggi ore/cantieri di oggi</button>
               </div>
-            </div>
-            <ol id="segmentsList" class="segments-list"></ol>
           </div>
+          <ol id="segmentsList" class="segments-list force-hidden"></ol>
           <div class="punch-dashboard">
             <p id="liveDateLarge" class="live-date">--</p>
             <p id="liveTimeLarge" class="live-time">--:--:--</p>
             <div class="punch-row">
               <span><strong>Entrata:</strong> <span id="summaryEntryTime">--:--</span></span>
               <span><strong>Uscita:</strong> <span id="summaryExitTime">--:--</span></span>
-              <span><strong>Ore servizio:</strong> <span id="summaryEntryCantiere">-</span></span>
+              <span class="force-hidden"><strong>Ore servizio:</strong> <span id="summaryEntryCantiere">-</span></span>
             </div>
             <div class="punch-row">
               <span><strong>Cantiere attuale:</strong> <span id="summaryExitCantiere">-</span></span>
-              <span><strong>Caposquadra attuale:</strong> <span id="summaryExitCapo">-</span></span>
+              <span class="force-hidden"><strong>Caposquadra attuale:</strong> <span id="summaryExitCapo">-</span></span>
               <span></span>
             </div>
-            <p id="serviceTotal" class="service-total">Totale ore in servizio: 00:00</p>
-            <p id="serviceSubTotal" class="service-subtotal">Totale ore lavorate: 0.00</p>
-            <p id="serviceCantiereTotals" class="service-subtotal">Ore per cantiere: -</p>
-            <p id="serviceDayEarnings" class="service-subtotal">Guadagno giornata: € 0.00</p>
-            <p id="serviceTotalEarnings" class="service-subtotal">Fino adesso hai guadagnato circa: € 0.00</p>
+            <p id="serviceTotal" class="service-total force-hidden">Totale ore in servizio: 00:00</p>
+            <p id="serviceSubTotal" class="service-subtotal">Totale ore lavorate: 00:00</p>
+            <p id="serviceCantiereTotals" class="service-subtotal force-hidden">Ore per cantiere: -</p>
+            <p id="serviceDayEarnings" class="service-subtotal force-hidden">Guadagno giornata: € 0.00</p>
+            <p id="serviceTotalEarnings" class="service-subtotal force-hidden">Fino adesso hai guadagnato circa: € 0.00</p>
           </div>
 
           <div id="manualEditBox" class="hidden">
@@ -549,6 +564,27 @@
           </div>
           <p id="docUploadEsito" class="msg"></p>
         </div>
+
+        <div class="card hidden" id="backupCard">
+          <h2>Backup Google Drive (opzionale)</h2>
+          <p class="small">L'app funziona anche senza account. Collega Google solo se vuoi salvare una copia cloud nella cartella <strong>Timbrature</strong>: le timbrature finiscono in un Google Sheet, il resto in snapshot JSON.</p>
+          <div class="grid">
+            <label>Google Client ID
+              <input type="text" id="googleClientIdInput" placeholder="Inserisci OAuth Client ID (apps.googleusercontent.com)" />
+            </label>
+          </div>
+          <div class="inline-actions" style="margin-top:10px;">
+            <button type="button" class="secondary" id="saveGoogleClientIdBtn">Salva Client ID</button>
+            <button type="button" id="connectGoogleDriveBtn">Collega Google Drive</button>
+            <button type="button" class="secondary" id="disconnectGoogleDriveBtn">Disconnetti</button>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="runDriveBackupBtn">Esegui backup adesso</button>
+          </div>
+          <p id="backupStatusLine" class="status-line status-neutral">Backup non attivo.</p>
+          <p id="backupLinks" class="small"></p>
+          <p id="backupEsito" class="msg"></p>
+        </div>
       </div>
     </div>
     <datalist id="memberSuggestionsList"></datalist>
@@ -569,10 +605,14 @@
       const MONTHLY_EMAIL_SENT_KEY = 'timbrature.local.monthly.email.sent';
       const DOCUMENTS_KEY = 'timbrature.local.documents';
       const APPOINTMENTS_KEY = 'timbrature.local.appointments';
+      const COMMESSE_KEY = 'timbrature.local.commesse';
+      const GIORNALE_ENTRIES_KEY = 'timbrature.local.giornale.entries';
+      const DRIVE_BACKUP_STATE_KEY = 'timbrature.local.drive.backup.state';
+      const GOOGLE_CLIENT_ID_KEY = 'timbrature.local.google.client_id';
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'userBox'];
+      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'backupCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
           label: 'Edilizia industria',
@@ -646,6 +686,9 @@
       let todaySegments = [];
       let selectedMonthDay = '';
       let selectedAgendaDate = '';
+      let googleTokenClient = null;
+      let selectedCommessaId = '';
+      let journalPendingPhotos = [];
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -661,6 +704,8 @@
       const showProgramMsg = (m, t='ok') => { id('programEsito').className = `msg ${t}`; id('programEsito').textContent = m; };
       const showProfileMsg = (m, t='ok') => { id('profileEsito').className = `msg ${t}`; id('profileEsito').textContent = m; };
       const showTeamMsg = (m, t='ok') => { id('teamEsito').className = `msg ${t}`; id('teamEsito').textContent = m; };
+      const showBackupMsg = (m, t='ok') => { id('backupEsito').className = `msg ${t}`; id('backupEsito').textContent = m; };
+      const showGiornaleMsg = (m, t='ok') => { id('giornaleEsito').className = `msg ${t}`; id('giornaleEsito').textContent = m; };
       function getSelectedNonWorkingDays() {
         return Array.from(document.querySelectorAll('#nonWorkingDaysSelector input[type="checkbox"]:checked'))
           .map((el)=>Number(el.value))
@@ -820,7 +865,7 @@
         const profile = getProfile();
         const displayName = (profile.nome || 'Ionel Varga').trim();
         id('welcomeText').textContent = 'Powered by Ionel Varga';
-        id('locationBadge').textContent = `Luogo: ${displayName}`;
+        id('locationBadge').textContent = `Utente: ${displayName}`;
       }
 
       function programForDate(dateValue) {
@@ -1148,24 +1193,28 @@
       }
       function buildStatusLink(statusValue, programId='') {
         const url = new URL(window.location.href);
-        url.searchParams.set('teamStatus', statusValue);
+        url.searchParams.set('openTeamActions', '1');
+        url.searchParams.set('suggestedStatus', statusValue);
         if (programId) url.searchParams.set('teamProgramId', programId);
         return url.toString();
       }
       function applyStatusFromQueryParams() {
         const params = new URLSearchParams(window.location.search);
-        const status = (params.get('teamStatus') || '').toUpperCase();
+        const shouldOpenTeam = params.get('openTeamActions') === '1';
+        const status = (params.get('suggestedStatus') || '').toUpperCase();
         const programId = params.get('teamProgramId') || '';
-        if (!status) return;
-        const normalized = status.includes('APPROV') ? 'APPROVATA' : (status.includes('RETT') ? 'RETTIFICA' : '');
-        if (!normalized) return;
-        if (programId && updateStoredProgramStatus(programId, normalized)) {
-          id('teamProgramId').value = programId;
-          id('teamProgramStatus').value = normalized;
-          id('teamProgramStatusLabel').textContent = `Stato programmazione: ${normalized}`;
-          showTeamMsg(`Stato aggiornato da link WhatsApp: ${normalized}.`, 'ok');
+        if (!shouldOpenTeam) return;
+        const normalized = status.includes('APPROV') ? 'APPROVATA' : (status.includes('RETT') ? 'RETTIFICA' : 'IN_ATTESA');
+        setMenuSection('teamCard');
+        if (programId) {
+          id('teamProgramSelect').value = programId;
+          loadTeamProgramById(programId);
         }
-        params.delete('teamStatus');
+        id('teamWhatsappReplyInput').value = normalized === 'APPROVATA' ? 'APPROVO' : (normalized === 'RETTIFICA' ? 'RETTIFICO' : '');
+        const actionLabel = normalized === 'APPROVATA' ? 'Segna APPROVATA' : (normalized === 'RETTIFICA' ? 'Segna RETTIFICA' : 'Segna stato');
+        showTeamMsg(`Link aperto: ora premi il pulsante "${actionLabel}" qui sotto.`, 'ok');
+        params.delete('openTeamActions');
+        params.delete('suggestedStatus');
         params.delete('teamProgramId');
         const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
         window.history.replaceState({}, '', nextUrl);
@@ -1262,18 +1311,13 @@
         if (!date || !cantiere || !personale || !mezzi) { showTeamMsg('Compila data, cantiere, personale e mezzi prima di finalizzare.', 'err'); return; }
         const team = getTeamConfig();
         const liveCapo = id('caposquadra')?.value?.trim() || '';
-        const currentProgramId = id('teamProgramId').value || id('teamProgramSelect').value || '';
-        const approveLink = buildStatusLink('APPROVATA', currentProgramId);
-        const rectifyLink = buildStatusLink('RETTIFICA', currentProgramId);
         const message = [
           `Buongiorno, richiesta squadra per il giorno ${date}.`,
           `Cantiere: ${cantiere}`,
-          `Personale richiesto: ${personale}`,
-          `Mezzi richiesti: ${mezzi}`,
+          `👷 Personale richiesto: ${personale}`,
+          `🚜 Mezzi richiesti: ${mezzi}`,
           `Caposquadra: ${liveCapo || team.leader || 'non indicato'}`,
-          'Conferma con un tap:',
-          `✅ APPROVO: ${approveLink}`,
-          `✏️ RETTIFICO: ${rectifyLink}`,
+          'Rispondi con APPROVO o RETTIFICO.',
           'Confermate disponibilità, grazie.'
         ].join('\n');
         saveTeamRequestDraft();
@@ -1631,7 +1675,19 @@
         return rows.map((entry) => `${entry.cantiere}: ${entry.hours.toFixed(2)}h`).join(' | ');
       }
       function closeSplitCantiereForm() { id('splitCantiereForm').classList.add('hidden'); }
-      function openSplitCantiereForm() { id('splitCantiereForm').classList.remove('hidden'); }
+      function decimalHoursToHHMM(value=0) {
+        const totalMinutes = Math.max(Math.round((Number(value) || 0) * 60), 0);
+        const hh = Math.floor(totalMinutes / 60);
+        const mm = totalMinutes % 60;
+        return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+      }
+      function openSplitCantiereForm() {
+        const nextCantiere = window.prompt('Nuovo cantiere:');
+        if (nextCantiere == null) return;
+        const nextCaposquadra = window.prompt('Nuovo caposquadra:');
+        if (nextCaposquadra == null) return;
+        splitCantiere(nextCantiere, nextCaposquadra);
+      }
       function updateServiceTotals() {
         const entrataMin = parseTimeToMinutes(id('entrata').value);
         const uscitaMin = parseTimeToMinutes(id('uscita').value);
@@ -1644,7 +1700,7 @@
         }
         const worked = computeHours(id('entrata').value, id('uscita').value || nowLocalDateAndTime().time, Number(id('pausa').value || 0), id('causale').value, resolveRulesForDate(id('data').value || nowDateISO()).rules).worked;
         id('serviceTotal').textContent = `Totale ore in servizio: ${minutesToHHMM(serviceMin)}`;
-        id('serviceSubTotal').textContent = `Totale ore lavorate: ${Number(worked || 0).toFixed(2)}`;
+        id('serviceSubTotal').textContent = `Totale ore lavorate: ${decimalHoursToHHMM(worked || 0)}`;
         const cantiereText = formatHoursByCantiere(todaySegments);
         id('serviceCantiereTotals').textContent = `Ore per cantiere: ${cantiereText}`;
         id('splitSummaryText').textContent = `Cantieri di oggi: ${cantiereText}`;
@@ -1793,11 +1849,11 @@
       function renderSegmentsList() {
         id('segmentsList').innerHTML = todaySegments.map((seg)=>`<li>${seg.start || '--:--'} - ${seg.end || 'in corso'} | ${seg.cantiere || 'Cantiere non indicato'} | ${seg.caposquadra || 'Caposquadra non indicato'}</li>`).join('');
       }
-      function splitCantiere() {
+      function splitCantiere(nextCantiereInput='', nextCaposquadraInput='') {
         if (!id('entrata').value) { showMsg('Prima devi timbrare l’entrata.', 'err'); return; }
         if (id('uscita').value) { showMsg('La giornata è già chiusa. Inizia una nuova entrata.', 'err'); return; }
-        const nextCantiere = id('nextCantiere').value.trim();
-        const nextCaposquadra = id('nextCaposquadra').value.trim();
+        const nextCantiere = String(nextCantiereInput || id('nextCantiere').value || '').trim();
+        const nextCaposquadra = String(nextCaposquadraInput || id('nextCaposquadra').value || '').trim();
         if (!nextCantiere || !nextCaposquadra) { showMsg('Inserisci nuovo cantiere e nuovo caposquadra per cambiare attività.', 'err'); return; }
         const n = nowLocalDateAndTime();
         closeCurrentSegment(n.time);
@@ -2348,6 +2404,647 @@
         closeDeleteDocPanel();
         setMenuSection('documentiCard');
       }
+      function getCommesse() { return readJSON(COMMESSE_KEY, []); }
+      function setCommesse(rows=[]) { writeJSON(COMMESSE_KEY, rows); }
+      function getGiornaleEntries() { return readJSON(GIORNALE_ENTRIES_KEY, []); }
+      function setGiornaleEntries(rows=[]) { writeJSON(GIORNALE_ENTRIES_KEY, rows); }
+      function formatDateIT(iso='') {
+        if (!iso) return '-';
+        const d = new Date(`${iso}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return iso;
+        return d.toLocaleDateString('it-IT');
+      }
+      function renderCommesseList() {
+        const list = getCommesse().slice().sort((a,b)=>String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
+        const wrap = id('commesseList');
+        const empty = id('commesseEmpty');
+        if (!wrap || !empty) return;
+        if (!list.length) {
+          wrap.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+        wrap.innerHTML = list.map((c)=>`
+          <li class="commessa-item" data-commessa-id="${escapeHtml(c.id)}">
+            <h4>${escapeHtml(c.nome || 'Commessa')}</h4>
+            <p>${escapeHtml(c.impianto || c.cantiere || '-')}</p>
+            <p>Ultimo aggiornamento: ${escapeHtml(c.updated_at ? new Date(c.updated_at).toLocaleString('it-IT') : '-')}</p>
+          </li>
+        `).join('');
+        wrap.querySelectorAll('[data-commessa-id]').forEach((el)=>el.addEventListener('click', ()=>openCommessaDetail(el.dataset.commessaId)));
+        renderGlobalCommesseSelect();
+      }
+      function renderGlobalCommesseSelect() {
+        const select = id('globalCommessaSelect');
+        if (!select) return;
+        const current = select.value;
+        const rows = getCommesse().slice().sort((a,b)=>String(a.nome || '').localeCompare(String(b.nome || '')));
+        select.innerHTML = `<option value="">Seleziona commessa</option>${rows.map((c)=>`<option value="${escapeHtml(c.nome || '')}">${escapeHtml(c.nome || '')}${c.impianto ? ` • ${escapeHtml(c.impianto)}` : ''}</option>`).join('')}`;
+        if (rows.some((c)=>c.nome === current)) select.value = current;
+      }
+      function promptAddCommessa() {
+        const nome = (window.prompt('Nome commessa:') || '').trim();
+        if (!nome) return;
+        const impianto = (window.prompt('Impianto / cantiere (opzionale):') || '').trim();
+        const rows = getCommesse();
+        const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome, impianto, updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
+        rows.push(next);
+        setCommesse(rows);
+        renderCommesseList();
+        showGiornaleMsg('Commessa aggiunta.', 'ok');
+      }
+      function openCommessaDetail(commessaId='') {
+        const commessa = getCommesse().find((c)=>c.id === commessaId);
+        if (!commessa) return;
+        if (!id('giornaleListView') || !id('giornaleDetailView')) return;
+        selectedCommessaId = commessaId;
+        id('giornaleListView').classList.add('hidden');
+        id('giornaleDetailView').classList.remove('hidden');
+        id('selectedCommessaTitle').textContent = commessa.nome || 'Commessa';
+        id('selectedCommessaMeta').textContent = `${commessa.impianto || '-'} • aggiornamento ${commessa.updated_at ? new Date(commessa.updated_at).toLocaleString('it-IT') : '-'}`;
+        renderJournalEntriesForCommessa();
+      }
+      function backToCommesse() {
+        selectedCommessaId = '';
+        if (!id('giornaleDetailView') || !id('giornaleListView')) return;
+        id('giornaleDetailView').classList.add('hidden');
+        id('giornaleListView').classList.remove('hidden');
+        id('journalEntryForm').classList.add('hidden');
+      }
+      function renderJournalPhotoPreview() {
+        if (!id('journalPhotoPreview')) return;
+        id('journalPhotoPreview').innerHTML = journalPendingPhotos.map((src)=>`<img src="${src}" alt="foto giornale" />`).join('');
+      }
+      function openJournalEntryForm() {
+        if (!selectedCommessaId) return;
+        journalPendingPhotos = [];
+        renderJournalPhotoPreview();
+        id('journalDate').value = nowDateISO();
+        const commessa = getCommesse().find((c)=>c.id === selectedCommessaId);
+        id('journalSiteName').value = commessa?.impianto || commessa?.nome || '';
+        id('journalLocation').value = '';
+        id('journalLeader').value = id('caposquadra').value || '';
+        ['journalOperators','journalStartTime','journalEndTime','journalAbsences','journalSubcontractors','journalWeatherNotes','journalActivities','journalArea','journalVehiclesUsed','journalVehicleHours','journalVehicleIssues','journalMaterialsUsed','journalMaterialsQty','journalDeliveries','journalProblems','journalFinalNotes','journalSignature'].forEach((f)=>id(f).value = '');
+        id('journalWeather').value = 'Sole';
+        id('journalProgress').value = 'Iniziato';
+        id('journalEntryForm').classList.remove('hidden');
+      }
+      function closeJournalEntryForm() { id('journalEntryForm').classList.add('hidden'); }
+      async function filesToDataUrls(files=[]) {
+        const rows = Array.from(files || []);
+        const out = [];
+        for (const file of rows) {
+          const data = await new Promise((resolve)=>{ const r = new FileReader(); r.onload = ()=>resolve(String(r.result || '')); r.onerror = ()=>resolve(''); r.readAsDataURL(file); });
+          if (data) out.push(data);
+        }
+        return out;
+      }
+      async function pickJournalPhotos(inputId) {
+        const input = id(inputId);
+        const data = await filesToDataUrls(input.files || []);
+        journalPendingPhotos = [...journalPendingPhotos, ...data].slice(0, 20);
+        input.value = '';
+        renderJournalPhotoPreview();
+      }
+      function saveJournalEntry() {
+        if (!selectedCommessaId) { showGiornaleMsg('Seleziona prima una commessa.', 'err'); return; }
+        const entry = {
+          id: `entry-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+          commessa_id: selectedCommessaId,
+          date: id('journalDate').value || nowDateISO(),
+          site_name: id('journalSiteName').value.trim(),
+          location: id('journalLocation').value.trim(),
+          leader: id('journalLeader').value.trim(),
+          operators: id('journalOperators').value.trim(),
+          start_time: id('journalStartTime').value,
+          end_time: id('journalEndTime').value,
+          absences: id('journalAbsences').value.trim(),
+          subcontractors: id('journalSubcontractors').value.trim(),
+          weather: id('journalWeather').value,
+          weather_notes: id('journalWeatherNotes').value.trim(),
+          activities: id('journalActivities').value.trim(),
+          area: id('journalArea').value.trim(),
+          progress: id('journalProgress').value,
+          vehicles_used: id('journalVehiclesUsed').value.trim(),
+          vehicle_hours: id('journalVehicleHours').value.trim(),
+          vehicle_issues: id('journalVehicleIssues').value.trim(),
+          materials_used: id('journalMaterialsUsed').value.trim(),
+          materials_qty: id('journalMaterialsQty').value.trim(),
+          deliveries: id('journalDeliveries').value.trim(),
+          problems: id('journalProblems').value.trim(),
+          final_notes: id('journalFinalNotes').value.trim(),
+          signature: id('journalSignature').value.trim(),
+          photos: journalPendingPhotos,
+          created_at: new Date().toISOString()
+        };
+        const rows = getGiornaleEntries();
+        rows.unshift(entry);
+        setGiornaleEntries(rows);
+        const commesse = getCommesse();
+        const idx = commesse.findIndex((c)=>c.id === selectedCommessaId);
+        if (idx >= 0) {
+          commesse[idx] = { ...commesse[idx], impianto: entry.site_name || commesse[idx].impianto || '', updated_at: new Date().toISOString() };
+          setCommesse(commesse);
+        }
+        closeJournalEntryForm();
+        renderCommesseList();
+        renderJournalEntriesForCommessa();
+        showGiornaleMsg('Voce giornale salvata.', 'ok');
+      }
+      function renderJournalEntriesForCommessa() {
+        const wrap = id('journalEntriesList');
+        if (!wrap) return;
+        const rows = getGiornaleEntries().filter((e)=>e.commessa_id === selectedCommessaId).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+        if (!rows.length) {
+          wrap.innerHTML = '<p class="small">Nessuna voce giornale per questa commessa.</p>';
+          return;
+        }
+        wrap.innerHTML = rows.map((e)=>`
+          <article class="journal-entry">
+            <h4>${escapeHtml(formatDateIT(e.date))} • ${escapeHtml(e.progress || '-')}</h4>
+            <p class="small"><strong>Cantiere:</strong> ${escapeHtml(e.site_name || '-')} | <strong>Località:</strong> ${escapeHtml(e.location || '-')}</p>
+            <p class="small"><strong>Responsabile:</strong> ${escapeHtml(e.leader || '-')}</p>
+            <p class="small"><strong>Operatori:</strong> ${escapeHtml(e.operators || '-')}</p>
+            <p class="small"><strong>Lavori:</strong> ${escapeHtml(e.activities || '-')}</p>
+            <p class="small"><strong>Problemi:</strong> ${escapeHtml(e.problems || '-')}</p>
+            <div class="photo-strip">${(Array.isArray(e.photos) ? e.photos : []).map((src)=>`<img src="${src}" alt="foto commessa" />`).join('')}</div>
+          </article>
+        `).join('');
+      }
+
+      function getDriveBackupState() {
+        return readJSON(DRIVE_BACKUP_STATE_KEY, {
+          connected: false,
+          email: '',
+          folderId: '',
+          folderName: 'Timbrature',
+          spreadsheetId: '',
+          lastBackupAt: '',
+          lastFileId: ''
+        });
+      }
+      function setDriveBackupState(nextState={}) {
+        const current = getDriveBackupState();
+        const merged = { ...current, ...nextState };
+        writeJSON(DRIVE_BACKUP_STATE_KEY, merged);
+        return merged;
+      }
+      function getGoogleClientId() { return (localStorage.getItem(GOOGLE_CLIENT_ID_KEY) || '').trim(); }
+      function setGoogleClientId(clientId='') {
+        const clean = String(clientId || '').trim();
+        if (clean) localStorage.setItem(GOOGLE_CLIENT_ID_KEY, clean);
+        else localStorage.removeItem(GOOGLE_CLIENT_ID_KEY);
+        return clean;
+      }
+      function updateBackupStatusUI() {
+        const state = getDriveBackupState();
+        const statusEl = id('backupStatusLine');
+        const linksEl = id('backupLinks');
+        const when = state.lastBackupAt ? ` • ultimo backup: ${new Date(state.lastBackupAt).toLocaleString('it-IT')}` : '';
+        if (state.connected) {
+          statusEl.className = 'status-line status-ok';
+          statusEl.textContent = `Backup attivo su Google Drive (${state.email || 'utente Google'})${when}`;
+          const folderUrl = state.folderId ? `https://drive.google.com/drive/folders/${state.folderId}` : '';
+          const sheetUrl = state.spreadsheetId ? `https://docs.google.com/spreadsheets/d/${state.spreadsheetId}/edit` : '';
+          const links = [];
+          if (folderUrl) links.push(`<a href="${folderUrl}" target="_blank" rel="noopener noreferrer">Apri cartella Timbrature</a>`);
+          if (sheetUrl) links.push(`<a href="${sheetUrl}" target="_blank" rel="noopener noreferrer">Apri foglio Timbrature - Dati</a>`);
+          linksEl.innerHTML = links.join(' • ');
+        } else {
+          statusEl.className = 'status-line status-neutral';
+          statusEl.textContent = 'Backup non attivo.';
+          linksEl.textContent = '';
+        }
+      }
+      function buildBackupPayload() {
+        return {
+          exportedAt: new Date().toISOString(),
+          profile: readJSON(PROFILE_KEY, {}),
+          records: readJSON(RECORDS_KEY, []),
+          programs: readJSON(PROGRAMS_KEY, []),
+          team: readJSON(TEAM_KEY, {}),
+          documents: readJSON(DOCUMENTS_KEY, []),
+          appointments: readJSON(APPOINTMENTS_KEY, [])
+        };
+      }
+      const sleep = (ms=0) => new Promise((resolve)=>setTimeout(resolve, ms));
+      async function readErrorDetail(response) {
+        try {
+          const data = await response.json();
+          return data?.error?.message || JSON.stringify(data);
+        } catch (_) {
+          try { return await response.text(); } catch (__){ return ''; }
+        }
+      }
+      async function ensureGoogleApisLoaded() {
+        if (!window.google?.accounts?.oauth2) {
+          await new Promise((resolve, reject)=>{
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            script.onload = resolve;
+            script.onerror = ()=>reject(new Error('Impossibile caricare Google Identity Services.'));
+            document.head.appendChild(script);
+          });
+        }
+      }
+      async function requestDriveAccessToken(prompt='consent') {
+        const clientId = getGoogleClientId();
+        if (!clientId) throw new Error('Inserisci prima il Google Client ID nelle impostazioni backup.');
+        await ensureGoogleApisLoaded();
+        return new Promise((resolve, reject)=>{
+          googleTokenClient = window.google.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email',
+            prompt,
+            callback: (resp)=>{
+              if (resp?.error) {
+                reject(new Error(`Google OAuth: ${resp.error}`));
+                return;
+              }
+              resolve(resp.access_token);
+            }
+          });
+          googleTokenClient.requestAccessToken({ prompt });
+        });
+      }
+      async function fetchGoogleUserEmail(accessToken='') {
+        const res = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!res.ok) throw new Error('Non riesco a leggere l\'email Google autorizzata.');
+        const data = await res.json();
+        return String(data.email || '');
+      }
+      async function getDriveFileMeta(accessToken='', fileId='') {
+        if (!fileId) return null;
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name,parents,mimeType,trashed`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!res.ok) return null;
+        return res.json();
+      }
+      async function ensureDriveFolder(accessToken='', preferredFolderId='') {
+        const preferred = await getDriveFileMeta(accessToken, preferredFolderId);
+        if (preferred && !preferred.trashed && preferred.mimeType === 'application/vnd.google-apps.folder') return preferred.id;
+        const q = encodeURIComponent(`name='Timbrature' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+        const listRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=1`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!listRes.ok) throw new Error('Errore ricerca cartella Timbrature su Drive.');
+        const listData = await listRes.json();
+        const existing = Array.isArray(listData.files) ? listData.files[0] : null;
+        if (existing?.id) return existing.id;
+
+        const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: 'Timbrature',
+            mimeType: 'application/vnd.google-apps.folder'
+          })
+        });
+        if (!createRes.ok) throw new Error('Errore creazione cartella Timbrature su Drive.');
+        const created = await createRes.json();
+        return created.id;
+      }
+      async function ensureDriveSpreadsheet(accessToken='', folderId='', preferredSpreadsheetId='') {
+        const preferred = await getDriveFileMeta(accessToken, preferredSpreadsheetId);
+        if (preferred && !preferred.trashed && preferred.mimeType === 'application/vnd.google-apps.spreadsheet') {
+          const inFolder = Array.isArray(preferred.parents) && preferred.parents.includes(folderId);
+          if (inFolder || !folderId) return preferred.id;
+        }
+        const qExpr = folderId
+          ? `'${folderId}' in parents and name='Timbrature - Dati' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`
+          : `name='Timbrature - Dati' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`;
+        const q = encodeURIComponent(qExpr);
+        const listRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,parents)&pageSize=1`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!listRes.ok) throw new Error('Errore ricerca Google Sheet Timbrature.');
+        const listData = await listRes.json();
+        const files = Array.isArray(listData.files) ? listData.files : [];
+        const match = files[0];
+        if (match?.id) return match.id;
+
+        const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: 'Timbrature - Dati',
+            mimeType: 'application/vnd.google-apps.spreadsheet',
+            parents: folderId ? [folderId] : undefined
+          })
+        });
+        if (!createRes.ok) throw new Error('Errore creazione Google Sheet Timbrature.');
+        const created = await createRes.json();
+        return created.id;
+      }
+      async function ensureSheetTab(accessToken='', spreadsheetId='', title='') {
+        let meta = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          if (metaRes.ok) {
+            meta = await metaRes.json();
+            break;
+          }
+          const detail = await readErrorDetail(metaRes);
+          if ((metaRes.status === 404 || metaRes.status === 429) && attempt < 2) {
+            await sleep(450 * (attempt + 1));
+            continue;
+          }
+          throw new Error(`Errore lettura metadati Google Sheet (${metaRes.status}). Verifica che Google Sheets API sia attiva nel progetto OAuth. ${detail}`.trim());
+        }
+        if (!meta) throw new Error('Google Sheet non pronto, riprova tra qualche secondo.');
+        const exists = Array.isArray(meta.sheets) && meta.sheets.some((s)=>s?.properties?.title === title);
+        if (exists) return;
+        const addRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ requests: [{ addSheet: { properties: { title } } }] })
+        });
+        if (!addRes.ok) {
+          const detail = await readErrorDetail(addRes);
+          if (/(already exists|esiste già|foglio con il nome)/i.test(String(detail || ''))) return;
+          throw new Error(`Errore creazione tab "${title}" su Google Sheet (${addRes.status}). ${detail}`.trim());
+        }
+      }
+      async function overwriteSheetValues(accessToken='', spreadsheetId='', tabName='', rows=[]) {
+        await ensureSheetTab(accessToken, spreadsheetId, tabName);
+        const clearRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(tabName + '!A:ZZ')}:clear`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!clearRes.ok) {
+          const detail = await readErrorDetail(clearRes);
+          throw new Error(`Errore pulizia tab "${tabName}" (${clearRes.status}). ${detail}`.trim());
+        }
+
+        const updateRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(tabName + '!A1')}?valueInputOption=RAW`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ values: rows })
+        });
+        if (!updateRes.ok) {
+          const detail = await readErrorDetail(updateRes);
+          throw new Error(`Errore scrittura tab "${tabName}" (${updateRes.status}). ${detail}`.trim());
+        }
+      }
+      async function appendOnlyNewTimbratureRows(accessToken='', spreadsheetId='', rows=[]) {
+        const header = rows[0] || [];
+        const dataRows = rows.slice(1);
+        if (!dataRows.length) return { inserted: 0, skipped: 0 };
+        await ensureSheetTab(accessToken, spreadsheetId, 'Timbrature');
+        const existingRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent('Timbrature!A:A')}`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!existingRes.ok) {
+          const detail = await readErrorDetail(existingRes);
+          throw new Error(`Errore lettura righe Timbrature (${existingRes.status}). ${detail}`.trim());
+        }
+        const existingData = await existingRes.json();
+        const existingValues = Array.isArray(existingData.values) ? existingData.values : [];
+        const hasHeader = existingValues.length > 0;
+        const existingKeys = new Set(existingValues.slice(1).map((row)=>String(row?.[0] || '').trim()).filter(Boolean));
+        const onlyNewRows = dataRows.filter((row)=> {
+          const key = String(row?.[0] || '').trim();
+          return key && !existingKeys.has(key);
+        });
+        if (!hasHeader) {
+          const initRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent('Timbrature!A1')}?valueInputOption=RAW`, {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ values: [header, ...onlyNewRows] })
+          });
+          if (!initRes.ok) {
+            const detail = await readErrorDetail(initRes);
+            throw new Error(`Errore inizializzazione Timbrature (${initRes.status}). ${detail}`.trim());
+          }
+          return { inserted: onlyNewRows.length, skipped: dataRows.length - onlyNewRows.length };
+        }
+        if (!onlyNewRows.length) return { inserted: 0, skipped: dataRows.length };
+        const appendRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent('Timbrature!A1')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ values: onlyNewRows })
+        });
+        if (!appendRes.ok) {
+          const detail = await readErrorDetail(appendRes);
+          throw new Error(`Errore append Timbrature (${appendRes.status}). ${detail}`.trim());
+        }
+        return { inserted: onlyNewRows.length, skipped: dataRows.length - onlyNewRows.length };
+      }
+      async function syncAllDataToGoogleSheet(accessToken='', spreadsheetId='') {
+        const decimalHoursToHHMM = (value)=>{
+          const n = Number(value || 0);
+          if (!Number.isFinite(n) || n <= 0) return '0:00';
+          const totalMinutes = Math.round(n * 60);
+          const h = Math.floor(totalMinutes / 60);
+          const m = totalMinutes % 60;
+          return `${h}:${String(m).padStart(2,'0')}`;
+        };
+        const payload = buildBackupPayload();
+        const records = Array.isArray(payload.records) ? payload.records.slice().sort((a,b)=>String(a.data || '').localeCompare(String(b.data || ''))) : [];
+        const timbratureRows = [
+          ['Data', 'Entrata', 'Uscita', 'Pausa(min)', 'Causale', 'Note', 'Cantiere', 'Caposquadra', 'Ore lavorate (hh:mm)', 'Ordinarie (hh:mm)', 'Straordinarie (hh:mm)', 'Stato', 'Aggiornato il'],
+          ...records.map((r)=>[
+            r.data || '',
+            r.entrata || '',
+            r.uscita || '',
+            Number(r.pausa || 0),
+            r.causale || '',
+            r.note || '',
+            r.cantiere || '',
+            r.caposquadra || '',
+            decimalHoursToHHMM(r.ore),
+            decimalHoursToHHMM(r.ord),
+            decimalHoursToHHMM(r.stra),
+            r.stato || '',
+            r.updated_at || ''
+          ])
+        ];
+        const profile = payload.profile || {};
+        const profileRows = [
+          ['Campo', 'Valore'],
+          ['Nome', profile.nome || ''],
+          ['Azienda', profile.azienda || ''],
+          ['Email', profile.email || ''],
+          ['Esportato il', payload.exportedAt || '']
+        ];
+        const programsRows = [
+          ['Week start', 'Break enabled', 'Break minutes', 'Night bonus %', 'Overtime bonus %', 'Contract', 'Level', 'Rate'],
+          ...(Array.isArray(payload.programs) ? payload.programs : []).map((p)=>[
+            p.week_start || '',
+            p.break_enabled === false ? 'No' : 'Si',
+            Number(p.break_minutes || 0),
+            Number(p.night_bonus_percent || 0),
+            Number(p.overtime_bonus_percent || 0),
+            p.contract_template || '',
+            p.contract_level || '',
+            Number(p.hourly_rate || 0)
+          ])
+        ];
+        const documentsRows = [
+          ['ID', 'Tipo', 'Etichetta', 'File', 'Mime', 'Creato il'],
+          ...(Array.isArray(payload.documents) ? payload.documents : []).map((d)=>[
+            d.id || '',
+            d.type || '',
+            d.label || '',
+            d.fileName || '',
+            d.mime || '',
+            d.createdAt || ''
+          ])
+        ];
+        const appointmentsRows = [
+          ['Data', 'Orario', 'Nota', 'Creato il'],
+          ...(Array.isArray(payload.appointments) ? payload.appointments : []).flatMap((entry)=>{
+            const dateValue = entry?.date || '';
+            const items = Array.isArray(entry?.items) ? entry.items : [];
+            if (!items.length) return [[dateValue, '', '', '']];
+            return items.map((item)=>[
+              dateValue,
+              item?.time || '',
+              item?.note || '',
+              item?.createdAt || ''
+            ]);
+          })
+        ];
+        const timbratureStats = await appendOnlyNewTimbratureRows(accessToken, spreadsheetId, timbratureRows);
+        await overwriteSheetValues(accessToken, spreadsheetId, 'Profilo', profileRows);
+        await overwriteSheetValues(accessToken, spreadsheetId, 'Programmi', programsRows);
+        await overwriteSheetValues(accessToken, spreadsheetId, 'Documenti', documentsRows);
+        await overwriteSheetValues(accessToken, spreadsheetId, 'Appuntamenti', appointmentsRows);
+        return timbratureStats;
+      }
+      async function uploadBackupToDrive(accessToken='', folderId='') {
+        const payload = buildBackupPayload();
+        const fileName = `timbrature-backup-${nowDateISO()}-${new Date().toISOString().slice(11,19).replace(/:/g, '')}.json`;
+        const metadata = { name: fileName, parents: folderId ? [folderId] : undefined };
+        const boundary = `timbrature-${Date.now()}`;
+        const multipartBody =
+          `--${boundary}\r\n` +
+          'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+          `${JSON.stringify(metadata)}\r\n` +
+          `--${boundary}\r\n` +
+          'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+          `${JSON.stringify(payload)}\r\n` +
+          `--${boundary}--`;
+        const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`
+          },
+          body: multipartBody
+        });
+        if (!uploadRes.ok) throw new Error('Upload backup su Google Drive fallito.');
+        return uploadRes.json();
+      }
+      async function connectGoogleDrive() {
+        showBackupMsg('Connessione Google in corso...', 'ok');
+        try {
+          const currentState = getDriveBackupState();
+          const accessToken = await requestDriveAccessToken('consent');
+          const [email, folderId] = await Promise.all([
+            fetchGoogleUserEmail(accessToken),
+            ensureDriveFolder(accessToken, currentState.folderId)
+          ]);
+          const spreadsheetId = await ensureDriveSpreadsheet(accessToken, folderId, currentState.spreadsheetId);
+          setDriveBackupState({
+            connected: true,
+            email,
+            folderId,
+            folderName: 'Timbrature',
+            spreadsheetId
+          });
+          updateBackupStatusUI();
+          showBackupMsg('Google Drive collegato. Cartella Timbrature e foglio dati pronti.', 'ok');
+        } catch (error) {
+          showBackupMsg(error.message || 'Connessione Google Drive non riuscita.', 'err');
+        }
+      }
+      function disconnectGoogleDrive() {
+        writeJSON(DRIVE_BACKUP_STATE_KEY, {
+          connected: false,
+          email: '',
+          folderId: '',
+          folderName: 'Timbrature',
+          spreadsheetId: '',
+          lastBackupAt: '',
+          lastFileId: ''
+        });
+        updateBackupStatusUI();
+        showBackupMsg('Backup Google Drive disattivato su questo dispositivo.', 'ok');
+      }
+      async function runGoogleDriveBackup() {
+        const state = getDriveBackupState();
+        if (!state.connected) {
+          showBackupMsg('Prima collega Google Drive.', 'err');
+          return;
+        }
+        showBackupMsg('Backup in upload...', 'ok');
+        try {
+          const accessToken = await requestDriveAccessToken('');
+          const folderId = await ensureDriveFolder(accessToken, state.folderId);
+          const spreadsheetId = await ensureDriveSpreadsheet(accessToken, folderId, state.spreadsheetId);
+          let sheetWarning = '';
+          let timbratureStats = { inserted: 0, skipped: 0 };
+          try {
+            timbratureStats = await syncAllDataToGoogleSheet(accessToken, spreadsheetId);
+          } catch (sheetError) {
+            sheetWarning = sheetError?.message || 'Sync foglio non riuscita.';
+          }
+          const upload = await uploadBackupToDrive(accessToken, folderId);
+          setDriveBackupState({
+            connected: true,
+            folderId,
+            spreadsheetId,
+            lastBackupAt: new Date().toISOString(),
+            lastFileId: upload.id || ''
+          });
+          updateBackupStatusUI();
+          if (sheetWarning) {
+            showBackupMsg(`Snapshot JSON completato, ma il Google Sheet non è stato aggiornato. ${sheetWarning}`, 'err');
+          } else {
+            showBackupMsg(`Backup completato: aggiunte ${timbratureStats.inserted} nuove timbrature (${timbratureStats.skipped} già presenti), foglio aggiornato + snapshot ${upload.name || 'file creato'}.`, 'ok');
+          }
+        } catch (error) {
+          showBackupMsg(error.message || 'Errore durante il backup su Drive.', 'err');
+        }
+      }
+      function saveGoogleClientIdFromUI() {
+        const clientId = setGoogleClientId(id('googleClientIdInput').value);
+        if (!clientId) {
+          showBackupMsg('Client ID rimosso. Inseriscine uno valido per usare Google Drive.', 'err');
+          return;
+        }
+        showBackupMsg('Client ID salvato sul browser locale.', 'ok');
+      }
 
       function setMenuSection(panelId) {
         if (!menuPanelIds.includes(panelId)) return;
@@ -2355,6 +3052,10 @@
         menuPanelIds.forEach((name)=>id(name).classList.toggle('hidden', name !== panelId));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId));
         if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
+        if (panelId === 'giornaleCard') {
+          backToCommesse();
+          renderCommesseList();
+        }
         setMenuOpen(false);
       }
       function setMenuOpen(open) { menuOpen = !!open; id('leftMenu').classList.toggle('hidden', !menuOpen); id('menuToggleBtn').setAttribute('aria-expanded', menuOpen ? 'true' : 'false'); }
@@ -2379,6 +3080,10 @@
         loadMyMonth();
         initAgendaCalendar();
         renderDocuments();
+        renderCommesseList();
+        renderGlobalCommesseSelect();
+        id('googleClientIdInput').value = getGoogleClientId();
+        updateBackupStatusUI();
 
         buildContractTemplateOptions();
         buildContractLevelsOptions();
@@ -2404,7 +3109,28 @@
         id('openDeleteDocBtn').addEventListener('click', openDeleteDocPanel);
         id('closeDeleteDocPanelBtn').addEventListener('click', closeDeleteDocPanel);
         id('saveDocBtn').addEventListener('click', saveDocument);
+        if (id('addCommessaBtn')) id('addCommessaBtn').addEventListener('click', promptAddCommessa);
+        if (id('backToCommesseBtn')) id('backToCommesseBtn').addEventListener('click', backToCommesse);
+        if (id('addJournalEntryBtn')) id('addJournalEntryBtn').addEventListener('click', openJournalEntryForm);
+        if (id('cancelJournalEntryBtn')) id('cancelJournalEntryBtn').addEventListener('click', closeJournalEntryForm);
+        if (id('saveJournalEntryBtn')) id('saveJournalEntryBtn').addEventListener('click', saveJournalEntry);
+        if (id('journalCameraBtn')) id('journalCameraBtn').addEventListener('click', ()=>id('journalCameraInput') && id('journalCameraInput').click());
+        if (id('journalGalleryBtn')) id('journalGalleryBtn').addEventListener('click', ()=>id('journalGalleryInput') && id('journalGalleryInput').click());
+        if (id('journalCameraInput')) id('journalCameraInput').addEventListener('change', ()=>pickJournalPhotos('journalCameraInput'));
+        if (id('journalGalleryInput')) id('journalGalleryInput').addEventListener('change', ()=>pickJournalPhotos('journalGalleryInput'));
+        if (id('globalAddCommessaBtn')) id('globalAddCommessaBtn').addEventListener('click', ()=>{
+          promptAddCommessa();
+          renderGlobalCommesseSelect();
+        });
+        if (id('globalCommessaSelect')) id('globalCommessaSelect').addEventListener('change', ()=>{
+          if (id('clockInCantiere') && !id('clockInCantiere').value) id('clockInCantiere').value = id('globalCommessaSelect').value || '';
+          if (id('cantiere') && !id('cantiere').value) id('cantiere').value = id('globalCommessaSelect').value || '';
+        });
         id('saveProfile').addEventListener('click', saveProfile);
+        id('saveGoogleClientIdBtn').addEventListener('click', saveGoogleClientIdFromUI);
+        id('connectGoogleDriveBtn').addEventListener('click', connectGoogleDrive);
+        id('disconnectGoogleDriveBtn').addEventListener('click', disconnectGoogleDrive);
+        id('runDriveBackupBtn').addEventListener('click', runGoogleDriveBackup);
         id('teamRequestPersonSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'));
         id('teamRequestVehicleSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'));
         id('teamRequestPersonSuggest').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'); } });
