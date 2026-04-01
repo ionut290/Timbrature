@@ -289,6 +289,24 @@
               <input type="time" id="startSun" /><input type="time" id="endSun" /><input type="number" id="breakSun" value="0" /><input type="number" id="hoursSun" value="0" />
             </div>
           </div>
+          <div class="simple-shift">
+            <h3>Notifiche promemoria</h3>
+            <div class="grid">
+              <label>Orario promemoria entrata
+                <input type="time" id="notifyEntryTime" value="07:55" />
+              </label>
+              <label>Orario promemoria uscita
+                <input type="time" id="notifyExitTime" value="17:00" />
+              </label>
+              <label>Suono intenso
+                <select id="notifyIntenseSound"><option value="true">Sì</option><option value="false">No</option></select>
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button type="button" class="secondary" id="enableNotificationsBtn">Abilita notifiche</button>
+            </div>
+            <p class="small">Ricevi avvisi all'orario di entrata/uscita e un promemoria 1 ora prima degli appuntamenti.</p>
+          </div>
           <div class="actions">
             <button class="secondary" id="loadProgramBtn" type="button">Carica contratto</button>
             <button id="saveProgramBtn" type="button">Salva contratto</button>
@@ -671,6 +689,8 @@
       const MONTHLY_EMAIL_SENT_KEY = 'timbrature.local.monthly.email.sent';
       const DOCUMENTS_KEY = 'timbrature.local.documents';
       const APPOINTMENTS_KEY = 'timbrature.local.appointments';
+      const NOTIFICATION_SETTINGS_KEY = 'timbrature.local.notifications.settings';
+      const NOTIFICATION_SENT_KEY = 'timbrature.local.notifications.sent';
       const COMMESSE_KEY = 'timbrature.local.commesse';
       const GIORNALE_ENTRIES_KEY = 'timbrature.local.giornale.entries';
       const DRIVE_BACKUP_STATE_KEY = 'timbrature.local.drive.backup.state';
@@ -748,6 +768,7 @@
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
       let liveClockTimer = null;
       let autoPunchTimer = null;
+      let notificationTimer = null;
       let autoPunchInProgress = false;
       let todaySegments = [];
       let selectedMonthDay = '';
@@ -772,6 +793,127 @@
       const showTeamMsg = (m, t='ok') => { id('teamEsito').className = `msg ${t}`; id('teamEsito').textContent = m; };
       const showBackupMsg = (m, t='ok') => { id('backupEsito').className = `msg ${t}`; id('backupEsito').textContent = m; };
       const showGiornaleMsg = (m, t='ok') => { id('giornaleEsito').className = `msg ${t}`; id('giornaleEsito').textContent = m; };
+      function getNotificationSettings() {
+        return readJSON(NOTIFICATION_SETTINGS_KEY, {
+          entry_time: '07:55',
+          exit_time: '17:00',
+          intense_sound: true
+        });
+      }
+      function setNotificationSettings(next={}) {
+        const merged = { ...getNotificationSettings(), ...next };
+        writeJSON(NOTIFICATION_SETTINGS_KEY, merged);
+        return merged;
+      }
+      function getNotificationSentMap() { return readJSON(NOTIFICATION_SENT_KEY, {}); }
+      function markNotificationSent(key='') {
+        if (!key) return;
+        const map = getNotificationSentMap();
+        map[key] = new Date().toISOString();
+        writeJSON(NOTIFICATION_SENT_KEY, map);
+      }
+      function hasNotificationSent(key='') { return Boolean(getNotificationSentMap()[key]); }
+      function playIntenseReminderSound() {
+        try {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (!Ctx) return;
+          const ctx = new Ctx();
+          const beep = (startOffset, freq, duration=0.22)=>{
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            gain.gain.value = 0.0001;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            const now = ctx.currentTime + startOffset;
+            gain.gain.exponentialRampToValueAtTime(0.4, now + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+            osc.start(now);
+            osc.stop(now + duration + 0.02);
+          };
+          beep(0, 900);
+          beep(0.28, 1100);
+          beep(0.56, 900, 0.28);
+        } catch (_) {}
+      }
+      async function sendLocalNotification(title='', body='') {
+        if (!('Notification' in window)) return false;
+        if (Notification.permission !== 'granted') return false;
+        try {
+          if (navigator.serviceWorker?.ready) {
+            const reg = await navigator.serviceWorker.ready;
+            await reg.showNotification(title, {
+              body,
+              badge: '/icons/icon-192.svg',
+              icon: '/icons/icon-192.svg',
+              vibrate: [300, 120, 300, 120, 500],
+              renotify: true,
+              tag: `timbrature-${Date.now()}`
+            });
+          } else {
+            new Notification(title, { body });
+          }
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }
+      async function requestNotificationPermission() {
+        if (!('Notification' in window)) { showProgramMsg('Notifiche non supportate su questo dispositivo/browser.', 'err'); return; }
+        const result = await Notification.requestPermission();
+        if (result === 'granted') showProgramMsg('Notifiche abilitate con successo.', 'ok');
+        else showProgramMsg('Permesso notifiche negato. Abilitalo dalle impostazioni browser.', 'err');
+      }
+      function saveNotificationSettingsFromUI() {
+        const settings = setNotificationSettings({
+          entry_time: id('notifyEntryTime')?.value || '07:55',
+          exit_time: id('notifyExitTime')?.value || '17:00',
+          intense_sound: (id('notifyIntenseSound')?.value || 'true') === 'true'
+        });
+        return settings;
+      }
+      async function notificationTick() {
+        const settings = saveNotificationSettingsFromUI();
+        const now = new Date();
+        const today = nowDateISO();
+        const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const entryKey = `entry-${today}-${settings.entry_time}`;
+        if (hhmm === settings.entry_time && !hasNotificationSent(entryKey)) {
+          const sent = await sendLocalNotification('Promemoria entrata', 'È ora di timbrare l’entrata.');
+          if (sent) markNotificationSent(entryKey);
+          if (settings.intense_sound) playIntenseReminderSound();
+        }
+        const exitKey = `exit-${today}-${settings.exit_time}`;
+        if (hhmm === settings.exit_time && !hasNotificationSent(exitKey)) {
+          const sent = await sendLocalNotification('Promemoria uscita', 'È ora di timbrare l’uscita.');
+          if (sent) markNotificationSent(exitKey);
+          if (settings.intense_sound) playIntenseReminderSound();
+        }
+        const appointments = getAppointments().find((x)=>x.date === today)?.items || [];
+        appointments.forEach(async (entry, idx)=>{
+          const appt = String(entry.time || '').slice(0,5);
+          if (!appt) return;
+          const apptMin = parseTimeToMinutes(appt);
+          if (apptMin == null) return;
+          const remindMin = apptMin - 60;
+          if (remindMin < 0) return;
+          const remindHH = String(Math.floor(remindMin / 60)).padStart(2, '0');
+          const remindMM = String(remindMin % 60).padStart(2, '0');
+          const remindAt = `${remindHH}:${remindMM}`;
+          const key = `appt-${today}-${idx}-${remindAt}`;
+          if (hhmm !== remindAt || hasNotificationSent(key)) return;
+          const sent = await sendLocalNotification('Promemoria appuntamento', `Tra 1 ora: ${entry.note || 'Appuntamento'} (${appt}).`);
+          if (sent) markNotificationSent(key);
+          if (settings.intense_sound) playIntenseReminderSound();
+        });
+      }
+      function initNotificationUI() {
+        const settings = getNotificationSettings();
+        if (id('notifyEntryTime')) id('notifyEntryTime').value = settings.entry_time || '07:55';
+        if (id('notifyExitTime')) id('notifyExitTime').value = settings.exit_time || '17:00';
+        if (id('notifyIntenseSound')) id('notifyIntenseSound').value = settings.intense_sound === false ? 'false' : 'true';
+      }
       function getSelectedNonWorkingDays() {
         return Array.from(document.querySelectorAll('#nonWorkingDaysSelector input[type="checkbox"]:checked'))
           .map((el)=>Number(el.value))
@@ -3148,6 +3290,7 @@
         renderDocuments();
         renderCommesseList();
         renderGlobalCommesseSelect();
+        initNotificationUI();
         id('googleClientIdInput').value = getGoogleClientId();
         updateBackupStatusUI();
 
@@ -3191,6 +3334,10 @@
         if (id('globalCommessaSelect')) id('globalCommessaSelect').addEventListener('change', ()=>{
           if (id('clockInCantiere') && !id('clockInCantiere').value) id('clockInCantiere').value = id('globalCommessaSelect').value || '';
           if (id('cantiere') && !id('cantiere').value) id('cantiere').value = id('globalCommessaSelect').value || '';
+        });
+        if (id('enableNotificationsBtn')) id('enableNotificationsBtn').addEventListener('click', requestNotificationPermission);
+        ['notifyEntryTime','notifyExitTime','notifyIntenseSound'].forEach((fieldId)=>{
+          if (id(fieldId)) id(fieldId).addEventListener('change', saveNotificationSettingsFromUI);
         });
         id('saveProfile').addEventListener('click', saveProfile);
         id('saveGoogleClientIdBtn').addEventListener('click', saveGoogleClientIdFromUI);
@@ -3268,6 +3415,9 @@
         if (autoPunchTimer) clearInterval(autoPunchTimer);
         autoPunchTimer = window.setInterval(()=>{ autoPunchTick(); }, 30000);
         autoPunchTick();
+        if (notificationTimer) clearInterval(notificationTimer);
+        notificationTick();
+        notificationTimer = window.setInterval(()=>{ notificationTick(); }, 30000);
         applyStatusFromQueryParams();
       }
 
