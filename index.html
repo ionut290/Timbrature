@@ -124,6 +124,9 @@
       .doc-thumb-mini { width:46px; height:46px; border-radius:8px; object-fit:cover; border:1px solid #cbd5e1; background:#fff; }
       .doc-open-name { flex:1; min-height:34px; padding:6px 10px; text-align:left; background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; }
       .doc-open-name:hover { background:#dbeafe; }
+      .delete-doc-panel { margin-top:10px; border:1px dashed #93c5fd; border-radius:10px; background:#fff; padding:10px; }
+      .delete-doc-list { list-style:none; margin:8px 0 0; padding:0; display:grid; gap:8px; }
+      .delete-doc-row { display:flex; align-items:center; gap:8px; border:1px solid #dbeafe; border-radius:8px; padding:8px; background:#f8fbff; }
       .doc-empty { margin-top:10px; font-size:13px; color:#475569; }
       .viewer-overlay { position:fixed; inset:0; z-index:9999; background:rgba(2,6,23,.92); display:flex; align-items:center; justify-content:center; padding:16px; }
       .viewer-overlay img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.45); }
@@ -504,6 +507,12 @@
             <div class="inline-actions">
               <button type="button" class="secondary btn-small" id="cancelDocFormBtn">Torna elenco</button>
               <button type="button" class="btn-small" id="saveDocBtn">Salva documento</button>
+              <button type="button" class="secondary btn-small" id="openDeleteDocBtn">Elimina documento</button>
+            </div>
+            <div id="deleteDocPanel" class="delete-doc-panel hidden">
+              <p class="small">Scegli un documento da eliminare:</p>
+              <ul id="deleteDocumentsList" class="delete-doc-list"></ul>
+              <button type="button" class="secondary btn-small" id="closeDeleteDocPanelBtn">Chiudi lista elimina</button>
             </div>
           </div>
           <p id="docUploadEsito" class="msg"></p>
@@ -2109,20 +2118,46 @@
           <li class="doc-row">
             <img class="doc-thumb-mini" src="${doc.image}" alt="${escapeHtml(doc.label || doc.type || 'Documento')}" />
             <button type="button" class="doc-open-name" data-doc-open="${escapeHtml(doc.id)}">${escapeHtml(doc.label || doc.type || 'Documento')}</button>
-            <button type="button" class="secondary btn-small" data-doc-remove="${escapeHtml(doc.id)}">Elimina</button>
           </li>
         `).join('');
         grid.querySelectorAll('[data-doc-open]').forEach((btn)=>btn.addEventListener('click', ()=>{
           const doc = docs.find((item)=>item.id === btn.dataset.docOpen);
           if (doc) openImageViewer(doc.image, doc.label || doc.type || 'Documento');
         }));
-        grid.querySelectorAll('[data-doc-remove]').forEach((btn)=>btn.addEventListener('click', ()=>{
-          const docId = btn.dataset.docRemove;
-          setDocuments(docs.filter((item)=>item.id !== docId));
-          renderDocuments();
-          showDocMsg('Documento eliminato.', 'ok');
-        }));
       }
+      function deleteDocumentById(docId='') {
+        if (!docId) return;
+        const docs = getDocuments();
+        const target = docs.find((item)=>item.id === docId);
+        if (!target) return;
+        if (!window.confirm(`Confermi eliminazione di "${target.label || target.type || 'Documento'}"?`)) return;
+        setDocuments(docs.filter((item)=>item.id !== docId));
+        renderDocuments();
+        renderDeleteDocumentsList();
+        showDocMsg('Documento eliminato.', 'ok');
+      }
+      function renderDeleteDocumentsList() {
+        const wrap = id('deleteDocumentsList');
+        if (!wrap) return;
+        const docs = getDocuments();
+        if (!docs.length) {
+          wrap.innerHTML = '<li class="small">Nessun documento da eliminare.</li>';
+          return;
+        }
+        wrap.innerHTML = docs.map((doc)=>`
+          <li class="delete-doc-row">
+            <img class="doc-thumb-mini" src="${doc.image}" alt="${escapeHtml(doc.label || doc.type || 'Documento')}" />
+            <span class="small">${escapeHtml(doc.label || doc.type || 'Documento')}</span>
+            <button type="button" class="btn-small" data-delete-doc-id="${escapeHtml(doc.id)}">Elimina</button>
+          </li>
+        `).join('');
+        wrap.querySelectorAll('[data-delete-doc-id]').forEach((btn)=>btn.addEventListener('click', ()=>deleteDocumentById(btn.dataset.deleteDocId)));
+      }
+      function openDeleteDocPanel() {
+        renderDeleteDocumentsList();
+        id('deleteDocPanel').classList.remove('hidden');
+      }
+      function closeDeleteDocPanel() { id('deleteDocPanel').classList.add('hidden'); }
       function saveDocument() {
         const file = id('docFileInput').files && id('docFileInput').files[0];
         if (!file) { showDocMsg('Seleziona un’immagine prima di caricare.', 'err'); return; }
@@ -2139,6 +2174,7 @@
           setDocuments(documents);
           id('docFileInput').value = '';
           id('docLabel').value = '';
+          closeDeleteDocPanel();
           closeDocForm();
           renderDocuments();
           showDocMsg('Documento caricato con successo.', 'ok');
@@ -2148,10 +2184,12 @@
       }
       function openDocForm() {
         showDocMsg('', '');
+        closeDeleteDocPanel();
         setMenuSection('documentUploadCard');
       }
       function closeDocForm() {
         id('docFileInput').value = '';
+        closeDeleteDocPanel();
         setMenuSection('documentiCard');
       }
 
@@ -2198,6 +2236,8 @@
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
         id('openDocFormBtn').addEventListener('click', openDocForm);
         id('cancelDocFormBtn').addEventListener('click', closeDocForm);
+        id('openDeleteDocBtn').addEventListener('click', openDeleteDocPanel);
+        id('closeDeleteDocPanelBtn').addEventListener('click', closeDeleteDocPanel);
         id('saveDocBtn').addEventListener('click', saveDocument);
         id('saveProfile').addEventListener('click', saveProfile);
         id('teamRequestPersonSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'));
