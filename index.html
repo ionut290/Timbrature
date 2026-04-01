@@ -553,7 +553,7 @@
 
         <div class="card hidden" id="backupCard">
           <h2>Backup Google Drive (opzionale)</h2>
-          <p class="small">L'app funziona anche senza account. Collega Google solo se vuoi salvare una copia cloud nella cartella <strong>Timbrature</strong>.</p>
+          <p class="small">L'app funziona anche senza account. Collega Google solo se vuoi salvare una copia cloud nella cartella <strong>Timbrature</strong>: le timbrature finiscono in un Google Sheet, il resto in snapshot JSON.</p>
           <div class="grid">
             <label>Google Client ID
               <input type="text" id="googleClientIdInput" placeholder="Inserisci OAuth Client ID (apps.googleusercontent.com)" />
@@ -2380,6 +2380,7 @@
           email: '',
           folderId: '',
           folderName: 'Timbrature',
+          spreadsheetId: '',
           lastBackupAt: '',
           lastFileId: ''
         });
@@ -2440,7 +2441,7 @@
         return new Promise((resolve, reject)=>{
           googleTokenClient = window.google.accounts.oauth2.initTokenClient({
             client_id: clientId,
-            scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email',
+            scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/userinfo.email',
             prompt,
             callback: (resp)=>{
               if (resp?.error) {
@@ -2486,6 +2487,118 @@
         const created = await createRes.json();
         return created.id;
       }
+      async function ensureDriveSpreadsheet(accessToken='', folderId='') {
+        const q = encodeURIComponent(`name='Timbrature - Dati' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`);
+        const listRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,parents)&pageSize=10`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!listRes.ok) throw new Error('Errore ricerca Google Sheet Timbrature.');
+        const listData = await listRes.json();
+        const files = Array.isArray(listData.files) ? listData.files : [];
+        const match = files.find((f)=>Array.isArray(f.parents) && f.parents.includes(folderId)) || files[0];
+        if (match?.id) return match.id;
+
+        const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: 'Timbrature - Dati',
+            mimeType: 'application/vnd.google-apps.spreadsheet',
+            parents: folderId ? [folderId] : undefined
+          })
+        });
+        if (!createRes.ok) throw new Error('Errore creazione Google Sheet Timbrature.');
+        const created = await createRes.json();
+        return created.id;
+      }
+      async function ensureSheetTab(accessToken='', spreadsheetId='', title='') {
+        const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!metaRes.ok) throw new Error('Errore lettura metadati Google Sheet.');
+        const meta = await metaRes.json();
+        const exists = Array.isArray(meta.sheets) && meta.sheets.some((s)=>s?.properties?.title === title);
+        if (exists) return;
+        const addRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ requests: [{ addSheet: { properties: { title } } }] })
+        });
+        if (!addRes.ok) throw new Error(`Errore creazione tab "${title}" su Google Sheet.`);
+      }
+      async function overwriteSheetValues(accessToken='', spreadsheetId='', tabName='', rows=[]) {
+        await ensureSheetTab(accessToken, spreadsheetId, tabName);
+        const clearRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(tabName + '!A:ZZ')}:clear`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (!clearRes.ok) throw new Error(`Errore pulizia tab "${tabName}".`);
+
+        const updateRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(tabName + '!A1')}?valueInputOption=RAW`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ values: rows })
+        });
+        if (!updateRes.ok) throw new Error(`Errore scrittura tab "${tabName}".`);
+      }
+      async function syncAllDataToGoogleSheet(accessToken='', spreadsheetId='') {
+        const payload = buildBackupPayload();
+        const records = Array.isArray(payload.records) ? payload.records.slice().sort((a,b)=>String(a.data || '').localeCompare(String(b.data || ''))) : [];
+        const timbratureRows = [
+          ['Data', 'Entrata', 'Uscita', 'Pausa(min)', 'Causale', 'Note', 'Cantiere', 'Caposquadra', 'Ore', 'Ord', 'Stra', 'Stato', 'Aggiornato il'],
+          ...records.map((r)=>[
+            r.data || '',
+            r.entrata || '',
+            r.uscita || '',
+            Number(r.pausa || 0),
+            r.causale || '',
+            r.note || '',
+            r.cantiere || '',
+            r.caposquadra || '',
+            Number(r.ore || 0),
+            Number(r.ord || 0),
+            Number(r.stra || 0),
+            r.stato || '',
+            r.updated_at || ''
+          ])
+        ];
+        const profile = payload.profile || {};
+        const profileRows = [
+          ['Campo', 'Valore'],
+          ['Nome', profile.nome || ''],
+          ['Azienda', profile.azienda || ''],
+          ['Email', profile.email || ''],
+          ['Esportato il', payload.exportedAt || '']
+        ];
+        const programsRows = [
+          ['Week start', 'Break enabled', 'Break minutes', 'Night bonus %', 'Overtime bonus %', 'Contract', 'Level', 'Rate'],
+          ...(Array.isArray(payload.programs) ? payload.programs : []).map((p)=>[
+            p.week_start || '',
+            p.break_enabled === false ? 'No' : 'Si',
+            Number(p.break_minutes || 0),
+            Number(p.night_bonus_percent || 0),
+            Number(p.overtime_bonus_percent || 0),
+            p.contract_template || '',
+            p.contract_level || '',
+            Number(p.hourly_rate || 0)
+          ])
+        ];
+        await overwriteSheetValues(accessToken, spreadsheetId, 'Timbrature', timbratureRows);
+        await overwriteSheetValues(accessToken, spreadsheetId, 'Profilo', profileRows);
+        await overwriteSheetValues(accessToken, spreadsheetId, 'Programmi', programsRows);
+      }
       async function uploadBackupToDrive(accessToken='', folderId='') {
         const payload = buildBackupPayload();
         const fileName = `timbrature-backup-${nowDateISO()}-${new Date().toISOString().slice(11,19).replace(/:/g, '')}.json`;
@@ -2518,14 +2631,16 @@
             fetchGoogleUserEmail(accessToken),
             ensureDriveFolder(accessToken)
           ]);
+          const spreadsheetId = await ensureDriveSpreadsheet(accessToken, folderId);
           setDriveBackupState({
             connected: true,
             email,
             folderId,
-            folderName: 'Timbrature'
+            folderName: 'Timbrature',
+            spreadsheetId
           });
           updateBackupStatusUI();
-          showBackupMsg('Google Drive collegato. Cartella Timbrature pronta.', 'ok');
+          showBackupMsg('Google Drive collegato. Cartella Timbrature e foglio dati pronti.', 'ok');
         } catch (error) {
           showBackupMsg(error.message || 'Connessione Google Drive non riuscita.', 'err');
         }
@@ -2536,6 +2651,7 @@
           email: '',
           folderId: '',
           folderName: 'Timbrature',
+          spreadsheetId: '',
           lastBackupAt: '',
           lastFileId: ''
         });
@@ -2552,15 +2668,18 @@
         try {
           const accessToken = await requestDriveAccessToken('');
           const folderId = state.folderId || await ensureDriveFolder(accessToken);
+          const spreadsheetId = state.spreadsheetId || await ensureDriveSpreadsheet(accessToken, folderId);
+          await syncAllDataToGoogleSheet(accessToken, spreadsheetId);
           const upload = await uploadBackupToDrive(accessToken, folderId);
           setDriveBackupState({
             connected: true,
             folderId,
+            spreadsheetId,
             lastBackupAt: new Date().toISOString(),
             lastFileId: upload.id || ''
           });
           updateBackupStatusUI();
-          showBackupMsg(`Backup completato: ${upload.name || 'file creato'}${upload.id ? ` (ID: ${upload.id})` : ''}.`, 'ok');
+          showBackupMsg(`Backup completato: timbrature aggiornate su Google Sheet + snapshot ${upload.name || 'file creato'}.`, 'ok');
         } catch (error) {
           showBackupMsg(error.message || 'Errore durante il backup su Drive.', 'err');
         }
