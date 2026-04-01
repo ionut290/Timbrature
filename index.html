@@ -1174,24 +1174,28 @@
       }
       function buildStatusLink(statusValue, programId='') {
         const url = new URL(window.location.href);
-        url.searchParams.set('teamStatus', statusValue);
+        url.searchParams.set('openTeamActions', '1');
+        url.searchParams.set('suggestedStatus', statusValue);
         if (programId) url.searchParams.set('teamProgramId', programId);
         return url.toString();
       }
       function applyStatusFromQueryParams() {
         const params = new URLSearchParams(window.location.search);
-        const status = (params.get('teamStatus') || '').toUpperCase();
+        const shouldOpenTeam = params.get('openTeamActions') === '1';
+        const status = (params.get('suggestedStatus') || '').toUpperCase();
         const programId = params.get('teamProgramId') || '';
-        if (!status) return;
-        const normalized = status.includes('APPROV') ? 'APPROVATA' : (status.includes('RETT') ? 'RETTIFICA' : '');
-        if (!normalized) return;
-        if (programId && updateStoredProgramStatus(programId, normalized)) {
-          id('teamProgramId').value = programId;
-          id('teamProgramStatus').value = normalized;
-          id('teamProgramStatusLabel').textContent = `Stato programmazione: ${normalized}`;
-          showTeamMsg(`Stato aggiornato da link WhatsApp: ${normalized}.`, 'ok');
+        if (!shouldOpenTeam) return;
+        const normalized = status.includes('APPROV') ? 'APPROVATA' : (status.includes('RETT') ? 'RETTIFICA' : 'IN_ATTESA');
+        setMenuSection('teamCard');
+        if (programId) {
+          id('teamProgramSelect').value = programId;
+          loadTeamProgramById(programId);
         }
-        params.delete('teamStatus');
+        id('teamWhatsappReplyInput').value = normalized === 'APPROVATA' ? 'APPROVO' : (normalized === 'RETTIFICA' ? 'RETTIFICO' : '');
+        const actionLabel = normalized === 'APPROVATA' ? 'Segna APPROVATA' : (normalized === 'RETTIFICA' ? 'Segna RETTIFICA' : 'Segna stato');
+        showTeamMsg(`Link aperto: ora premi il pulsante "${actionLabel}" qui sotto.`, 'ok');
+        params.delete('openTeamActions');
+        params.delete('suggestedStatus');
         params.delete('teamProgramId');
         const nextUrl = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`;
         window.history.replaceState({}, '', nextUrl);
@@ -1294,12 +1298,12 @@
         const message = [
           `Buongiorno, richiesta squadra per il giorno ${date}.`,
           `Cantiere: ${cantiere}`,
-          `Personale richiesto: ${personale}`,
-          `Mezzi richiesti: ${mezzi}`,
+          `👷 Personale richiesto: ${personale}`,
+          `🚜 Mezzi richiesti: ${mezzi}`,
           `Caposquadra: ${liveCapo || team.leader || 'non indicato'}`,
           'Conferma con un tap:',
-          `✅ APPROVO: ${approveLink}`,
-          `✏️ RETTIFICO: ${rectifyLink}`,
+          `✅ *APPROVO* 👉 ${approveLink}`,
+          `✏️ *RETTIFICO* 👉 ${rectifyLink}`,
           'Confermate disponibilità, grazie.'
         ].join('\n');
         saveTeamRequestDraft();
