@@ -116,6 +116,22 @@
       .segments-list { margin:8px 0 0; padding-left:18px; font-size:13px; color:#334155; }
       .segments-list li { margin-bottom:3px; }
       .import-preview { margin-top:8px; padding:8px; border:1px dashed #93c5fd; border-radius:8px; background:#f8fbff; font-size:12px; color:#1e293b; }
+      .docs-toolbar { margin-top:10px; }
+      .btn-small { min-height:34px; padding:6px 10px; font-size:13px; border-radius:8px; }
+      .doc-form-page { border:1px solid #bfdbfe; background:#f8fbff; border-radius:10px; padding:10px; }
+      .doc-list { list-style:none; margin:12px 0 0; padding:0; display:grid; gap:8px; }
+      .doc-row { display:flex; align-items:center; gap:10px; border:1px solid #dbeafe; background:#fff; border-radius:10px; padding:8px; }
+      .doc-thumb-mini { width:46px; height:46px; border-radius:8px; object-fit:cover; border:1px solid #cbd5e1; background:#fff; }
+      .doc-thumb-file { width:46px; height:46px; border-radius:8px; border:1px solid #cbd5e1; background:#eff6ff; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#1e3a8a; text-transform:uppercase; padding:4px; text-align:center; }
+      .doc-open-name { flex:1; min-height:34px; padding:6px 10px; text-align:left; background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; }
+      .doc-open-name:hover { background:#dbeafe; }
+      .delete-doc-panel { margin-top:10px; border:1px dashed #93c5fd; border-radius:10px; background:#fff; padding:10px; }
+      .delete-doc-list { list-style:none; margin:8px 0 0; padding:0; display:grid; gap:8px; }
+      .delete-doc-row { display:flex; align-items:center; gap:8px; border:1px solid #dbeafe; border-radius:8px; padding:8px; background:#f8fbff; }
+      .doc-empty { margin-top:10px; font-size:13px; color:#475569; }
+      .viewer-overlay { position:fixed; inset:0; z-index:9999; background:rgba(2,6,23,.92); display:flex; align-items:center; justify-content:center; padding:16px; }
+      .viewer-overlay img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.45); }
+      .viewer-close { position:fixed; top:12px; right:12px; min-height:40px; min-width:40px; border-radius:999px; font-size:18px; background:#ef4444; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
     </style>
@@ -135,6 +151,8 @@
               <button type="button" class="menu-link" data-menu-target="programCard">Impostazioni contratto</button>
               <button type="button" class="menu-link" data-menu-target="teamCard">Caposquadra / squadra</button>
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
+              <button type="button" class="menu-link" data-menu-target="calendarioCard">Calendario</button>
+              <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
           </aside>
@@ -458,6 +476,75 @@
             <p class="small">Clicca su un giorno del calendario per vedere il riepilogo in colonna.</p>
           </div>
         </div>
+
+        <div class="card hidden" id="calendarioCard">
+          <h2>Calendario</h2>
+          <p class="small">Premi su un giorno per inserire note, appuntamenti e promemoria.</p>
+          <div class="inline-actions">
+            <input type="month" id="calendarMonthPicker" />
+            <button type="button" class="secondary btn-small" id="calendarTodayBtn">Oggi</button>
+          </div>
+          <div id="agendaCalendarGrid" class="calendar-grid"></div>
+          <div class="day-summary-card">
+            <h3 id="agendaSelectedDateTitle">Seleziona un giorno</h3>
+            <div class="grid">
+              <label>Orario (opzionale)
+                <input type="time" id="agendaTimeInput" />
+              </label>
+              <label>Nota / Appuntamento
+                <textarea id="agendaNoteInput" rows="3" placeholder="Es. 14:30 - Consegna documenti / chiamata importante"></textarea>
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button type="button" id="agendaSaveBtn">Salva promemoria</button>
+            </div>
+            <ul id="agendaDayList" class="doc-list"></ul>
+          </div>
+          <p id="agendaEsito" class="msg"></p>
+        </div>
+
+        <div class="card hidden" id="documentiCard">
+          <h2>Documenti personali</h2>
+          <p class="small">Nel menu documenti trovi un elenco con anteprima: premi sul nome per aprire il documento (immagini, PDF, Word, Excel, ecc.).</p>
+          <div class="docs-toolbar">
+            <button type="button" id="openDocFormBtn" class="secondary btn-small">Carica documenti</button>
+          </div>
+          <p id="docEsito" class="msg"></p>
+          <ul id="documentsList" class="doc-list"></ul>
+          <p id="documentsEmptyText" class="doc-empty">Nessun documento caricato.</p>
+        </div>
+
+        <div class="card hidden" id="documentUploadCard">
+          <h2>Form caricamento documenti</h2>
+          <div class="doc-form-page">
+            <div class="grid">
+              <label>Tipo documento
+                <select id="docType">
+                  <option value="Tesserina di riconoscimento">Tesserina di riconoscimento</option>
+                  <option value="PIN carburante">PIN carburante</option>
+                  <option value="Altro">Altro</option>
+                </select>
+              </label>
+              <label>Nome documento
+                <input type="text" id="docLabel" placeholder="Es. Badge cantiere principale" />
+              </label>
+              <label>File documento
+                <input type="file" id="docFileInput" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button type="button" class="secondary btn-small" id="cancelDocFormBtn">Torna elenco</button>
+              <button type="button" class="btn-small" id="saveDocBtn">Salva documento</button>
+              <button type="button" class="secondary btn-small" id="openDeleteDocBtn">Elimina documento</button>
+            </div>
+            <div id="deleteDocPanel" class="delete-doc-panel hidden">
+              <p class="small">Scegli un documento da eliminare:</p>
+              <ul id="deleteDocumentsList" class="delete-doc-list"></ul>
+              <button type="button" class="secondary btn-small" id="closeDeleteDocPanelBtn">Chiudi lista elimina</button>
+            </div>
+          </div>
+          <p id="docUploadEsito" class="msg"></p>
+        </div>
       </div>
     </div>
     <datalist id="memberSuggestionsList"></datalist>
@@ -476,10 +563,12 @@
       const TEAM_DIRECTORY_KEY = 'timbrature.local.team.directory';
       const AUTO_PUNCH_STATE_KEY = 'timbrature.local.auto.punch.state';
       const MONTHLY_EMAIL_SENT_KEY = 'timbrature.local.monthly.email.sent';
+      const DOCUMENTS_KEY = 'timbrature.local.documents';
+      const APPOINTMENTS_KEY = 'timbrature.local.appointments';
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'userBox'];
+      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
           label: 'Edilizia industria',
@@ -552,6 +641,7 @@
       let autoPunchInProgress = false;
       let todaySegments = [];
       let selectedMonthDay = '';
+      let selectedAgendaDate = '';
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -694,6 +784,10 @@
       function setAutoPunchState(v) { writeJSON(AUTO_PUNCH_STATE_KEY, v); }
       function getMonthlyEmailSentMap() { return readJSON(MONTHLY_EMAIL_SENT_KEY, {}); }
       function setMonthlyEmailSentMap(v) { writeJSON(MONTHLY_EMAIL_SENT_KEY, v); }
+      function getDocuments() { return readJSON(DOCUMENTS_KEY, []); }
+      function setDocuments(v) { writeJSON(DOCUMENTS_KEY, v); }
+      function getAppointmentsMap() { return readJSON(APPOINTMENTS_KEY, {}); }
+      function setAppointmentsMap(v) { writeJSON(APPOINTMENTS_KEY, v); }
       function defaultTeamMembersList() { return [...new Set(DEFAULT_TEAM_MEMBERS_TEXT.split('|').map((v)=>v.trim()).filter(Boolean))]; }
       function defaultTeamVehiclesList() { return [...new Set(DEFAULT_TEAM_VEHICLES_TEXT.split('|').map((v)=>v.trim()).filter(Boolean))]; }
       function getTeamDirectory() { return readJSON(TEAM_DIRECTORY_KEY, { sheetUrl:FIXED_TEAM_SHEET_URL, members:defaultTeamMembersList(), vehicles:defaultTeamVehiclesList(), synced_at:'' }); }
@@ -1977,6 +2071,82 @@
         if (selectedMonthDay && String(selectedMonthDay).startsWith(month)) showDaySummary(selectedMonthDay);
         else id('selectedDaySummary').innerHTML = '<p class="small">Clicca su un giorno del calendario per vedere il riepilogo in colonna.</p>';
       }
+      function showAgendaMsg(message='', type='ok') {
+        id('agendaEsito').className = `msg ${type}`;
+        id('agendaEsito').textContent = message;
+      }
+      function renderAgendaDayList() {
+        const list = id('agendaDayList');
+        if (!selectedAgendaDate) { list.innerHTML = '<li class="small">Seleziona un giorno nel calendario.</li>'; return; }
+        const entries = getAppointmentsMap()[selectedAgendaDate] || [];
+        if (!entries.length) { list.innerHTML = '<li class="small">Nessun appuntamento in questa data.</li>'; return; }
+        list.innerHTML = entries.map((entry)=>`
+          <li class="doc-row">
+            <div class="doc-thumb-file">${escapeHtml(entry.time || '--')}</div>
+            <div class="small" style="flex:1;">${escapeHtml(entry.note || '')}</div>
+            <button type="button" class="secondary btn-small" data-agenda-remove="${escapeHtml(entry.id)}">Elimina</button>
+          </li>
+        `).join('');
+        list.querySelectorAll('[data-agenda-remove]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const map = getAppointmentsMap();
+          const rows = Array.isArray(map[selectedAgendaDate]) ? map[selectedAgendaDate] : [];
+          map[selectedAgendaDate] = rows.filter((row)=>row.id !== btn.dataset.agendaRemove);
+          if (!map[selectedAgendaDate].length) delete map[selectedAgendaDate];
+          setAppointmentsMap(map);
+          renderAgendaCalendar();
+          renderAgendaDayList();
+          showAgendaMsg('Promemoria eliminato.', 'ok');
+        }));
+      }
+      function selectAgendaDay(dateValue='') {
+        selectedAgendaDate = dateValue;
+        id('agendaSelectedDateTitle').textContent = dateValue ? `Giorno selezionato: ${dateValue}` : 'Seleziona un giorno';
+        renderAgendaCalendar();
+        renderAgendaDayList();
+      }
+      function renderAgendaCalendar() {
+        const month = String(id('calendarMonthPicker').value || currentMonthValueUTC());
+        const [year, monthIndex] = month.split('-').map(Number);
+        const firstDay = new Date(year, monthIndex - 1, 1);
+        const totalDays = new Date(year, monthIndex, 0).getDate();
+        const startOffset = (firstDay.getDay() + 6) % 7;
+        const map = getAppointmentsMap();
+        const heads = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].map((name)=>`<div class="calendar-head">${name}</div>`).join('');
+        const cells = [];
+        for (let i = 0; i < startOffset; i += 1) cells.push('<button type="button" class="calendar-day empty" disabled></button>');
+        for (let d = 1; d <= totalDays; d += 1) {
+          const date = `${year}-${String(monthIndex).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const count = Array.isArray(map[date]) ? map[date].length : 0;
+          const active = selectedAgendaDate === date ? 'active' : '';
+          cells.push(`<button type="button" class="calendar-day ${active}" data-agenda-day="${date}"><span class="day-num">${d}</span><span class="day-hours">${count ? `${count} prom.` : '-'}</span></button>`);
+        }
+        id('agendaCalendarGrid').innerHTML = heads + cells.join('');
+        id('agendaCalendarGrid').querySelectorAll('[data-agenda-day]').forEach((btn)=>btn.addEventListener('click', ()=>selectAgendaDay(btn.dataset.agendaDay)));
+      }
+      function saveAgendaEntry() {
+        if (!selectedAgendaDate) { showAgendaMsg('Seleziona prima un giorno.', 'err'); return; }
+        const note = String(id('agendaNoteInput').value || '').trim();
+        if (!note) { showAgendaMsg('Inserisci una nota o appuntamento.', 'err'); return; }
+        const time = String(id('agendaTimeInput').value || '').trim();
+        const map = getAppointmentsMap();
+        const rows = Array.isArray(map[selectedAgendaDate]) ? map[selectedAgendaDate] : [];
+        rows.push({ id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`, time, note, createdAt:new Date().toISOString() });
+        map[selectedAgendaDate] = rows;
+        setAppointmentsMap(map);
+        id('agendaTimeInput').value = '';
+        id('agendaNoteInput').value = '';
+        renderAgendaCalendar();
+        renderAgendaDayList();
+        showAgendaMsg('Promemoria salvato.', 'ok');
+      }
+      function initAgendaCalendar() {
+        id('calendarMonthPicker').value = currentMonthValueUTC();
+        const today = nowDateISO();
+        selectedAgendaDate = today;
+        id('agendaSelectedDateTitle').textContent = `Giorno selezionato: ${today}`;
+        renderAgendaCalendar();
+        renderAgendaDayList();
+      }
       function deleteTimbraturaByDate(dataRecord) {
         if (!window.confirm(`Confermi l'eliminazione della timbratura del ${dataRecord}?`)) return;
         setRecords(getRecords().filter((r)=>r.data !== dataRecord));
@@ -2012,6 +2182,154 @@
         const a = document.createElement('a'); a.href=url; a.download=`timbrature-${new Date().toISOString().slice(0,10)}.xls`; a.click();
         URL.revokeObjectURL(url);
       }
+      function showDocMsg(message='', type='') {
+        ['docEsito', 'docUploadEsito'].forEach((msgId)=>{
+          const box = id(msgId);
+          if (!box) return;
+          box.textContent = message;
+          box.className = 'msg';
+          if (type === 'ok') box.classList.add('ok');
+          if (type === 'err') box.classList.add('err');
+        });
+      }
+      function escapeHtml(value='') {
+        return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+      }
+      function fileExt(name='') {
+        const text = String(name || '').trim();
+        if (!text.includes('.')) return 'FILE';
+        const ext = text.split('.').pop().toUpperCase();
+        return ext.slice(0, 5) || 'FILE';
+      }
+      function getDocData(doc={}) { return String(doc.data || doc.image || ''); }
+      function isImageDoc(doc={}) {
+        const mime = String(doc.mime || '');
+        if (mime.startsWith('image/')) return true;
+        return getDocData(doc).startsWith('data:image/');
+      }
+      function documentThumbHtml(doc={}) {
+        if (isImageDoc(doc)) return `<img class="doc-thumb-mini" src="${getDocData(doc)}" alt="${escapeHtml(doc.label || doc.type || 'Documento')}" />`;
+        return `<div class="doc-thumb-file">${escapeHtml(fileExt(doc.fileName || doc.label || 'FILE'))}</div>`;
+      }
+      function openDocument(doc={}) {
+        const data = getDocData(doc);
+        if (!doc || !data) return;
+        if (isImageDoc(doc)) { openImageViewer(data, doc.label || doc.type || 'Documento'); return; }
+        const newTab = window.open(data, '_blank');
+        if (!newTab) {
+          const a = document.createElement('a');
+          a.href = data;
+          a.download = doc.fileName || `${doc.label || 'documento'}`;
+          a.click();
+        }
+      }
+      function openImageViewer(src, alt='Documento') {
+        if (!src) return;
+        const overlay = document.createElement('div');
+        overlay.className = 'viewer-overlay';
+        overlay.innerHTML = `<button type="button" class="viewer-close" aria-label="Chiudi anteprima">✕</button><img src="${src}" alt="${escapeHtml(alt)}" />`;
+        const close = ()=>overlay.remove();
+        overlay.addEventListener('click', (e)=>{ if (e.target === overlay) close(); });
+        overlay.querySelector('.viewer-close').addEventListener('click', close);
+        document.addEventListener('keydown', function onEsc(evt) {
+          if (evt.key === 'Escape') {
+            close();
+            document.removeEventListener('keydown', onEsc);
+          }
+        });
+        document.body.appendChild(overlay);
+      }
+      function renderDocuments() {
+        const docs = getDocuments();
+        const grid = id('documentsList');
+        const empty = id('documentsEmptyText');
+        if (!grid || !empty) return;
+        if (!docs.length) {
+          grid.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+        grid.innerHTML = docs.map((doc)=>`
+          <li class="doc-row">
+            ${documentThumbHtml(doc)}
+            <button type="button" class="doc-open-name" data-doc-open="${escapeHtml(doc.id)}">${escapeHtml(doc.label || doc.type || 'Documento')}</button>
+          </li>
+        `).join('');
+        grid.querySelectorAll('[data-doc-open]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const doc = docs.find((item)=>item.id === btn.dataset.docOpen);
+          if (doc) openDocument(doc);
+        }));
+      }
+      function deleteDocumentById(docId='') {
+        if (!docId) return;
+        const docs = getDocuments();
+        const target = docs.find((item)=>item.id === docId);
+        if (!target) return;
+        if (!window.confirm(`Confermi eliminazione di "${target.label || target.type || 'Documento'}"?`)) return;
+        setDocuments(docs.filter((item)=>item.id !== docId));
+        renderDocuments();
+        renderDeleteDocumentsList();
+        showDocMsg('Documento eliminato.', 'ok');
+      }
+      function renderDeleteDocumentsList() {
+        const wrap = id('deleteDocumentsList');
+        if (!wrap) return;
+        const docs = getDocuments();
+        if (!docs.length) {
+          wrap.innerHTML = '<li class="small">Nessun documento da eliminare.</li>';
+          return;
+        }
+        wrap.innerHTML = docs.map((doc)=>`
+          <li class="delete-doc-row">
+            ${documentThumbHtml(doc)}
+            <span class="small">${escapeHtml(doc.label || doc.type || 'Documento')}</span>
+            <button type="button" class="btn-small" data-delete-doc-id="${escapeHtml(doc.id)}">Elimina</button>
+          </li>
+        `).join('');
+        wrap.querySelectorAll('[data-delete-doc-id]').forEach((btn)=>btn.addEventListener('click', ()=>deleteDocumentById(btn.dataset.deleteDocId)));
+      }
+      function openDeleteDocPanel() {
+        renderDeleteDocumentsList();
+        id('deleteDocPanel').classList.remove('hidden');
+      }
+      function closeDeleteDocPanel() { id('deleteDocPanel').classList.add('hidden'); }
+      function saveDocument() {
+        const file = id('docFileInput').files && id('docFileInput').files[0];
+        if (!file) { showDocMsg('Seleziona un file prima di caricare.', 'err'); return; }
+        const reader = new FileReader();
+        reader.onload = ()=>{
+          const documents = getDocuments();
+          documents.unshift({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            type: id('docType').value || 'Documento',
+            label: (id('docLabel').value || '').trim() || file.name || 'Documento',
+            fileName: file.name || 'documento',
+            mime: file.type || '',
+            data: String(reader.result || ''),
+            createdAt: new Date().toISOString()
+          });
+          setDocuments(documents);
+          id('docFileInput').value = '';
+          id('docLabel').value = '';
+          closeDeleteDocPanel();
+          closeDocForm();
+          renderDocuments();
+          showDocMsg('Documento caricato con successo.', 'ok');
+        };
+        reader.onerror = ()=>showDocMsg('Errore durante il caricamento del documento.', 'err');
+        reader.readAsDataURL(file);
+      }
+      function openDocForm() {
+        showDocMsg('', '');
+        closeDeleteDocPanel();
+        setMenuSection('documentUploadCard');
+      }
+      function closeDocForm() {
+        id('docFileInput').value = '';
+        closeDeleteDocPanel();
+        setMenuSection('documentiCard');
+      }
 
       function setMenuSection(panelId) {
         if (!menuPanelIds.includes(panelId)) return;
@@ -2041,6 +2359,8 @@
         updateWelcomeMessage();
         loadTodayPunch();
         loadMyMonth();
+        initAgendaCalendar();
+        renderDocuments();
 
         buildContractTemplateOptions();
         buildContractLevelsOptions();
@@ -2053,6 +2373,18 @@
         id('leftMenu').addEventListener('click', (e)=>e.stopPropagation());
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
+        id('calendarMonthPicker').addEventListener('change', ()=>{ renderAgendaCalendar(); renderAgendaDayList(); });
+        id('calendarTodayBtn').addEventListener('click', ()=>{
+          id('calendarMonthPicker').value = currentMonthValueUTC();
+          selectAgendaDay(nowDateISO());
+          showAgendaMsg('', 'ok');
+        });
+        id('agendaSaveBtn').addEventListener('click', saveAgendaEntry);
+        id('openDocFormBtn').addEventListener('click', openDocForm);
+        id('cancelDocFormBtn').addEventListener('click', closeDocForm);
+        id('openDeleteDocBtn').addEventListener('click', openDeleteDocPanel);
+        id('closeDeleteDocPanelBtn').addEventListener('click', closeDeleteDocPanel);
+        id('saveDocBtn').addEventListener('click', saveDocument);
         id('saveProfile').addEventListener('click', saveProfile);
         id('teamRequestPersonSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'));
         id('teamRequestVehicleSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'));
