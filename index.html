@@ -350,10 +350,7 @@
             <div>
               <h2>Timbrature di oggi</h2>
               <p class="timbrature-subtitle">Interfaccia semplificata per entrata, uscita e riepilogo giornata.</p>
-              <div class="inline-actions" style="margin-top:8px;">
-                <button type="button" class="secondary btn-small" id="openAgendaFromTimbratureBtn">Apri calendario appuntamenti</button>
-              </div>
-              <div class="day-summary-card" id="todayAgendaWidget" style="margin-top:8px;">
+              <div class="day-summary-card" id="todayAgendaWidget" style="margin-top:8px; cursor:pointer;">
                 <p class="small"><strong>Appuntamenti di oggi</strong></p>
                 <ul id="todayAgendaList" class="doc-list"></ul>
               </div>
@@ -2401,7 +2398,7 @@
           showAgendaMsg('', 'ok');
         });
         id('agendaSaveBtn').addEventListener('click', saveAgendaEntry);
-        id('openAgendaFromTimbratureBtn').addEventListener('click', ()=>setMenuSection('calendarioCard'));
+        id('todayAgendaWidget').addEventListener('click', ()=>setMenuSection('calendarioCard'));
         id('openDocFormBtn').addEventListener('click', openDocForm);
         id('cancelDocFormBtn').addEventListener('click', closeDocForm);
         id('openDeleteDocBtn').addEventListener('click', openDeleteDocPanel);
