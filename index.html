@@ -164,6 +164,7 @@
               <button type="button" class="menu-link" data-menu-target="teamCard">Caposquadra / squadra</button>
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
               <button type="button" class="menu-link" data-menu-target="calendarioCard">Calendario</button>
+              <button type="button" class="menu-link" data-menu-target="giornaleCard">Giornale Cantiere</button>
               <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
               <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
@@ -538,6 +539,71 @@
             <ul id="agendaDayList" class="doc-list"></ul>
           </div>
           <p id="agendaEsito" class="msg"></p>
+        </div>
+
+        <div class="card hidden" id="giornaleCard">
+          <h2>Giornale Cantiere</h2>
+          <div id="giornaleListView">
+            <div class="inline-actions">
+              <button type="button" id="addCommessaBtn">Aggiungi commessa</button>
+            </div>
+            <ul id="commesseList" class="commessa-list"></ul>
+            <p id="commesseEmpty" class="small">Nessuna commessa inserita.</p>
+          </div>
+          <div id="giornaleDetailView" class="hidden">
+            <div class="inline-actions">
+              <button type="button" class="secondary" id="backToCommesseBtn">← Torna alle commesse</button>
+              <button type="button" id="addJournalEntryBtn">Aggiungi voce al giornale</button>
+            </div>
+            <h3 id="selectedCommessaTitle">Commessa</h3>
+            <p id="selectedCommessaMeta" class="small"></p>
+            <div id="journalEntryForm" class="setup-box hidden">
+              <div class="grid">
+                <label>Data<input type="date" id="journalDate" /></label>
+                <label>Nome cantiere / impianto<input type="text" id="journalSiteName" /></label>
+                <label>Comune / località<input type="text" id="journalLocation" /></label>
+                <label>Responsabile / caposquadra<input type="text" id="journalLeader" list="memberSuggestionsList" /></label>
+                <label>Operatori presenti<textarea id="journalOperators" rows="2"></textarea></label>
+                <label>Orario entrata<input type="time" id="journalStartTime" /></label>
+                <label>Orario uscita<input type="time" id="journalEndTime" /></label>
+                <label>Assenze<textarea id="journalAbsences" rows="2"></textarea></label>
+                <label>Ditte esterne / subappalti<textarea id="journalSubcontractors" rows="2"></textarea></label>
+                <label>Meteo
+                  <select id="journalWeather">
+                    <option value="Sole">Sole</option><option value="Nuvoloso">Nuvoloso</option><option value="Pioggia">Pioggia</option><option value="Vento">Vento</option><option value="Neve">Neve</option>
+                  </select>
+                </label>
+                <label>Note maltempo<textarea id="journalWeatherNotes" rows="2"></textarea></label>
+                <label>Descrizione lavori<textarea id="journalActivities" rows="2"></textarea></label>
+                <label>Zona cantiere<textarea id="journalArea" rows="2"></textarea></label>
+                <label>Stato avanzamento
+                  <select id="journalProgress"><option value="Iniziato">Iniziato</option><option value="In corso">In corso</option><option value="Completato">Completato</option></select>
+                </label>
+                <label>Mezzi usati<textarea id="journalVehiclesUsed" rows="2"></textarea></label>
+                <label>Ore utilizzo mezzi<input type="text" id="journalVehicleHours" placeholder="Es. Escavatore 03:30" /></label>
+                <label>Guasti / anomalie<textarea id="journalVehicleIssues" rows="2"></textarea></label>
+                <label>Materiali usati<textarea id="journalMaterialsUsed" rows="2"></textarea></label>
+                <label>Quantità<textarea id="journalMaterialsQty" rows="2"></textarea></label>
+                <label>Consegne ricevute<textarea id="journalDeliveries" rows="2"></textarea></label>
+                <label>Problemi / anomalie<textarea id="journalProblems" rows="2"></textarea></label>
+                <label>Note finali<textarea id="journalFinalNotes" rows="2"></textarea></label>
+                <label>Firma / conferma operatore<input type="text" id="journalSignature" placeholder="Nome e cognome" /></label>
+              </div>
+              <div class="inline-actions">
+                <button type="button" class="secondary btn-small" id="journalCameraBtn">Foto / Camera</button>
+                <button type="button" class="secondary btn-small" id="journalGalleryBtn">Galleria</button>
+                <input type="file" id="journalCameraInput" accept="image/*" capture="environment" class="hidden" multiple />
+                <input type="file" id="journalGalleryInput" accept="image/*" class="hidden" multiple />
+              </div>
+              <div id="journalPhotoPreview" class="photo-strip"></div>
+              <div class="actions">
+                <button type="button" class="secondary" id="cancelJournalEntryBtn">Annulla</button>
+                <button type="button" id="saveJournalEntryBtn">Salva voce giornale</button>
+              </div>
+            </div>
+            <div id="journalEntriesList"></div>
+          </div>
+          <p id="giornaleEsito" class="msg"></p>
         </div>
 
         <div class="card hidden" id="documentiCard">
