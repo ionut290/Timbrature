@@ -116,6 +116,15 @@
       .segments-list { margin:8px 0 0; padding-left:18px; font-size:13px; color:#334155; }
       .segments-list li { margin-bottom:3px; }
       .import-preview { margin-top:8px; padding:8px; border:1px dashed #93c5fd; border-radius:8px; background:#f8fbff; font-size:12px; color:#1e293b; }
+      .docs-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:10px; margin-top:12px; }
+      .doc-item { border:1px solid #bfdbfe; border-radius:10px; background:#f8fbff; padding:10px; }
+      .doc-item h4 { margin:0 0 8px; font-size:14px; color:#1e3a8a; }
+      .doc-thumb { width:100%; height:150px; object-fit:cover; border-radius:8px; border:1px solid #cbd5e1; cursor:pointer; background:#fff; }
+      .doc-meta { margin:8px 0; font-size:12px; color:#334155; word-break:break-word; }
+      .doc-empty { margin-top:10px; font-size:13px; color:#475569; }
+      .viewer-overlay { position:fixed; inset:0; z-index:9999; background:rgba(2,6,23,.92); display:flex; align-items:center; justify-content:center; padding:16px; }
+      .viewer-overlay img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.45); }
+      .viewer-close { position:fixed; top:12px; right:12px; min-height:40px; min-width:40px; border-radius:999px; font-size:18px; background:#ef4444; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
     </style>
@@ -135,6 +144,7 @@
               <button type="button" class="menu-link" data-menu-target="programCard">Impostazioni contratto</button>
               <button type="button" class="menu-link" data-menu-target="teamCard">Caposquadra / squadra</button>
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
+              <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
           </aside>
@@ -458,6 +468,32 @@
             <p class="small">Clicca su un giorno del calendario per vedere il riepilogo in colonna.</p>
           </div>
         </div>
+
+        <div class="card hidden" id="documentiCard">
+          <h2>Documenti personali</h2>
+          <p class="small">Carica documenti come tesserina di riconoscimento o PIN carburante. Tocca l'immagine per vederla a schermo intero.</p>
+          <div class="grid">
+            <label>Tipo documento
+              <select id="docType">
+                <option value="Tesserina di riconoscimento">Tesserina di riconoscimento</option>
+                <option value="PIN carburante">PIN carburante</option>
+                <option value="Altro">Altro</option>
+              </select>
+            </label>
+            <label>Descrizione breve
+              <input type="text" id="docLabel" placeholder="Es. Badge cantiere principale" />
+            </label>
+            <label>Immagine documento
+              <input type="file" id="docFileInput" accept="image/*" />
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="saveDocBtn">Carica documento</button>
+          </div>
+          <p id="docEsito" class="msg"></p>
+          <div id="documentsGrid" class="docs-grid"></div>
+          <p id="documentsEmptyText" class="doc-empty">Nessun documento caricato.</p>
+        </div>
       </div>
     </div>
     <datalist id="memberSuggestionsList"></datalist>
@@ -476,10 +512,11 @@
       const TEAM_DIRECTORY_KEY = 'timbrature.local.team.directory';
       const AUTO_PUNCH_STATE_KEY = 'timbrature.local.auto.punch.state';
       const MONTHLY_EMAIL_SENT_KEY = 'timbrature.local.monthly.email.sent';
+      const DOCUMENTS_KEY = 'timbrature.local.documents';
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'userBox'];
+      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'documentiCard', 'userBox'];
       const CONTRACT_PRESETS = {
         EDILIZIA: {
           label: 'Edilizia industria',
@@ -694,6 +731,8 @@
       function setAutoPunchState(v) { writeJSON(AUTO_PUNCH_STATE_KEY, v); }
       function getMonthlyEmailSentMap() { return readJSON(MONTHLY_EMAIL_SENT_KEY, {}); }
       function setMonthlyEmailSentMap(v) { writeJSON(MONTHLY_EMAIL_SENT_KEY, v); }
+      function getDocuments() { return readJSON(DOCUMENTS_KEY, []); }
+      function setDocuments(v) { writeJSON(DOCUMENTS_KEY, v); }
       function defaultTeamMembersList() { return [...new Set(DEFAULT_TEAM_MEMBERS_TEXT.split('|').map((v)=>v.trim()).filter(Boolean))]; }
       function defaultTeamVehiclesList() { return [...new Set(DEFAULT_TEAM_VEHICLES_TEXT.split('|').map((v)=>v.trim()).filter(Boolean))]; }
       function getTeamDirectory() { return readJSON(TEAM_DIRECTORY_KEY, { sheetUrl:FIXED_TEAM_SHEET_URL, members:defaultTeamMembersList(), vehicles:defaultTeamVehiclesList(), synced_at:'' }); }
@@ -2012,6 +2051,85 @@
         const a = document.createElement('a'); a.href=url; a.download=`timbrature-${new Date().toISOString().slice(0,10)}.xls`; a.click();
         URL.revokeObjectURL(url);
       }
+      function showDocMsg(message='', type='') {
+        const box = id('docEsito');
+        if (!box) return;
+        box.textContent = message;
+        box.className = 'msg';
+        if (type === 'ok') box.classList.add('ok');
+        if (type === 'err') box.classList.add('err');
+      }
+      function escapeHtml(value='') {
+        return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+      }
+      function openImageViewer(src, alt='Documento') {
+        if (!src) return;
+        const overlay = document.createElement('div');
+        overlay.className = 'viewer-overlay';
+        overlay.innerHTML = `<button type="button" class="viewer-close" aria-label="Chiudi anteprima">✕</button><img src="${src}" alt="${escapeHtml(alt)}" />`;
+        const close = ()=>overlay.remove();
+        overlay.addEventListener('click', (e)=>{ if (e.target === overlay) close(); });
+        overlay.querySelector('.viewer-close').addEventListener('click', close);
+        document.addEventListener('keydown', function onEsc(evt) {
+          if (evt.key === 'Escape') {
+            close();
+            document.removeEventListener('keydown', onEsc);
+          }
+        });
+        document.body.appendChild(overlay);
+      }
+      function renderDocuments() {
+        const docs = getDocuments();
+        const grid = id('documentsGrid');
+        const empty = id('documentsEmptyText');
+        if (!grid || !empty) return;
+        if (!docs.length) {
+          grid.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+        grid.innerHTML = docs.map((doc)=>`
+          <article class="doc-item">
+            <h4>${escapeHtml(doc.type || 'Documento')}</h4>
+            <img class="doc-thumb" src="${doc.image}" alt="${escapeHtml(doc.label || doc.type || 'Documento')}" data-doc-open="${escapeHtml(doc.id)}" />
+            <p class="doc-meta">${escapeHtml(doc.label || '-')}<br/>Caricato: ${doc.createdAt ? new Date(doc.createdAt).toLocaleString('it-IT') : '-'}</p>
+            <button type="button" class="secondary" data-doc-remove="${escapeHtml(doc.id)}">Elimina</button>
+          </article>
+        `).join('');
+        grid.querySelectorAll('[data-doc-open]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const doc = docs.find((item)=>item.id === btn.dataset.docOpen);
+          if (doc) openImageViewer(doc.image, doc.label || doc.type || 'Documento');
+        }));
+        grid.querySelectorAll('[data-doc-remove]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const docId = btn.dataset.docRemove;
+          setDocuments(docs.filter((item)=>item.id !== docId));
+          renderDocuments();
+          showDocMsg('Documento eliminato.', 'ok');
+        }));
+      }
+      function saveDocument() {
+        const file = id('docFileInput').files && id('docFileInput').files[0];
+        if (!file) { showDocMsg('Seleziona un’immagine prima di caricare.', 'err'); return; }
+        const reader = new FileReader();
+        reader.onload = ()=>{
+          const documents = getDocuments();
+          documents.unshift({
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            type: id('docType').value || 'Documento',
+            label: (id('docLabel').value || '').trim(),
+            image: String(reader.result || ''),
+            createdAt: new Date().toISOString()
+          });
+          setDocuments(documents);
+          id('docFileInput').value = '';
+          id('docLabel').value = '';
+          renderDocuments();
+          showDocMsg('Documento caricato con successo.', 'ok');
+        };
+        reader.onerror = ()=>showDocMsg('Errore durante il caricamento del documento.', 'err');
+        reader.readAsDataURL(file);
+      }
 
       function setMenuSection(panelId) {
         if (!menuPanelIds.includes(panelId)) return;
@@ -2041,6 +2159,7 @@
         updateWelcomeMessage();
         loadTodayPunch();
         loadMyMonth();
+        renderDocuments();
 
         buildContractTemplateOptions();
         buildContractLevelsOptions();
@@ -2053,6 +2172,7 @@
         id('leftMenu').addEventListener('click', (e)=>e.stopPropagation());
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
+        id('saveDocBtn').addEventListener('click', saveDocument);
         id('saveProfile').addEventListener('click', saveProfile);
         id('teamRequestPersonSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'));
         id('teamRequestVehicleSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'));
