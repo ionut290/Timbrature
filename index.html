@@ -2612,10 +2612,18 @@
         }
       }
       async function syncAllDataToGoogleSheet(accessToken='', spreadsheetId='') {
+        const decimalHoursToHHMM = (value)=>{
+          const n = Number(value || 0);
+          if (!Number.isFinite(n) || n <= 0) return '0:00';
+          const totalMinutes = Math.round(n * 60);
+          const h = Math.floor(totalMinutes / 60);
+          const m = totalMinutes % 60;
+          return `${h}:${String(m).padStart(2,'0')}`;
+        };
         const payload = buildBackupPayload();
         const records = Array.isArray(payload.records) ? payload.records.slice().sort((a,b)=>String(a.data || '').localeCompare(String(b.data || ''))) : [];
         const timbratureRows = [
-          ['Data', 'Entrata', 'Uscita', 'Pausa(min)', 'Causale', 'Note', 'Cantiere', 'Caposquadra', 'Ore', 'Ord', 'Stra', 'Stato', 'Aggiornato il'],
+          ['Data', 'Entrata', 'Uscita', 'Pausa(min)', 'Causale', 'Note', 'Cantiere', 'Caposquadra', 'Ore lavorate (hh:mm)', 'Ordinarie (hh:mm)', 'Straordinarie (hh:mm)', 'Stato', 'Aggiornato il'],
           ...records.map((r)=>[
             r.data || '',
             r.entrata || '',
@@ -2625,9 +2633,9 @@
             r.note || '',
             r.cantiere || '',
             r.caposquadra || '',
-            Number(r.ore || 0),
-            Number(r.ord || 0),
-            Number(r.stra || 0),
+            decimalHoursToHHMM(r.ore),
+            decimalHoursToHHMM(r.ord),
+            decimalHoursToHHMM(r.stra),
             r.stato || '',
             r.updated_at || ''
           ])
