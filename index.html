@@ -568,6 +568,7 @@
             <button type="button" id="runDriveBackupBtn">Esegui backup adesso</button>
           </div>
           <p id="backupStatusLine" class="status-line status-neutral">Backup non attivo.</p>
+          <p id="backupLinks" class="small"></p>
           <p id="backupEsito" class="msg"></p>
         </div>
       </div>
@@ -2401,13 +2402,21 @@
       function updateBackupStatusUI() {
         const state = getDriveBackupState();
         const statusEl = id('backupStatusLine');
+        const linksEl = id('backupLinks');
         const when = state.lastBackupAt ? ` • ultimo backup: ${new Date(state.lastBackupAt).toLocaleString('it-IT')}` : '';
         if (state.connected) {
           statusEl.className = 'status-line status-ok';
           statusEl.textContent = `Backup attivo su Google Drive (${state.email || 'utente Google'})${when}`;
+          const folderUrl = state.folderId ? `https://drive.google.com/drive/folders/${state.folderId}` : '';
+          const sheetUrl = state.spreadsheetId ? `https://docs.google.com/spreadsheets/d/${state.spreadsheetId}/edit` : '';
+          const links = [];
+          if (folderUrl) links.push(`<a href="${folderUrl}" target="_blank" rel="noopener noreferrer">Apri cartella Timbrature</a>`);
+          if (sheetUrl) links.push(`<a href="${sheetUrl}" target="_blank" rel="noopener noreferrer">Apri foglio Timbrature - Dati</a>`);
+          linksEl.innerHTML = links.join(' • ');
         } else {
           statusEl.className = 'status-line status-neutral';
           statusEl.textContent = 'Backup non attivo.';
+          linksEl.textContent = '';
         }
       }
       function buildBackupPayload() {
@@ -2595,9 +2604,36 @@
             Number(p.hourly_rate || 0)
           ])
         ];
+        const documentsRows = [
+          ['ID', 'Tipo', 'Etichetta', 'File', 'Mime', 'Creato il'],
+          ...(Array.isArray(payload.documents) ? payload.documents : []).map((d)=>[
+            d.id || '',
+            d.type || '',
+            d.label || '',
+            d.fileName || '',
+            d.mime || '',
+            d.createdAt || ''
+          ])
+        ];
+        const appointmentsRows = [
+          ['Data', 'Orario', 'Nota', 'Creato il'],
+          ...(Array.isArray(payload.appointments) ? payload.appointments : []).flatMap((entry)=>{
+            const dateValue = entry?.date || '';
+            const items = Array.isArray(entry?.items) ? entry.items : [];
+            if (!items.length) return [[dateValue, '', '', '']];
+            return items.map((item)=>[
+              dateValue,
+              item?.time || '',
+              item?.note || '',
+              item?.createdAt || ''
+            ]);
+          })
+        ];
         await overwriteSheetValues(accessToken, spreadsheetId, 'Timbrature', timbratureRows);
         await overwriteSheetValues(accessToken, spreadsheetId, 'Profilo', profileRows);
         await overwriteSheetValues(accessToken, spreadsheetId, 'Programmi', programsRows);
+        await overwriteSheetValues(accessToken, spreadsheetId, 'Documenti', documentsRows);
+        await overwriteSheetValues(accessToken, spreadsheetId, 'Appuntamenti', appointmentsRows);
       }
       async function uploadBackupToDrive(accessToken='', folderId='') {
         const payload = buildBackupPayload();
@@ -2679,7 +2715,7 @@
             lastFileId: upload.id || ''
           });
           updateBackupStatusUI();
-          showBackupMsg(`Backup completato: timbrature aggiornate su Google Sheet + snapshot ${upload.name || 'file creato'}.`, 'ok');
+          showBackupMsg(`Backup completato: foglio aggiornato (Timbrature, Profilo, Programmi, Documenti, Appuntamenti) + snapshot ${upload.name || 'file creato'}.`, 'ok');
         } catch (error) {
           showBackupMsg(error.message || 'Errore durante il backup su Drive.', 'err');
         }
