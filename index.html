@@ -2580,7 +2580,7 @@
         });
         if (!addRes.ok) {
           const detail = await readErrorDetail(addRes);
-          if (String(detail).toLowerCase().includes('already exists')) return;
+          if (/(already exists|esiste già|foglio con il nome)/i.test(String(detail || ''))) return;
           throw new Error(`Errore creazione tab "${title}" su Google Sheet (${addRes.status}). ${detail}`.trim());
         }
       }
@@ -2611,11 +2611,69 @@
           throw new Error(`Errore scrittura tab "${tabName}" (${updateRes.status}). ${detail}`.trim());
         }
       }
+      async function appendOnlyNewTimbratureRows(accessToken='', spreadsheetId='', rows=[]) {
+        const header = rows[0] || [];
+        const dataRows = rows.slice(1);
+        if (!dataRows.length) return { inserted: 0, skipped: 0 };
+        await ensureSheetTab(accessToken, spreadsheetId, 'Timbrature');
+        const existingRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent('Timbrature!A:A')}`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!existingRes.ok) {
+          const detail = await readErrorDetail(existingRes);
+          throw new Error(`Errore lettura righe Timbrature (${existingRes.status}). ${detail}`.trim());
+        }
+        const existingData = await existingRes.json();
+        const existingValues = Array.isArray(existingData.values) ? existingData.values : [];
+        const hasHeader = existingValues.length > 0;
+        const existingKeys = new Set(existingValues.slice(1).map((row)=>String(row?.[0] || '').trim()).filter(Boolean));
+        const onlyNewRows = dataRows.filter((row)=> {
+          const key = String(row?.[0] || '').trim();
+          return key && !existingKeys.has(key);
+        });
+        if (!hasHeader) {
+          const initRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent('Timbrature!A1')}?valueInputOption=RAW`, {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ values: [header, ...onlyNewRows] })
+          });
+          if (!initRes.ok) {
+            const detail = await readErrorDetail(initRes);
+            throw new Error(`Errore inizializzazione Timbrature (${initRes.status}). ${detail}`.trim());
+          }
+          return { inserted: onlyNewRows.length, skipped: dataRows.length - onlyNewRows.length };
+        }
+        if (!onlyNewRows.length) return { inserted: 0, skipped: dataRows.length };
+        const appendRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent('Timbrature!A1')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ values: onlyNewRows })
+        });
+        if (!appendRes.ok) {
+          const detail = await readErrorDetail(appendRes);
+          throw new Error(`Errore append Timbrature (${appendRes.status}). ${detail}`.trim());
+        }
+        return { inserted: onlyNewRows.length, skipped: dataRows.length - onlyNewRows.length };
+      }
       async function syncAllDataToGoogleSheet(accessToken='', spreadsheetId='') {
+        const decimalHoursToHHMM = (value)=>{
+          const n = Number(value || 0);
+          if (!Number.isFinite(n) || n <= 0) return '0:00';
+          const totalMinutes = Math.round(n * 60);
+          const h = Math.floor(totalMinutes / 60);
+          const m = totalMinutes % 60;
+          return `${h}:${String(m).padStart(2,'0')}`;
+        };
         const payload = buildBackupPayload();
         const records = Array.isArray(payload.records) ? payload.records.slice().sort((a,b)=>String(a.data || '').localeCompare(String(b.data || ''))) : [];
         const timbratureRows = [
-          ['Data', 'Entrata', 'Uscita', 'Pausa(min)', 'Causale', 'Note', 'Cantiere', 'Caposquadra', 'Ore', 'Ord', 'Stra', 'Stato', 'Aggiornato il'],
+          ['Data', 'Entrata', 'Uscita', 'Pausa(min)', 'Causale', 'Note', 'Cantiere', 'Caposquadra', 'Ore lavorate (hh:mm)', 'Ordinarie (hh:mm)', 'Straordinarie (hh:mm)', 'Stato', 'Aggiornato il'],
           ...records.map((r)=>[
             r.data || '',
             r.entrata || '',
@@ -2625,9 +2683,9 @@
             r.note || '',
             r.cantiere || '',
             r.caposquadra || '',
-            Number(r.ore || 0),
-            Number(r.ord || 0),
-            Number(r.stra || 0),
+            decimalHoursToHHMM(r.ore),
+            decimalHoursToHHMM(r.ord),
+            decimalHoursToHHMM(r.stra),
             r.stato || '',
             r.updated_at || ''
           ])
@@ -2678,11 +2736,12 @@
             ]);
           })
         ];
-        await overwriteSheetValues(accessToken, spreadsheetId, 'Timbrature', timbratureRows);
+        const timbratureStats = await appendOnlyNewTimbratureRows(accessToken, spreadsheetId, timbratureRows);
         await overwriteSheetValues(accessToken, spreadsheetId, 'Profilo', profileRows);
         await overwriteSheetValues(accessToken, spreadsheetId, 'Programmi', programsRows);
         await overwriteSheetValues(accessToken, spreadsheetId, 'Documenti', documentsRows);
         await overwriteSheetValues(accessToken, spreadsheetId, 'Appuntamenti', appointmentsRows);
+        return timbratureStats;
       }
       async function uploadBackupToDrive(accessToken='', folderId='') {
         const payload = buildBackupPayload();
@@ -2756,8 +2815,9 @@
           const folderId = await ensureDriveFolder(accessToken, state.folderId);
           const spreadsheetId = await ensureDriveSpreadsheet(accessToken, folderId, state.spreadsheetId);
           let sheetWarning = '';
+          let timbratureStats = { inserted: 0, skipped: 0 };
           try {
-            await syncAllDataToGoogleSheet(accessToken, spreadsheetId);
+            timbratureStats = await syncAllDataToGoogleSheet(accessToken, spreadsheetId);
           } catch (sheetError) {
             sheetWarning = sheetError?.message || 'Sync foglio non riuscita.';
           }
@@ -2773,7 +2833,7 @@
           if (sheetWarning) {
             showBackupMsg(`Snapshot JSON completato, ma il Google Sheet non è stato aggiornato. ${sheetWarning}`, 'err');
           } else {
-            showBackupMsg(`Backup completato: foglio aggiornato (Timbrature, Profilo, Programmi, Documenti, Appuntamenti) + snapshot ${upload.name || 'file creato'}.`, 'ok');
+            showBackupMsg(`Backup completato: aggiunte ${timbratureStats.inserted} nuove timbrature (${timbratureStats.skipped} già presenti), foglio aggiornato + snapshot ${upload.name || 'file creato'}.`, 'ok');
           }
         } catch (error) {
           showBackupMsg(error.message || 'Errore durante il backup su Drive.', 'err');
