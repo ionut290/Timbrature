@@ -244,3 +244,35 @@ Questa app ora può essere installata come PWA:
 2. apri il sito da Chrome/Edge,
 3. usa **Installa app** dal browser,
 4. disattiva la rete per verificare il caricamento offline della schermata principale.
+
+## Schema backup Google Drive (opzionale, senza login obbligatorio)
+
+Per supportare l'uso dell'app **senza account** ma con possibilità di collegare Google Drive solo quando l'utente lo desidera, è stata aggiunta la migration:
+
+- `supabase/migrations/20260401_google_drive_backup_schema.sql`
+
+### Tabelle aggiunte
+
+1. `public.timbrature_drive_connections`
+   - 1 record per utente/provider (`google`), con stato connessione e metadati cartella Drive.
+   - campi principali: `email`, `drive_folder_id`, `backup_enabled`, `token_expires_at`, `last_sync_at`, `last_sync_status`.
+
+2. `public.timbrature_drive_backups`
+   - coda/storico dei backup da inviare su Drive.
+   - campi principali: `payload` (`jsonb`), `backup_status` (`queued|processing|done|error`), `attempt_count`, `drive_file_id`.
+
+### Sicurezza (RLS)
+
+Entrambe le tabelle hanno policy Row Level Security in stile "own data":
+
+- select/insert/update/delete consentiti solo quando `auth.uid() = user_id`.
+
+### Flusso operativo suggerito
+
+1. App in modalità locale (nessun login richiesto).
+2. Se utente attiva backup Drive:
+   - login Google OAuth,
+   - upsert in `timbrature_drive_connections`,
+   - creazione (o riuso) cartella `Timbrature` in Drive.
+3. Ogni salvataggio importante inserisce un job in `timbrature_drive_backups`.
+4. Un worker (Edge Function/Cron) processa i job in stato `queued` e aggiorna stato/errori.
