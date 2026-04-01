@@ -353,6 +353,10 @@
               <div class="inline-actions" style="margin-top:8px;">
                 <button type="button" class="secondary btn-small" id="openAgendaFromTimbratureBtn">Apri calendario appuntamenti</button>
               </div>
+              <div class="day-summary-card" id="todayAgendaWidget" style="margin-top:8px;">
+                <p class="small"><strong>Appuntamenti di oggi</strong></p>
+                <ul id="todayAgendaList" class="doc-list"></ul>
+              </div>
             </div>
             <div>
               <p class="pill" id="locationBadge">Luogo: Ionel Varga</p>
@@ -2078,6 +2082,17 @@
         id('agendaEsito').className = `msg ${type}`;
         id('agendaEsito').textContent = message;
       }
+      function renderTodayAgendaWidget() {
+        const list = id('todayAgendaList');
+        if (!list) return;
+        const today = nowDateISO();
+        const rows = getAppointmentsMap()[today] || [];
+        if (!rows.length) {
+          list.innerHTML = '<li class="small">Nessun appuntamento per oggi.</li>';
+          return;
+        }
+        list.innerHTML = rows.map((entry)=>`<li class="doc-row"><div class="doc-thumb-file">${escapeHtml(entry.time || '--')}</div><div class="small" style="flex:1;">${escapeHtml(entry.note || '')}</div></li>`).join('');
+      }
       function renderAgendaDayList() {
         const list = id('agendaDayList');
         if (!selectedAgendaDate) { list.innerHTML = '<li class="small">Seleziona un giorno nel calendario.</li>'; return; }
@@ -2098,6 +2113,7 @@
           setAppointmentsMap(map);
           renderAgendaCalendar();
           renderAgendaDayList();
+          renderTodayAgendaWidget();
           showAgendaMsg('Promemoria eliminato.', 'ok');
         }));
       }
@@ -2140,6 +2156,7 @@
         id('agendaNoteInput').value = '';
         renderAgendaCalendar();
         renderAgendaDayList();
+        renderTodayAgendaWidget();
         showAgendaMsg('Promemoria salvato.', 'ok');
       }
       function initAgendaCalendar() {
@@ -2149,6 +2166,7 @@
         id('agendaSelectedDateTitle').textContent = `Giorno selezionato: ${today}`;
         renderAgendaCalendar();
         renderAgendaDayList();
+        renderTodayAgendaWidget();
       }
       function deleteTimbraturaByDate(dataRecord) {
         if (!window.confirm(`Confermi l'eliminazione della timbratura del ${dataRecord}?`)) return;
@@ -2462,7 +2480,6 @@
         autoPunchTimer = window.setInterval(()=>{ autoPunchTick(); }, 30000);
         autoPunchTick();
         applyStatusFromQueryParams();
-        setMenuSection('calendarioCard');
       }
 
       window.onload = init;
