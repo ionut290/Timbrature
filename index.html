@@ -759,11 +759,44 @@
         { code:'A12', label:'Trituraz. erba SI rim (oltre 500 mq)', unit:'M2', price:0.12 },
         { code:'A20', label:'Integrazione sfalcio fosse Imhoff', unit:'AC', price:8.46 },
         { code:'B1', label:'Potatura e pulizia siepi', unit:'M', price:0.96 },
+        { code:'B2', label:'Spalcatura alberi (max 5 pz)', unit:'N', price:26.44 },
+        { code:'B2/a', label:'Spalcatura alberi (> 5 pz)', unit:'N', price:23.27 },
+        { code:'B3', label:'Potatura alberi D max 15 cm (max 5 pz)', unit:'N', price:47.60 },
+        { code:'B3/a', label:'Potatura alberi D max 15 cm (> 5 pz)', unit:'N', price:44.43 },
+        { code:'B4', label:'Potatura alberi D 16÷30 cm (max 5 pz)', unit:'N', price:68.76 },
+        { code:'B4/a', label:'Potatura alberi D 16÷30 cm (> 5 pz)', unit:'N', price:65.58 },
+        { code:'B5', label:'Potatura alberi D > 30 cm (max 5 pz)', unit:'N', price:100.47 },
+        { code:'B5/a', label:'Potatura alberi D > 30 cm (> 5 pz)', unit:'N', price:97.31 },
+        { code:'B6', label:'Potatura/sagomatura barriere arboree', unit:'M', price:11.63 },
         { code:'B8', label:'Abbattimento alberi D 6÷20 cm (max 5 pz)', unit:'N', price:74.04 },
+        { code:'B8/a', label:'Abbattimento alberi D 6÷20 cm (> 5 pz)', unit:'N', price:70.86 },
         { code:'B9', label:'Abbattimento alberi D >20 cm (max 5 pz)', unit:'N', price:126.91 },
+        { code:'B9/a', label:'Abbattimento alberi D >20 cm (> 5 pz)', unit:'N', price:121.62 },
+        { code:'B10', label:'Estirpazione di ceppi', unit:'N', price:52.89 },
+        { code:'B11', label:'Pulizia-risagomatura fossi di scolo', unit:'M', price:1.80 },
+        { code:'B12', label:'Spianatura/livellamento terreno', unit:'M2', price:0.17 },
+        { code:'B13', label:'Aratura terreno', unit:'M2', price:0.06 },
+        { code:'B14', label:'Trinciatura sentieri macchina fissa', unit:'H', price:74.04 },
+        { code:'B14/a', label:'Trinciatura sentieri braccio idraulico', unit:'H', price:84.62 },
+        { code:'B15', label:'Frangizollatura con erpice', unit:'M2', price:0.06 },
+        { code:'B16', label:'Concimazione con spandiconcime o mano', unit:'KG', price:0.06 },
+        { code:'B17', label:'Pulizia straordinaria conifere (per punto)', unit:'N', price:137.49 },
+        { code:'B18', label:'Diserbo chimico recinzioni/piazzali', unit:'M2', price:3.17 },
+        { code:'B19', label:'Diserbo chimico cordoli stradali', unit:'M', price:0.80 },
+        { code:'B20', label:'Diserbo manuale', unit:'M2', price:4.23 },
         { code:'B22', label:'Rimozione/trasporto/smaltimento materiale', unit:'TO', price:99.00 },
         { code:'B25', label:'Manodopera con motosega/decespugliatore', unit:'H', price:27.84 },
+        { code:'B26', label:'Recinzione metallica fornitura/posa', unit:'M2', price:23.27 },
+        { code:'B27', label:'Recinzione in legno fornitura/posa', unit:'M', price:52.89 },
+        { code:'B28', label:'Verifica tecnica stato vegetativo (impianto)', unit:'AC', price:317.30 },
+        { code:'B29', label:'Verifica tecnica con prova trazione (pianta)', unit:'AC', price:795.22 },
+        { code:'B30', label:'Verifica statica strumentale alberi', unit:'N', price:211.52 },
+        { code:'B31', label:'Documenti autorizzazione abbattimenti', unit:'AC', price:158.65 },
+        { code:'B32', label:'Piantumazione siepi alberate (a preventivo)', unit:'CLC', price:0 },
+        { code:'B33', label:'Piantumazione alberi (a preventivo)', unit:'CLC', price:0 },
+        { code:'B34', label:'Realizzazione impianti irrigazione', unit:'M', price:2.12 },
         { code:'B35', label:'Intervento urgenza maggiorazione', unit:'N', price:105.77 },
+        { code:'B36', label:'Intervento extra (a preventivo)', unit:'CLC', price:3.12 },
         { code:'B37', label:'Nolo a freddo PLE autocarrata', unit:'H', price:77.75 },
         { code:'C01', label:'Spalatura neve con trattore', unit:'H', price:71.92 },
         { code:'C02', label:'Spalatura neve mini pala / bob-cat', unit:'H', price:34.91 },
@@ -2968,7 +3001,14 @@
           btn.addEventListener('click', ()=>{
             const match = rows.find((row)=>row.id === btn.dataset.openPreventivo);
             if (!match?.pdfDataUrl) return;
-            window.open(match.pdfDataUrl, '_blank', 'noopener,noreferrer');
+            try {
+              const pdfBlob = dataUrlToBlob(match.pdfDataUrl);
+              const url = URL.createObjectURL(pdfBlob);
+              window.open(url, '_blank', 'noopener,noreferrer');
+              setTimeout(()=>URL.revokeObjectURL(url), 60_000);
+            } catch (_) {
+              window.open(match.pdfDataUrl, '_blank', 'noopener,noreferrer');
+            }
           });
         });
         list.querySelectorAll('[data-delete-preventivo]').forEach((btn)=>{
@@ -3062,6 +3102,17 @@
           reader.onerror = ()=>reject(new Error('Errore conversione PDF.'));
           reader.readAsDataURL(blob);
         });
+      }
+      function dataUrlToBlob(dataUrl='') {
+        const raw = String(dataUrl || '');
+        const parts = raw.split(',');
+        if (parts.length < 2) throw new Error('Data URL non valida.');
+        const mimeMatch = parts[0].match(/data:(.*?);base64/);
+        const mime = mimeMatch?.[1] || 'application/pdf';
+        const binary = atob(parts[1]);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return new Blob([bytes], { type: mime });
       }
       async function finalizePreventivo() {
         const rows = getPreventivoComputedRows().filter((row)=>row.code && row.quantity > 0);
