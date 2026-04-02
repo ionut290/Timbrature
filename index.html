@@ -676,6 +676,7 @@
           </div>
           <div class="inline-actions">
             <button type="button" id="runDriveBackupBtn">Esegui backup adesso</button>
+            <button type="button" class="secondary" id="restoreLatestDriveBackupBtn">Ripristina ultimo backup</button>
           </div>
           <p id="backupStatusLine" class="status-line status-neutral">Backup non attivo.</p>
           <p id="backupLinks" class="small"></p>
@@ -2843,10 +2844,39 @@
           profile: readJSON(PROFILE_KEY, {}),
           records: readJSON(RECORDS_KEY, []),
           programs: readJSON(PROGRAMS_KEY, []),
+          programDraft: readJSON(PROGRAM_DRAFT_KEY, {}),
           team: readJSON(TEAM_KEY, {}),
+          teamDraft: readJSON(TEAM_REQUEST_DRAFT_KEY, {}),
+          teamPrograms: readJSON(TEAM_PROGRAMS_KEY, []),
+          teamDirectory: readJSON(TEAM_DIRECTORY_KEY, {}),
           documents: readJSON(DOCUMENTS_KEY, []),
-          appointments: readJSON(APPOINTMENTS_KEY, [])
+          appointments: readJSON(APPOINTMENTS_KEY, []),
+          notifications: readJSON(NOTIFICATION_SETTINGS_KEY, {}),
+          commesse: readJSON(COMMESSE_KEY, []),
+          giornaleEntries: readJSON(GIORNALE_ENTRIES_KEY, [])
         };
+      }
+      function applyBackupPayload(payload={}) {
+        const mapping = [
+          { key: PROFILE_KEY, field: 'profile', fallback: {} },
+          { key: RECORDS_KEY, field: 'records', fallback: [] },
+          { key: PROGRAMS_KEY, field: 'programs', fallback: [] },
+          { key: PROGRAM_DRAFT_KEY, field: 'programDraft', fallback: {} },
+          { key: TEAM_KEY, field: 'team', fallback: {} },
+          { key: TEAM_REQUEST_DRAFT_KEY, field: 'teamDraft', fallback: {} },
+          { key: TEAM_PROGRAMS_KEY, field: 'teamPrograms', fallback: [] },
+          { key: TEAM_DIRECTORY_KEY, field: 'teamDirectory', fallback: {} },
+          { key: DOCUMENTS_KEY, field: 'documents', fallback: [] },
+          { key: APPOINTMENTS_KEY, field: 'appointments', fallback: [] },
+          { key: NOTIFICATION_SETTINGS_KEY, field: 'notifications', fallback: {} },
+          { key: COMMESSE_KEY, field: 'commesse', fallback: [] },
+          { key: GIORNALE_ENTRIES_KEY, field: 'giornaleEntries', fallback: [] }
+        ];
+        mapping.forEach((entry)=>{
+          const value = payload[entry.field];
+          const safe = value == null ? entry.fallback : value;
+          writeJSON(entry.key, safe);
+        });
       }
       const sleep = (ms=0) => new Promise((resolve)=>setTimeout(resolve, ms));
       async function readErrorDetail(response) {
@@ -3185,6 +3215,27 @@
         if (!uploadRes.ok) throw new Error('Upload backup su Google Drive fallito.');
         return uploadRes.json();
       }
+      async function fetchLatestDriveBackupFile(accessToken='', folderId='') {
+        const folderClause = folderId ? `'${folderId}' in parents and ` : '';
+        const q = encodeURIComponent(`${folderClause}name contains 'timbrature-backup-' and trashed=false`);
+        const listRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime,mimeType)&orderBy=modifiedTime desc&pageSize=1`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!listRes.ok) throw new Error('Errore ricerca ultimo backup su Drive.');
+        const data = await listRes.json();
+        const match = Array.isArray(data.files) ? data.files[0] : null;
+        if (!match?.id) throw new Error('Nessun backup trovato nella cartella Timbrature.');
+        return match;
+      }
+      async function downloadDriveBackupPayload(accessToken='', fileId='') {
+        const downloadRes = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!downloadRes.ok) throw new Error('Download del backup fallito.');
+        const data = await downloadRes.json();
+        if (!data || typeof data !== 'object') throw new Error('Il file backup non contiene JSON valido.');
+        return data;
+      }
       async function connectGoogleDrive() {
         showBackupMsg('Connessione Google in corso...', 'ok');
         try {
@@ -3255,6 +3306,33 @@
           }
         } catch (error) {
           showBackupMsg(error.message || 'Errore durante il backup su Drive.', 'err');
+        }
+      }
+      async function restoreLatestGoogleDriveBackup() {
+        const state = getDriveBackupState();
+        if (!state.connected) {
+          showBackupMsg('Prima collega Google Drive.', 'err');
+          return;
+        }
+        if (!window.confirm('Questo ripristino sovrascrive i dati locali sul dispositivo. Continuare?')) return;
+        showBackupMsg('Ripristino dall’ultimo backup in corso...', 'ok');
+        try {
+          const accessToken = await requestDriveAccessToken('');
+          const folderId = await ensureDriveFolder(accessToken, state.folderId);
+          const latestBackup = await fetchLatestDriveBackupFile(accessToken, folderId);
+          const payload = await downloadDriveBackupPayload(accessToken, latestBackup.id);
+          applyBackupPayload(payload);
+          setDriveBackupState({
+            connected: true,
+            folderId,
+            lastBackupAt: latestBackup.modifiedTime || state.lastBackupAt || '',
+            lastFileId: latestBackup.id
+          });
+          updateBackupStatusUI();
+          showBackupMsg(`Ripristino completato dal file ${latestBackup.name || latestBackup.id}. Ricarico i dati locali...`, 'ok');
+          setTimeout(()=>window.location.reload(), 450);
+        } catch (error) {
+          showBackupMsg(error.message || 'Ripristino da Drive non riuscito.', 'err');
         }
       }
       function saveGoogleClientIdFromUI() {
@@ -3356,6 +3434,7 @@
         id('connectGoogleDriveBtn').addEventListener('click', connectGoogleDrive);
         id('disconnectGoogleDriveBtn').addEventListener('click', disconnectGoogleDrive);
         id('runDriveBackupBtn').addEventListener('click', runGoogleDriveBackup);
+        id('restoreLatestDriveBackupBtn').addEventListener('click', restoreLatestGoogleDriveBackup);
         id('teamRequestPersonSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'));
         id('teamRequestVehicleSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'));
         id('teamRequestPersonSuggest').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'); } });
