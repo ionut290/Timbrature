@@ -1414,7 +1414,13 @@ out center tags;`;
           fuelMap.setView([userLat, userLon], 13);
           fuelMarkersLayer?.clearLayers();
         }
-        const userMarker = window.L.marker([userLat, userLon]).bindPopup('La tua posizione');
+        const truckIcon = window.L.divIcon({
+          className: 'fuel-user-truck-icon',
+          html: '<div style="background:#1d4ed8;color:#fff;border-radius:999px;min-width:34px;min-height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);">P🚛</div>',
+          iconSize: [34, 34],
+          iconAnchor: [17, 17]
+        });
+        const userMarker = window.L.marker([userLat, userLon], { icon: truckIcon }).bindPopup('La tua posizione (P in camion)');
         fuelMarkersLayer.addLayer(userMarker);
         stations.forEach((st)=>{
           const marker = window.L.marker([st.lat, st.lon]);
