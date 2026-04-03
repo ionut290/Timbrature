@@ -946,6 +946,8 @@
       let autoPunchTimer = null;
       let notificationTimer = null;
       let autoPunchInProgress = false;
+      const AUTO_CLOCK_OUT_MIN_AFTER_ENTRY = 15;
+      const AUTO_CLOCK_OUT_CONFIRM_TICKS = 2;
       let todaySegments = [];
       let selectedMonthDay = '';
       let selectedAgendaDate = '';
@@ -2541,9 +2543,13 @@ out center tags;`;
           }
           const current = getRecords().find((r)=>r.data === today);
           if (current?.entrata && !current?.uscita) {
+            const nowTime = nowLocalDateAndTime().time;
+            const nowMinutes = parseTimeToMinutes(nowTime);
+            const entryMinutes = parseTimeToMinutes(current.entrata);
+            const minutesFromEntry = (nowMinutes != null && entryMinutes != null) ? Math.max(nowMinutes - entryMinutes, 0) : null;
             const geo = await checkInsideGeofence(program);
             const autoState = getAutoPunchState();
-            const dayState = autoState[today] || { leftCompany:false };
+            const dayState = autoState[today] || { leftCompany:false, aziendaOutsideTicks:0, aziendaOutsideSince:'' };
             if (!geo.inside) dayState.leftCompany = true;
             autoState[today] = dayState;
             setAutoPunchState(autoState);
@@ -2563,15 +2569,31 @@ out center tags;`;
             }
             const distance = Number(geo.distanceM || 0);
             if (!geo.inside && distance > 1000) {
+              dayState.aziendaOutsideTicks = Number(dayState.aziendaOutsideTicks || 0) + 1;
+              if (!dayState.aziendaOutsideSince) dayState.aziendaOutsideSince = nowTime;
+              autoState[today] = dayState;
+              setAutoPunchState(autoState);
+              if (minutesFromEntry != null && minutesFromEntry < AUTO_CLOCK_OUT_MIN_AFTER_ENTRY) {
+                updateAutoPunchStatus(`Uscita auto in pausa sicurezza: attendo almeno ${AUTO_CLOCK_OUT_MIN_AFTER_ENTRY} minuti dall’entrata.`, false);
+                return;
+              }
+              if (dayState.aziendaOutsideTicks < AUTO_CLOCK_OUT_CONFIRM_TICKS) {
+                updateAutoPunchStatus('Uscita auto in verifica: confermo solo se resti fuori azienda per più controlli consecutivi.', false);
+                return;
+              }
               clockOutNow({
                 source:'auto',
                 note:'Auto uscita: allontanamento oltre 1km (modalità AZIENDA)',
                 distanceM: Math.round(distance),
                 forceDate: today,
-                forceTime: nowLocalDateAndTime().time
+                forceTime: nowTime
               });
               return;
             }
+            dayState.aziendaOutsideTicks = 0;
+            dayState.aziendaOutsideSince = '';
+            autoState[today] = dayState;
+            setAutoPunchState(autoState);
             updateAutoPunchStatus('Modalità AZIENDA: uscita automatica oltre 1km dall’azienda.', false);
           }
         } finally {
