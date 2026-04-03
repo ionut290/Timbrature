@@ -161,6 +161,9 @@
       .fuel-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
       .fuel-item h4 { margin:0 0 4px; font-size:14px; color:#0f172a; }
       .fuel-item p { margin:0; font-size:12px; color:#475569; }
+      .catalog-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
+      .catalog-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
+      .catalog-item p { margin:0; font-size:13px; color:#0f172a; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
     </style>
@@ -185,6 +188,7 @@
               <button type="button" class="menu-link" data-menu-target="prezzarioCard">Prezzario</button>
               <button type="button" class="menu-link" data-menu-target="createPreventivoCard">Crea preventivo</button>
               <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
+              <button type="button" class="menu-link" data-menu-target="dataHubCard">Dati app</button>
               <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
@@ -754,12 +758,35 @@
           <p id="backupEsito" class="msg"></p>
         </div>
 
+        <div class="card hidden" id="dataHubCard">
+          <h2>Dati app (anagrafiche)</h2>
+          <p class="small">Inserisci qui i dati comuni (es. mezzi + carburante). L'app li userà nei campi con suggerimenti.</p>
+          <div class="grid">
+            <label>Nome mezzo
+              <input type="text" id="catalogVehicleName" placeholder="Es. Daily AB123CD / Escavatore Volvo" />
+            </label>
+            <label>Carburante mezzo
+              <select id="catalogVehicleFuelType">
+                <option value="diesel">Diesel</option>
+                <option value="octane_95">Benzina (95)</option>
+                <option value="lpg">GPL</option>
+                <option value="cng">Metano (CNG)</option>
+              </select>
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="saveCatalogVehicleBtn">Salva mezzo</button>
+          </div>
+          <p id="catalogEsito" class="msg"></p>
+          <ul id="catalogVehiclesList" class="catalog-list"></ul>
+        </div>
+
         <div class="card hidden" id="carburanteCard">
           <h2>Carburante mezzo</h2>
           <p class="small">Compila il form e trova i distributori <strong>Q8</strong> e <strong>ENI</strong> vicini a te che erogano il carburante selezionato.</p>
           <div class="grid">
             <label>Mezzo
-              <input type="text" id="fuelVehicle" placeholder="Es. A119 / Escavatore" />
+              <input type="text" id="fuelVehicle" list="vehicleSuggestionsList" placeholder="Es. A119 / Escavatore" />
             </label>
             <label>Carburante
               <select id="fuelType">
@@ -807,12 +834,13 @@
       const GIORNALE_ENTRIES_KEY = 'timbrature.local.giornale.entries';
       const PREVENTIVI_KEY = 'timbrature.local.preventivi';
       const PREZZARIO_CONFIG_KEY = 'timbrature.local.prezzario.config';
+      const MASTER_DATA_KEY = 'timbrature.local.master.data';
       const DRIVE_BACKUP_STATE_KEY = 'timbrature.local.drive.backup.state';
       const GOOGLE_CLIENT_ID_KEY = 'timbrature.local.google.client_id';
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'createPreventivoCard', 'carburanteCard', 'backupCard', 'userBox'];
+      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'createPreventivoCard', 'carburanteCard', 'dataHubCard', 'backupCard', 'userBox'];
       const PREZZARIO_ITEMS = [
         { code:'A1', label:'Trituraz. erba NO rim (fino a 500 mq)', unit:'AC', price:59.25 },
         { code:'A2', label:'Trituraz. erba NO rim (oltre 500 mq)', unit:'M2', price:0.08 },
@@ -978,6 +1006,7 @@
       const showPrezzarioMsg = (m, t='ok') => { id('prezzarioEsito').className = `msg ${t}`; id('prezzarioEsito').textContent = m; };
       const showPreventiviListMsg = (m, t='ok') => { id('preventiviEsito').className = `msg ${t}`; id('preventiviEsito').textContent = m; };
       const showFuelMsg = (m, t='ok') => { id('fuelEsito').className = `msg ${t}`; id('fuelEsito').textContent = m; };
+      const showCatalogMsg = (m, t='ok') => { id('catalogEsito').className = `msg ${t}`; id('catalogEsito').textContent = m; };
       function getNotificationSettings() {
         return readJSON(NOTIFICATION_SETTINGS_KEY, {
           entry_time: '07:55',
@@ -1236,6 +1265,8 @@
       function setTeamRequestDraft(v) { writeJSON(TEAM_REQUEST_DRAFT_KEY, v); }
       function getTeamPrograms() { return readJSON(TEAM_PROGRAMS_KEY, []); }
       function setTeamPrograms(v) { writeJSON(TEAM_PROGRAMS_KEY, v); }
+      function getMasterData() { return readJSON(MASTER_DATA_KEY, { vehicles:[] }); }
+      function setMasterData(v) { writeJSON(MASTER_DATA_KEY, v); }
       function getAutoPunchState() { return readJSON(AUTO_PUNCH_STATE_KEY, {}); }
       function setAutoPunchState(v) { writeJSON(AUTO_PUNCH_STATE_KEY, v); }
       function getMonthlyEmailSentMap() { return readJSON(MONTHLY_EMAIL_SENT_KEY, {}); }
@@ -1610,9 +1641,57 @@ out center tags;`;
       function renderTeamDirectorySelects() {
         const directory = getTeamDirectory();
         const memberOptions = (directory.members || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
-        const vehicleOptions = (directory.vehicles || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
+        const catalogVehicles = (getMasterData().vehicles || []).map((entry)=>entry.name).filter(Boolean);
+        const allVehicles = [...new Set([...(directory.vehicles || []), ...catalogVehicles])];
+        const vehicleOptions = allVehicles.map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
         id('memberSuggestionsList').innerHTML = memberOptions;
         id('vehicleSuggestionsList').innerHTML = vehicleOptions;
+      }
+      function normalizeVehicleCatalogRows(rows=[]) {
+        const seen = new Set();
+        return rows
+          .map((row)=>({ name: String(row?.name || '').trim(), fuel_type: String(row?.fuel_type || 'diesel').trim() || 'diesel' }))
+          .filter((row)=>row.name)
+          .filter((row)=>{
+            const key = row.name.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+      }
+      function saveCatalogVehicle() {
+        const name = id('catalogVehicleName').value.trim();
+        const fuelType = id('catalogVehicleFuelType').value || 'diesel';
+        if (!name) { showCatalogMsg('Inserisci il nome mezzo.', 'err'); return; }
+        const current = getMasterData();
+        const rows = normalizeVehicleCatalogRows([...(current.vehicles || []).filter((row)=>String(row?.name || '').toLowerCase() !== name.toLowerCase()), { name, fuel_type:fuelType }]);
+        setMasterData({ ...current, vehicles: rows });
+        id('catalogVehicleName').value = '';
+        id('catalogVehicleFuelType').value = 'diesel';
+        renderCatalogDataUI();
+        renderTeamDirectorySelects();
+        showCatalogMsg('Mezzo salvato nell’anagrafica app.', 'ok');
+      }
+      function deleteCatalogVehicle(name='') {
+        const current = getMasterData();
+        const rows = (current.vehicles || []).filter((row)=>String(row?.name || '').toLowerCase() !== String(name || '').toLowerCase());
+        setMasterData({ ...current, vehicles: rows });
+        renderCatalogDataUI();
+        renderTeamDirectorySelects();
+      }
+      function applyFuelTypeByVehicleName(vehicleName='') {
+        const key = String(vehicleName || '').trim().toLowerCase();
+        if (!key) return;
+        const match = (getMasterData().vehicles || []).find((row)=>String(row?.name || '').trim().toLowerCase() === key);
+        if (match?.fuel_type && id('fuelType')) id('fuelType').value = match.fuel_type;
+      }
+      function renderCatalogDataUI() {
+        const rows = normalizeVehicleCatalogRows(getMasterData().vehicles || []);
+        if (rows.length !== (getMasterData().vehicles || []).length) setMasterData({ ...getMasterData(), vehicles: rows });
+        const labels = { diesel:'Diesel', octane_95:'Benzina (95)', lpg:'GPL', cng:'Metano (CNG)' };
+        id('catalogVehiclesList').innerHTML = rows.length
+          ? rows.map((row)=>`<li class="catalog-item"><p><strong>${escapeHtml(row.name)}</strong> • ${labels[row.fuel_type] || row.fuel_type}</p><button type="button" class="secondary btn-small" onclick="deleteCatalogVehicle('${String(row.name).replaceAll("'", "\\'")}')">Elimina</button></li>`).join('')
+          : '<li class="catalog-item"><p>Nessun mezzo salvato.</p></li>';
       }
       function appendSuggestionToTextarea(inputId, textareaId) {
         const value = id(inputId).value.trim();
@@ -4179,6 +4258,7 @@ out center tags;`;
         id('mese').value = currentMonthValueUTC();
         loadProfileUI();
         renderTeamUI();
+        renderCatalogDataUI();
         loadTeamDirectoryFromSheet(true);
         updateWelcomeMessage();
         loadTodayPunch();
@@ -4246,6 +4326,9 @@ out center tags;`;
         id('addPreventivoRowBtn').addEventListener('click', ()=>addPreventivoRow());
         id('finalizePreventivoBtn').addEventListener('click', finalizePreventivo);
         if (id('findFuelStationsBtn')) id('findFuelStationsBtn').addEventListener('click', findNearbyFuelStations);
+        if (id('saveCatalogVehicleBtn')) id('saveCatalogVehicleBtn').addEventListener('click', saveCatalogVehicle);
+        if (id('catalogVehicleName')) id('catalogVehicleName').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveCatalogVehicle(); } });
+        if (id('fuelVehicle')) id('fuelVehicle').addEventListener('change', ()=>applyFuelTypeByVehicleName(id('fuelVehicle').value));
         id('saveGoogleClientIdBtn').addEventListener('click', saveGoogleClientIdFromUI);
         id('connectGoogleDriveBtn').addEventListener('click', connectGoogleDrive);
         id('disconnectGoogleDriveBtn').addEventListener('click', disconnectGoogleDrive);
@@ -4340,6 +4423,7 @@ out center tags;`;
       window.showDaySummary = showDaySummary;
       window.removeTeamMember = removeTeamMember;
       window.removeTeamVehicle = removeTeamVehicle;
+      window.deleteCatalogVehicle = deleteCatalogVehicle;
       window.openTeamRequestForDate = openTeamRequestForDate;
       window.openGoogleMapsNavigation = openGoogleMapsNavigation;
     </script>
