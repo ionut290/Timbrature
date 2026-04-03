@@ -4065,7 +4065,7 @@ out center tags;`;
       function scheduleFirebaseAutoPush(reason='') {
         if (firebaseApplyingRemoteSnapshot) return;
         const state = getFirebaseSyncState();
-        if (!state.connected || !state.liveSync) return;
+        if (!state.connected) return;
         if (!firebaseCloudAuth?.currentUser || !firebaseCloudDb) return;
         if (firebaseAutoPushDebounceTimer) clearTimeout(firebaseAutoPushDebounceTimer);
         firebaseAutoPushDebounceTimer = window.setTimeout(()=>{
@@ -4093,7 +4093,8 @@ out center tags;`;
           }
         }
         const user = auth.currentUser;
-        setFirebaseSyncState({ connected:true, uid:user?.uid || '', email:user?.email || email });
+        setFirebaseSyncState({ connected:true, uid:user?.uid || '', email:user?.email || email, liveSync:true });
+        try { startFirebaseLiveSync(); } catch (_) {}
         updateFirebaseSyncStatusUI();
         showBackupMsg('Cloud Firebase connesso con successo.', 'ok');
       }
@@ -4860,10 +4861,8 @@ out center tags;`;
             ensureFirebaseCloudReady().then(()=>{
               firebaseCloudAuth.onAuthStateChanged((user)=>{
               if (!user) return;
-              setFirebaseSyncState({ connected:true, uid:user.uid || '', email:user.email || getFirebaseSyncState().email || '' });
-              if (getFirebaseSyncState().liveSync) {
-                try { startFirebaseLiveSync(); } catch (_) {}
-              }
+              setFirebaseSyncState({ connected:true, uid:user.uid || '', email:user.email || getFirebaseSyncState().email || '', liveSync:true });
+              try { startFirebaseLiveSync(); } catch (_) {}
               updateFirebaseSyncStatusUI();
             });
             }).catch(()=>{});
