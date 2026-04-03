@@ -178,6 +178,7 @@
               <button type="button" class="menu-link" data-menu-target="calendarioCard">Calendario</button>
               <button type="button" class="menu-link" data-menu-target="giornaleCard">Giornale Cantiere</button>
               <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
+              <button type="button" class="menu-link" data-menu-target="prezzarioCard">Prezzario</button>
               <button type="button" class="menu-link" data-menu-target="createPreventivoCard">Crea preventivo</button>
               <button type="button" class="menu-link" data-menu-target="preventiviListCard">Elenco preventivi</button>
               <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
@@ -663,6 +664,36 @@
           <p id="docUploadEsito" class="msg"></p>
         </div>
 
+        <div class="card hidden" id="prezzarioCard">
+          <h2>Gestione prezzario</h2>
+          <p class="small">Scegli il prezzario attivo per i preventivi. Puoi usare il catalogo interno oppure una fonte esterna (Google Sheet o PDF).</p>
+          <div class="grid">
+            <label>Prezzario attivo
+              <select id="prezzarioTypeSelect">
+                <option value="DEFAULT">Standard</option>
+                <option value="HERA">Hera</option>
+                <option value="ASSOVERDE">Assoverde</option>
+              </select>
+            </label>
+            <label>Sorgente dati
+              <select id="prezzarioSourceType">
+                <option value="builtin">Catalogo interno</option>
+                <option value="sheet">Google Sheet (Drive)</option>
+                <option value="pdf">PDF pubblico (link)</option>
+              </select>
+            </label>
+            <label>URL sorgente
+              <input type="url" id="prezzarioSourceUrl" placeholder="Incolla link Google Sheet o PDF" />
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="savePrezzarioConfigBtn">Salva configurazione</button>
+            <button type="button" class="secondary" id="syncPrezzarioBtn">Aggiorna da sorgente</button>
+          </div>
+          <p id="prezzarioStatusLine" class="status-line status-neutral">Prezzario standard attivo.</p>
+          <p id="prezzarioEsito" class="msg"></p>
+        </div>
+
         <div class="card hidden" id="createPreventivoCard">
           <h2>Crea preventivo</h2>
           <div class="grid">
@@ -746,13 +777,14 @@
       const COMMESSE_KEY = 'timbrature.local.commesse';
       const GIORNALE_ENTRIES_KEY = 'timbrature.local.giornale.entries';
       const PREVENTIVI_KEY = 'timbrature.local.preventivi';
+      const PREZZARIO_CONFIG_KEY = 'timbrature.local.prezzario.config';
       const DRIVE_BACKUP_STATE_KEY = 'timbrature.local.drive.backup.state';
       const GOOGLE_CLIENT_ID_KEY = 'timbrature.local.google.client_id';
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'createPreventivoCard', 'preventiviListCard', 'backupCard', 'userBox'];
-      const PREZZARIO_ITEMS = [
+      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'prezzarioCard', 'createPreventivoCard', 'preventiviListCard', 'backupCard', 'userBox'];
+      const DEFAULT_PREZZARIO_ITEMS = [
         { code:'A1', label:'Trituraz. erba NO rim (fino a 500 mq)', unit:'AC', price:59.25 },
         { code:'A2', label:'Trituraz. erba NO rim (oltre 500 mq)', unit:'M2', price:0.08 },
         { code:'A11', label:'Trituraz. erba SI rim (fino a 500 mq)', unit:'AC', price:79.20 },
@@ -806,6 +838,11 @@
         { code:'C06', label:'Spalatura neve a mano', unit:'H', price:27.84 },
         { code:'20030031', label:'Pulizia mediante spazzatrice industriale', unit:'H', price:80.00 }
       ];
+      const PREZZARIO_CATALOGS = {
+        DEFAULT: DEFAULT_PREZZARIO_ITEMS,
+        HERA: DEFAULT_PREZZARIO_ITEMS.map((item)=>({ ...item })),
+        ASSOVERDE: DEFAULT_PREZZARIO_ITEMS.map((item)=>({ ...item }))
+      };
       const CONTRACT_PRESETS = {
         EDILIZIA: {
           label: 'Edilizia industria',
@@ -884,6 +921,7 @@
       let selectedCommessaId = '';
       let journalPendingPhotos = [];
       let preventivoDraftRows = [];
+      let prezzarioSyncTimer = null;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -902,6 +940,7 @@
       const showBackupMsg = (m, t='ok') => { id('backupEsito').className = `msg ${t}`; id('backupEsito').textContent = m; };
       const showGiornaleMsg = (m, t='ok') => { id('giornaleEsito').className = `msg ${t}`; id('giornaleEsito').textContent = m; };
       const showPreventivoMsg = (m, t='ok') => { id('preventivoEsito').className = `msg ${t}`; id('preventivoEsito').textContent = m; };
+      const showPrezzarioMsg = (m, t='ok') => { id('prezzarioEsito').className = `msg ${t}`; id('prezzarioEsito').textContent = m; };
       const showPreventiviListMsg = (m, t='ok') => { id('preventiviEsito').className = `msg ${t}`; id('preventiviEsito').textContent = m; };
       function getNotificationSettings() {
         return readJSON(NOTIFICATION_SETTINGS_KEY, {
@@ -1178,6 +1217,129 @@
           { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:csv&gid=${gid}`, type:'csv' },
           { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:json&gid=${gid}`, type:'gviz_json' }
         ];
+      }
+      function getPrezzarioConfig() {
+        return readJSON(PREZZARIO_CONFIG_KEY, {
+          selected: 'DEFAULT',
+          sourceType: 'builtin',
+          sourceUrl: '',
+          customItems: null,
+          synced_at: ''
+        });
+      }
+      function setPrezzarioConfig(next={}) {
+        const merged = { ...getPrezzarioConfig(), ...next };
+        writeJSON(PREZZARIO_CONFIG_KEY, merged);
+        return merged;
+      }
+      function getActivePrezzarioItems() {
+        const config = getPrezzarioConfig();
+        if (Array.isArray(config.customItems) && config.customItems.length) return config.customItems;
+        return PREZZARIO_CATALOGS[config.selected] || PREZZARIO_CATALOGS.DEFAULT;
+      }
+      function normalizePrezzarioPrice(raw='') {
+        const text = String(raw ?? '').replace(/[€\s]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
+        const value = Number(text);
+        return Number.isFinite(value) ? value : 0;
+      }
+      function parsePrezzarioRowsFromMatrix(rows=[]) {
+        if (!Array.isArray(rows) || !rows.length) return [];
+        const matrix = rows.map((row)=>Array.isArray(row) ? row : [row]);
+        const headerIndex = matrix.findIndex((row)=>row.some((cell)=>/(cod|art|descr|voce|unit|um|prezzo|importo)/i.test(String(cell || ''))));
+        const headerRow = (matrix[headerIndex >= 0 ? headerIndex : 0] || []).map((cell)=>String(cell || '').toLowerCase());
+        const codeIdx = headerRow.findIndex((cell)=>/(cod|art)/.test(cell));
+        const labelIdx = headerRow.findIndex((cell)=>/(descr|voce|prestazione|lavor)/.test(cell));
+        const unitIdx = headerRow.findIndex((cell)=>/(unit|u\.m|um|misura)/.test(cell));
+        const priceIdx = headerRow.findIndex((cell)=>/(prezzo|importo|euro|€)/.test(cell));
+        return matrix.slice((headerIndex >= 0 ? headerIndex : 0) + 1)
+          .map((row)=>({
+            code: String(row[codeIdx >= 0 ? codeIdx : 0] || '').trim(),
+            label: String(row[labelIdx >= 0 ? labelIdx : 1] || '').trim(),
+            unit: String(row[unitIdx >= 0 ? unitIdx : 2] || '').trim() || 'N',
+            price: normalizePrezzarioPrice(row[priceIdx >= 0 ? priceIdx : 3])
+          }))
+          .filter((item)=>item.code && item.label);
+      }
+      function parsePrezzarioRowsFromPdfText(text='') {
+        const lines = String(text || '').split(/\r?\n/).map((line)=>line.trim()).filter(Boolean);
+        return lines.map((line)=>{
+          const match = line.match(/^([A-Za-z0-9./-]+)\s+(.+?)\s+([A-Za-z]{1,6}|M2|MC|KG|TO|AC|H|N|M)\s+([\d.,]+)$/);
+          if (!match) return null;
+          return { code:match[1], label:match[2], unit:match[3], price:normalizePrezzarioPrice(match[4]) };
+        }).filter(Boolean);
+      }
+      async function ensurePdfJsLoaded() {
+        if (window.pdfjsLib?.getDocument) return;
+        await new Promise((resolve, reject)=>{
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.3.136/build/pdf.min.js';
+          script.onload = resolve;
+          script.onerror = ()=>reject(new Error('Impossibile caricare parser PDF.'));
+          document.head.appendChild(script);
+        });
+        if (window.pdfjsLib?.GlobalWorkerOptions) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.3.136/build/pdf.worker.min.js';
+        }
+      }
+      async function loadPrezzarioFromPdfUrl(url='') {
+        await ensurePdfJsLoaded();
+        const pdf = await window.pdfjsLib.getDocument(url).promise;
+        let rawText = '';
+        for (let p = 1; p <= pdf.numPages; p += 1) {
+          const page = await pdf.getPage(p);
+          const content = await page.getTextContent();
+          rawText += content.items.map((item)=>item.str || '').join(' ') + '\n';
+        }
+        return parsePrezzarioRowsFromPdfText(rawText);
+      }
+      async function loadPrezzarioFromSheet(url='') {
+        const sources = buildGoogleSheetSources(url);
+        for (const source of sources) {
+          const response = await fetch(source.url);
+          if (!response.ok) continue;
+          const body = await response.text();
+          const rows = source.type === 'gviz_json' ? parseGvizJsonRows(body) : parseCsvRows(body);
+          const items = parsePrezzarioRowsFromMatrix(rows);
+          if (items.length) return items;
+        }
+        return [];
+      }
+      async function syncPrezzarioSource(silent=false) {
+        const config = getPrezzarioConfig();
+        if (config.sourceType === 'builtin') {
+          setPrezzarioConfig({ customItems:null, synced_at:new Date().toISOString() });
+          if (!silent) showPrezzarioMsg('Catalogo interno attivo.', 'ok');
+          renderPrezzarioManager();
+          renderPreventivoRows();
+          return;
+        }
+        if (!config.sourceUrl) {
+          if (!silent) showPrezzarioMsg('Inserisci URL sorgente prezzario.', 'err');
+          return;
+        }
+        try {
+          const items = config.sourceType === 'sheet'
+            ? await loadPrezzarioFromSheet(config.sourceUrl)
+            : await loadPrezzarioFromPdfUrl(config.sourceUrl);
+          if (!items.length) throw new Error('Nessuna voce valida trovata nella sorgente.');
+          setPrezzarioConfig({ customItems:items, synced_at:new Date().toISOString() });
+          renderPrezzarioManager();
+          renderPreventivoRows();
+          if (!silent) showPrezzarioMsg(`Prezzario aggiornato (${items.length} voci).`, 'ok');
+        } catch (error) {
+          if (!silent) showPrezzarioMsg(error.message || 'Aggiornamento prezzario non riuscito.', 'err');
+        }
+      }
+      function renderPrezzarioManager() {
+        const config = getPrezzarioConfig();
+        if (id('prezzarioTypeSelect')) id('prezzarioTypeSelect').value = config.selected || 'DEFAULT';
+        if (id('prezzarioSourceType')) id('prezzarioSourceType').value = config.sourceType || 'builtin';
+        if (id('prezzarioSourceUrl')) id('prezzarioSourceUrl').value = config.sourceUrl || '';
+        const items = getActivePrezzarioItems();
+        const when = config.synced_at ? ` • ultimo aggiornamento ${new Date(config.synced_at).toLocaleString('it-IT')}` : '';
+        const sourceLabel = config.sourceType === 'builtin' ? 'catalogo interno' : config.sourceType === 'sheet' ? 'Google Sheet' : 'PDF';
+        id('prezzarioStatusLine').className = 'status-line status-ok';
+        id('prezzarioStatusLine').textContent = `Prezzario ${config.selected} (${sourceLabel}) • ${items.length} voci${when}`;
       }
       function updateWelcomeMessage() {
         const profile = getProfile();
@@ -2897,14 +3059,15 @@
         return new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number.isFinite(n) ? n : 0);
       }
       function preventivoCatalogOptionsHtml(selectedCode='') {
-        return PREZZARIO_ITEMS.map((item)=>{
+        return getActivePrezzarioItems().map((item)=>{
           const selected = item.code === selectedCode ? 'selected' : '';
           return `<option value="${escapeHtml(item.code)}" ${selected}>${escapeHtml(item.code)} - ${escapeHtml(item.label)} (${formatCurrencyEUR(item.price)}/${escapeHtml(item.unit)})</option>`;
         }).join('');
       }
       function addPreventivoRow(prefill={}) {
+        const items = getActivePrezzarioItems();
         preventivoDraftRows.push({
-          code: String(prefill.code || PREZZARIO_ITEMS[0]?.code || ''),
+          code: String(prefill.code || items[0]?.code || ''),
           quantity: Number(prefill.quantity || 1),
           note: String(prefill.note || '')
         });
@@ -2916,7 +3079,7 @@
         else renderPreventivoRows();
       }
       function getPrezzarioItemByCode(code='') {
-        return PREZZARIO_ITEMS.find((item)=>item.code === String(code || '').trim()) || null;
+        return getActivePrezzarioItems().find((item)=>item.code === String(code || '').trim()) || null;
       }
       function getPreventivoComputedRows() {
         return preventivoDraftRows.map((row, index)=>{
@@ -3746,6 +3909,20 @@
         }
         showBackupMsg('Client ID salvato sul browser locale.', 'ok');
       }
+      function savePrezzarioConfigFromUI() {
+        const selected = id('prezzarioTypeSelect').value || 'DEFAULT';
+        const sourceType = id('prezzarioSourceType').value || 'builtin';
+        const sourceUrl = id('prezzarioSourceUrl').value.trim();
+        setPrezzarioConfig({
+          selected,
+          sourceType,
+          sourceUrl,
+          customItems: sourceType === 'builtin' ? null : getPrezzarioConfig().customItems
+        });
+        renderPrezzarioManager();
+        renderPreventivoRows();
+        showPrezzarioMsg('Configurazione prezzario salvata.', 'ok');
+      }
 
       function setMenuSection(panelId) {
         if (!menuPanelIds.includes(panelId)) return;
@@ -3753,6 +3930,7 @@
         menuPanelIds.forEach((name)=>id(name).classList.toggle('hidden', name !== panelId));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId));
         if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
+        if (panelId === 'prezzarioCard') renderPrezzarioManager();
         if (panelId === 'giornaleCard') {
           backToCommesse();
           renderCommesseList();
@@ -3782,6 +3960,7 @@
         initAgendaCalendar();
         renderDocuments();
         initPreventivoForm();
+        renderPrezzarioManager();
         renderCommesseList();
         renderGlobalCommesseSelect();
         initNotificationUI();
@@ -3836,6 +4015,10 @@
         id('saveProfile').addEventListener('click', saveProfile);
         id('addPreventivoRowBtn').addEventListener('click', ()=>addPreventivoRow());
         id('finalizePreventivoBtn').addEventListener('click', finalizePreventivo);
+        id('savePrezzarioConfigBtn').addEventListener('click', savePrezzarioConfigFromUI);
+        id('syncPrezzarioBtn').addEventListener('click', ()=>syncPrezzarioSource(false));
+        id('prezzarioTypeSelect').addEventListener('change', savePrezzarioConfigFromUI);
+        id('prezzarioSourceType').addEventListener('change', savePrezzarioConfigFromUI);
         id('saveGoogleClientIdBtn').addEventListener('click', saveGoogleClientIdFromUI);
         id('connectGoogleDriveBtn').addEventListener('click', connectGoogleDrive);
         id('disconnectGoogleDriveBtn').addEventListener('click', disconnectGoogleDrive);
@@ -3915,6 +4098,9 @@
         if (notificationTimer) clearInterval(notificationTimer);
         notificationTick();
         notificationTimer = window.setInterval(()=>{ notificationTick(); }, 30000);
+        if (prezzarioSyncTimer) clearInterval(prezzarioSyncTimer);
+        prezzarioSyncTimer = window.setInterval(()=>{ syncPrezzarioSource(true); }, 5 * 60 * 1000);
+        syncPrezzarioSource(true);
         applyStatusFromQueryParams();
       }
 
