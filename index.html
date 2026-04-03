@@ -179,7 +179,6 @@
               <button type="button" class="menu-link" data-menu-target="giornaleCard">Giornale Cantiere</button>
               <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
               <button type="button" class="menu-link" data-menu-target="createPreventivoCard">Crea preventivo</button>
-              <button type="button" class="menu-link" data-menu-target="preventiviListCard">Elenco preventivi</button>
               <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
@@ -690,10 +689,7 @@
           </div>
           <p id="preventivoTotalLine" class="status-line status-neutral">Totale: € 0,00</p>
           <p id="preventivoEsito" class="msg"></p>
-        </div>
-
-        <div class="card hidden" id="preventiviListCard">
-          <h2>Elenco preventivi</h2>
+          <h3 style="margin:16px 0 8px;">Elenco preventivi</h3>
           <p class="small">Qui trovi i preventivi PDF salvati nell'app. Se Google Drive è collegato, vengono caricati anche nella cartella <strong>Timbrature/Preventivi</strong>.</p>
           <ul id="preventiviList" class="doc-list"></ul>
           <p id="preventiviEmptyText" class="doc-empty">Nessun preventivo salvato.</p>
@@ -725,6 +721,7 @@
     </div>
     <datalist id="memberSuggestionsList"></datalist>
     <datalist id="vehicleSuggestionsList"></datalist>
+    <datalist id="prezzarioSuggestionsList"></datalist>
 
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
@@ -751,7 +748,7 @@
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'createPreventivoCard', 'preventiviListCard', 'backupCard', 'userBox'];
+      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'createPreventivoCard', 'backupCard', 'userBox'];
       const PREZZARIO_ITEMS = [
         { code:'A1', label:'Trituraz. erba NO rim (fino a 500 mq)', unit:'AC', price:59.25 },
         { code:'A2', label:'Trituraz. erba NO rim (oltre 500 mq)', unit:'M2', price:0.08 },
@@ -784,6 +781,7 @@
         { code:'B18', label:'Diserbo chimico recinzioni/piazzali', unit:'M2', price:3.17 },
         { code:'B19', label:'Diserbo chimico cordoli stradali', unit:'M', price:0.80 },
         { code:'B20', label:'Diserbo manuale', unit:'M2', price:4.23 },
+        { code:'B21', label:'Pulizia di fossati e canali (max 8 m)', unit:'M', price:16.92 },
         { code:'B22', label:'Rimozione/trasporto/smaltimento materiale', unit:'TO', price:99.00 },
         { code:'B25', label:'Manodopera con motosega/decespugliatore', unit:'H', price:27.84 },
         { code:'B26', label:'Recinzione metallica fornitura/posa', unit:'M2', price:23.27 },
@@ -805,7 +803,14 @@
         { code:'C05', label:'Fornitura e trasporto sale', unit:'TO', price:158.65 },
         { code:'C06', label:'Spalatura neve a mano', unit:'H', price:27.84 },
         { code:'20030031', label:'Pulizia mediante spazzatrice industriale', unit:'H', price:80.00 }
-      ];
+      ].map((item)=>({
+        ...item,
+        shortText: `${item.code} ${item.label}`,
+        extendedText: item.label,
+        capitolatoPrice: Number(item.price),
+        ribassoPercent: 1,
+        ribassoFlag: item.code === 'B32' || item.code === 'B33' || item.code === '20030031' ? 'NO' : 'SI'
+      }));
       const CONTRACT_PRESETS = {
         EDILIZIA: {
           label: 'Edilizia industria',
@@ -1178,6 +1183,23 @@
           { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:csv&gid=${gid}`, type:'csv' },
           { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:json&gid=${gid}`, type:'gviz_json' }
         ];
+      }
+      function getActivePrezzarioItems() { return PREZZARIO_ITEMS; }
+      function renderPrezzarioSuggestions() {
+        const list = id('prezzarioSuggestionsList');
+        if (!list) return;
+        try {
+          list.innerHTML = getActivePrezzarioItems()
+            .map((item)=>{
+              const code = String(item.code || '').replace(/"/g, '&quot;');
+              const label = String(item.shortText || item.label || '').replace(/</g, '&lt;');
+              return `<option value="${code}">${label}</option>`;
+            })
+            .join('');
+        } catch (error) {
+          console.warn('Impossibile costruire suggerimenti prezzario:', error);
+          list.innerHTML = '';
+        }
       }
       function updateWelcomeMessage() {
         const profile = getProfile();
@@ -2896,15 +2918,10 @@
         const n = Number(value || 0);
         return new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number.isFinite(n) ? n : 0);
       }
-      function preventivoCatalogOptionsHtml(selectedCode='') {
-        return PREZZARIO_ITEMS.map((item)=>{
-          const selected = item.code === selectedCode ? 'selected' : '';
-          return `<option value="${escapeHtml(item.code)}" ${selected}>${escapeHtml(item.code)} - ${escapeHtml(item.label)} (${formatCurrencyEUR(item.price)}/${escapeHtml(item.unit)})</option>`;
-        }).join('');
-      }
       function addPreventivoRow(prefill={}) {
+        const items = getActivePrezzarioItems();
         preventivoDraftRows.push({
-          code: String(prefill.code || PREZZARIO_ITEMS[0]?.code || ''),
+          code: String(prefill.code || items[0]?.code || ''),
           quantity: Number(prefill.quantity || 1),
           note: String(prefill.note || '')
         });
@@ -2916,7 +2933,8 @@
         else renderPreventivoRows();
       }
       function getPrezzarioItemByCode(code='') {
-        return PREZZARIO_ITEMS.find((item)=>item.code === String(code || '').trim()) || null;
+        const clean = String(code || '').trim();
+        return getActivePrezzarioItems().find((item)=>item.code === clean) || null;
       }
       function getPreventivoComputedRows() {
         return preventivoDraftRows.map((row, index)=>{
@@ -2938,44 +2956,68 @@
       function renderPreventivoRows() {
         const wrap = id('preventivoRowsContainer');
         if (!wrap) return;
-        const rows = getPreventivoComputedRows();
-        wrap.innerHTML = rows.map((row)=>`
+        try {
+          const rows = getPreventivoComputedRows();
+          wrap.innerHTML = rows.map((row)=>`
           <div class="group-row">
             <div class="grid">
               <label>Codice prestazione
-                <select data-preventivo-field="code" data-row-index="${row.index}">${preventivoCatalogOptionsHtml(row.code)}</select>
+                <input type="text" list="prezzarioSuggestionsList" data-preventivo-field="code" data-row-index="${row.index}" value="${escapeHtml(row.code)}" placeholder="Es. B9" />
+              </label>
+              <label>Testo breve
+                <input type="text" value="${escapeHtml(row.shortText || '-')}" readonly />
+              </label>
+              <label>Testo esteso
+                <textarea rows="2" readonly>${escapeHtml(getPrezzarioItemByCode(row.code)?.extendedText || row.shortText || '-')}</textarea>
+              </label>
+              <label>Unità di misura
+                <input type="text" value="${escapeHtml(row.unit || '-')}" readonly />
               </label>
               <label>Quantità
                 <input type="number" min="0" step="0.01" data-preventivo-field="quantity" data-row-index="${row.index}" value="${row.quantity}" />
               </label>
-              <label>Prezzo unitario
+              <label>Prezzo Capitolato (€)
+                <input type="text" value="${formatCurrencyEUR(getPrezzarioItemByCode(row.code)?.capitolatoPrice || row.unitPrice)}" readonly />
+              </label>
+              <label>% Ribasso
+                <input type="text" value="${escapeHtml(String(getPrezzarioItemByCode(row.code)?.ribassoPercent ?? 1))}" readonly />
+              </label>
+              <label>Ribasso Sì/No
+                <input type="text" value="${escapeHtml(String(getPrezzarioItemByCode(row.code)?.ribassoFlag || 'SI'))}" readonly />
+              </label>
+              <label>Prezzo NETTO RIBASSATO (€)
                 <input type="text" value="${formatCurrencyEUR(row.unitPrice)} / ${escapeHtml(row.unit || '-')}" readonly />
               </label>
-              <label>Importo riga
+              <label>IMPORTO PRESTAZIONE (€)
                 <input type="text" value="${formatCurrencyEUR(row.amount)}" readonly />
               </label>
             </div>
-            <label style="margin-top:8px;">Note attività
+            <label style="margin-top:8px;">NOTE/DESCRIZIONI ATTIVITA' SVOLTA
               <textarea rows="2" data-preventivo-field="note" data-row-index="${row.index}">${escapeHtml(row.note)}</textarea>
             </label>
             <div class="inline-actions"><button type="button" class="secondary btn-small" data-preventivo-remove="${row.index}">Rimuovi riga</button></div>
           </div>
         `).join('');
-        wrap.querySelectorAll('[data-preventivo-field]').forEach((input)=>{
-          input.addEventListener('change', ()=>{
-            const field = input.dataset.preventivoField;
-            const rowIndex = Number(input.dataset.rowIndex || -1);
-            if (!Number.isInteger(rowIndex) || rowIndex < 0 || !preventivoDraftRows[rowIndex]) return;
-            if (field === 'quantity') preventivoDraftRows[rowIndex].quantity = Number(input.value || 0);
-            else preventivoDraftRows[rowIndex][field] = input.value;
-            renderPreventivoRows();
+          wrap.querySelectorAll('[data-preventivo-field]').forEach((input)=>{
+            input.addEventListener('change', ()=>{
+              const field = input.dataset.preventivoField;
+              const rowIndex = Number(input.dataset.rowIndex || -1);
+              if (!Number.isInteger(rowIndex) || rowIndex < 0 || !preventivoDraftRows[rowIndex]) return;
+              if (field === 'quantity') preventivoDraftRows[rowIndex].quantity = Number(input.value || 0);
+              else if (field === 'code') preventivoDraftRows[rowIndex].code = String(input.value || '').trim().split(/\s+/)[0].toUpperCase();
+              else preventivoDraftRows[rowIndex][field] = input.value;
+              renderPreventivoRows();
+            });
           });
-        });
-        wrap.querySelectorAll('[data-preventivo-remove]').forEach((btn)=>{
-          btn.addEventListener('click', ()=>removePreventivoRow(Number(btn.dataset.preventivoRemove || -1)));
-        });
-        const total = rows.reduce((acc, row)=>acc + Number(row.amount || 0), 0);
-        id('preventivoTotalLine').textContent = `Totale: ${formatCurrencyEUR(total)}`;
+          wrap.querySelectorAll('[data-preventivo-remove]').forEach((btn)=>{
+            btn.addEventListener('click', ()=>removePreventivoRow(Number(btn.dataset.preventivoRemove || -1)));
+          });
+          const total = rows.reduce((acc, row)=>acc + Number(row.amount || 0), 0);
+          id('preventivoTotalLine').textContent = `Totale: ${formatCurrencyEUR(total)}`;
+        } catch (error) {
+          console.error('Errore rendering righe preventivo:', error);
+          wrap.innerHTML = '<p class="small">Errore rendering prezzario. Ricarica la pagina.</p>';
+        }
       }
       function renderPreventiviList() {
         const rows = getPreventivi();
@@ -3033,42 +3075,68 @@
       async function createPreventivoPdfBlob(preventivo={}) {
         await ensureJsPdfLoaded();
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-        let y = 42;
-        doc.setFontSize(16);
-        doc.text('PREVENTIVO', 40, y);
-        y += 24;
-        doc.setFontSize(10);
-        doc.text(`Cliente: ${preventivo.cliente || '-'}`, 40, y); y += 14;
-        doc.text(`Impianto: ${preventivo.impianto || '-'}   Comune: ${preventivo.comune || '-'}`, 40, y); y += 14;
-        doc.text(`Data: ${preventivo.data || nowDateISO()}`, 40, y); y += 16;
-        const descr = String(preventivo.descrizione || '-');
-        const descrLines = doc.splitTextToSize(`Descrizione: ${descr}`, 510);
-        doc.text(descrLines, 40, y); y += descrLines.length * 12 + 10;
-        doc.setFontSize(9);
-        doc.text('Codice', 40, y);
-        doc.text('Descrizione', 90, y);
-        doc.text('Q.ta', 360, y);
-        doc.text('Prezzo', 420, y);
-        doc.text('Importo', 490, y);
-        y += 8;
-        doc.line(40, y, 555, y);
-        y += 14;
-        (Array.isArray(preventivo.rows) ? preventivo.rows : []).forEach((row)=>{
-          if (y > 780) { doc.addPage(); y = 48; }
-          const textLines = doc.splitTextToSize(`${row.shortText || ''}${row.note ? ` | Note: ${row.note}` : ''}`, 250);
-          doc.text(String(row.code || ''), 40, y);
-          doc.text(textLines, 90, y);
-          doc.text(String(row.quantity || 0), 360, y);
-          doc.text(formatCurrencyEUR(row.unitPrice || 0), 420, y);
-          doc.text(formatCurrencyEUR(row.amount || 0), 490, y);
-          y += Math.max(14, textLines.length * 11);
-        });
-        y += 8;
-        doc.line(40, y, 555, y);
-        y += 16;
+        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+        const pageW = 210;
+        let y = 8;
         doc.setFontSize(12);
-        doc.text(`Totale preventivo: ${formatCurrencyEUR(preventivo.total || 0)}`, 40, y);
+        doc.text('PREVENTIVO - FORMATO HERA/ASSOVERDE', 8, y);
+        y += 6;
+        doc.setFontSize(9);
+        doc.text(`NOME IMPIANTO: ${preventivo.impianto || '-'}`, 8, y);
+        doc.text(`COMUNE: ${preventivo.comune || '-'}`, 115, y);
+        y += 5;
+        doc.text(`RICHIEDENTE INTERVENTO: ${preventivo.cliente || '-'}`, 8, y);
+        doc.text(`DATA RICHIESTA: ${preventivo.data || nowDateISO()}`, 115, y);
+        y += 5;
+        const descLines = doc.splitTextToSize(`DESCRIZIONE INTERVENTO: ${preventivo.descrizione || '-'}`, 194);
+        doc.text(descLines, 8, y);
+        y += descLines.length * 4 + 2;
+        doc.setFillColor(148, 221, 74);
+        doc.rect(135, y, 67, 8, 'F');
+        doc.setFontSize(10);
+        doc.text('TOTALE INTERVENTO', 138, y + 5.5);
+        doc.text(formatCurrencyEUR(preventivo.total || 0), 184, y + 5.5, { align:'right' });
+        y += 10;
+        const headers = ['Cod. Prest. Est.', 'Testo breve', 'TESTO ESTESO', 'UM', 'Q.ta', 'Prezzo Capit.', '% Rib.', 'Ribasso', 'Prezzo NETTO', 'IMPORTO', 'NOTE'];
+        const widths = [18, 26, 34, 10, 10, 14, 10, 12, 18, 16, 32];
+        let x = 4;
+        doc.setFillColor(255, 242, 0);
+        headers.forEach((h, idx)=>{
+          doc.rect(x, y, widths[idx], 10, 'F');
+          doc.rect(x, y, widths[idx], 10);
+          doc.setFontSize(7);
+          doc.text(doc.splitTextToSize(h, widths[idx]-1), x + 1, y + 3);
+          x += widths[idx];
+        });
+        y += 10;
+        (Array.isArray(preventivo.rows) ? preventivo.rows : []).forEach((row)=>{
+          if (y > 280) { doc.addPage(); y = 10; }
+          const item = getPrezzarioItemByCode(row.code) || {};
+          const cells = [
+            row.code || '',
+            item.shortText || row.shortText || '',
+            item.extendedText || row.shortText || '',
+            item.unit || row.unit || '',
+            String(row.quantity || 0),
+            (item.capitolatoPrice ?? row.unitPrice ?? 0).toFixed(2),
+            String(item.ribassoPercent ?? 1),
+            item.ribassoFlag || 'SI',
+            (row.unitPrice || 0).toFixed(2),
+            (row.amount || 0).toFixed(2),
+            row.note || ''
+          ];
+          const lineH = 8;
+          x = 4;
+          cells.forEach((cell, idx)=>{
+            doc.setFillColor(idx === 0 ? 255 : 242, idx === 0 ? 242 : 242, idx === 0 ? 0 : 242);
+            doc.rect(x, y, widths[idx], lineH, 'F');
+            doc.rect(x, y, widths[idx], lineH);
+            doc.setFontSize(6.5);
+            doc.text(doc.splitTextToSize(String(cell), widths[idx]-1), x + 1, y + 3);
+            x += widths[idx];
+          });
+          y += lineH;
+        });
         return doc.output('blob');
       }
       async function uploadPreventivoPdfToDrive(accessToken='', parentFolderId='', fileName='', pdfBlob=null) {
@@ -3156,13 +3224,14 @@
             }
           }
           showPreventivoMsg(`Preventivo finalizzato. ${driveMsg}`, 'ok');
-          setMenuSection('preventiviListCard');
+          setMenuSection('createPreventivoCard');
         } catch (error) {
           showPreventivoMsg(error.message || 'Errore durante la creazione del preventivo PDF.', 'err');
         }
       }
       function initPreventivoForm() {
         if (!id('preventivoData').value) id('preventivoData').value = nowDateISO();
+        renderPrezzarioSuggestions();
         preventivoDraftRows = [];
         addPreventivoRow();
         renderPreventiviList();
@@ -3781,7 +3850,12 @@
         loadMyMonth();
         initAgendaCalendar();
         renderDocuments();
-        initPreventivoForm();
+        try {
+          initPreventivoForm();
+        } catch (error) {
+          console.error('Errore inizializzazione preventivo:', error);
+          showPreventivoMsg('Errore inizializzazione modulo preventivi. Ricarica la pagina.', 'err');
+        }
         renderCommesseList();
         renderGlobalCommesseSelect();
         initNotificationUI();
