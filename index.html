@@ -164,6 +164,10 @@
       .catalog-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
       .catalog-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
       .catalog-item p { margin:0; font-size:13px; color:#0f172a; }
+      .catalog-categories { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-top:10px; }
+      .catalog-cat-btn { background:#e2e8f0; color:#0f172a; border:1px solid #cbd5e1; }
+      .catalog-cat-btn.active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
+      .catalog-subtitle { margin:8px 0 0; font-size:13px; color:#475569; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
     </style>
@@ -346,7 +350,7 @@
                 <input type="date" id="teamRequestDate" />
               </label>
               <label>Cantiere richiesto
-                <input type="text" id="teamRequestCantiere" placeholder="Nome cantiere" />
+                <input type="text" id="teamRequestCantiere" list="commessaSuggestionsList" placeholder="Nome cantiere" />
               </label>
               <label>Personale richiesto
                 <textarea id="teamRequestPersonnel" rows="3" placeholder="Es. Mario Rossi, Luca Bianchi"></textarea>
@@ -431,7 +435,7 @@
                   <option value="FER">FER - Ferie</option>
                 </select>
               </label>
-              <label>Cantiere<input type="text" id="clockInCantiere" placeholder="Nome cantiere"></label>
+              <label>Cantiere<input type="text" id="clockInCantiere" list="commessaSuggestionsList" placeholder="Nome cantiere"></label>
               <label>Commessa globale
                 <select id="globalCommessaSelect"><option value="">Seleziona commessa</option></select>
               </label>
@@ -498,7 +502,7 @@
                 </select>
               </label>
               <label>Note<textarea id="note" rows="2"></textarea></label>
-              <label>Cantiere<input type="text" id="cantiere" /></label>
+              <label>Cantiere<input type="text" id="cantiere" list="commessaSuggestionsList" /></label>
               <label>Caposquadra<input type="text" id="caposquadra" list="memberSuggestionsList" /></label>
               <label>Tipo contratto
                 <select id="contratto">
@@ -583,7 +587,7 @@
             <div id="journalEntryForm" class="setup-box hidden">
               <div class="grid">
                 <label>Data<input type="date" id="journalDate" /></label>
-                <label>Nome cantiere / impianto<input type="text" id="journalSiteName" /></label>
+                <label>Nome cantiere / impianto<input type="text" id="journalSiteName" list="commessaSuggestionsList" /></label>
                 <label>Comune / località<input type="text" id="journalLocation" /></label>
                 <label>Responsabile / caposquadra<input type="text" id="journalLeader" list="memberSuggestionsList" /></label>
                 <label>Operatori presenti<textarea id="journalOperators" rows="2"></textarea></label>
@@ -603,7 +607,7 @@
                   <select id="journalProgress"><option value="Iniziato">Iniziato</option><option value="In corso">In corso</option><option value="Completato">Completato</option></select>
                 </label>
                 <label>Mezzi usati<textarea id="journalVehiclesUsed" rows="2"></textarea></label>
-                <label>Ore utilizzo mezzi<input type="text" id="journalVehicleHours" placeholder="Es. Escavatore 03:30" /></label>
+                <label>Ore utilizzo mezzi<input type="text" id="journalVehicleHours" list="equipmentSuggestionsList" placeholder="Es. Escavatore 03:30" /></label>
                 <label>Guasti / anomalie<textarea id="journalVehicleIssues" rows="2"></textarea></label>
                 <label>Materiali usati<textarea id="journalMaterialsUsed" rows="2"></textarea></label>
                 <label>Quantità<textarea id="journalMaterialsQty" rows="2"></textarea></label>
@@ -760,12 +764,15 @@
 
         <div class="card hidden" id="dataHubCard">
           <h2>Dati app (anagrafiche)</h2>
-          <p class="small">Inserisci qui i dati comuni (es. mezzi + carburante). L'app li userà nei campi con suggerimenti.</p>
+          <p class="small">Scegli una categoria (mezzi, attrezzature, colleghi, commesse) e inserisci i dati. L'app usa questo elenco per compilare i campi nei vari moduli.</p>
+          <div class="catalog-categories" id="catalogCategories"></div>
+          <h3 id="catalogSectionTitle" style="margin:14px 0 4px;">Categoria</h3>
+          <p id="catalogSectionHint" class="catalog-subtitle">Seleziona una categoria per iniziare.</p>
           <div class="grid">
-            <label>Nome mezzo
-              <input type="text" id="catalogVehicleName" placeholder="Es. Daily AB123CD / Escavatore Volvo" />
+            <label id="catalogPrimaryLabel">Nome
+              <input type="text" id="catalogPrimaryInput" placeholder="Inserisci valore" />
             </label>
-            <label>Carburante mezzo
+            <label id="catalogSecondaryWrap">Valore aggiuntivo
               <select id="catalogVehicleFuelType">
                 <option value="diesel">Diesel</option>
                 <option value="octane_95">Benzina (95)</option>
@@ -775,7 +782,7 @@
             </label>
           </div>
           <div class="inline-actions">
-            <button type="button" id="saveCatalogVehicleBtn">Salva mezzo</button>
+            <button type="button" id="saveCatalogEntryBtn">Salva dato</button>
           </div>
           <p id="catalogEsito" class="msg"></p>
           <ul id="catalogVehiclesList" class="catalog-list"></ul>
@@ -811,6 +818,8 @@
     </div>
     <datalist id="memberSuggestionsList"></datalist>
     <datalist id="vehicleSuggestionsList"></datalist>
+    <datalist id="equipmentSuggestionsList"></datalist>
+    <datalist id="commessaSuggestionsList"></datalist>
     <datalist id="prezzarioSuggestionsList"></datalist>
 
     <script>
@@ -841,6 +850,12 @@
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
       const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'createPreventivoCard', 'carburanteCard', 'dataHubCard', 'backupCard', 'userBox'];
+      const DATA_HUB_CATEGORIES = [
+        { key:'vehicles', label:'Auto / Mezzi', hint:'Inserisci i mezzi con carburante.' },
+        { key:'equipment', label:'Attrezzature', hint:'Inserisci attrezzature o macchine usate nei lavori.' },
+        { key:'colleagues', label:'Colleghi', hint:'Inserisci persone della squadra per suggerimenti rapidi.' },
+        { key:'commesse', label:'Commesse', hint:'Inserisci le commesse/cantieri per compilare i campi cantiere.' }
+      ];
       const PREZZARIO_ITEMS = [
         { code:'A1', label:'Trituraz. erba NO rim (fino a 500 mq)', unit:'AC', price:59.25 },
         { code:'A2', label:'Trituraz. erba NO rim (oltre 500 mq)', unit:'M2', price:0.08 },
@@ -981,6 +996,7 @@
       let selectedAgendaDate = '';
       let googleTokenClient = null;
       let selectedCommessaId = '';
+      let selectedDataHubCategory = 'vehicles';
       let journalPendingPhotos = [];
       let preventivoDraftRows = [];
       let fuelMap = null;
@@ -1265,7 +1281,7 @@
       function setTeamRequestDraft(v) { writeJSON(TEAM_REQUEST_DRAFT_KEY, v); }
       function getTeamPrograms() { return readJSON(TEAM_PROGRAMS_KEY, []); }
       function setTeamPrograms(v) { writeJSON(TEAM_PROGRAMS_KEY, v); }
-      function getMasterData() { return readJSON(MASTER_DATA_KEY, { vehicles:[] }); }
+      function getMasterData() { return readJSON(MASTER_DATA_KEY, { vehicles:[], equipment:[], colleagues:[], commesse:[] }); }
       function setMasterData(v) { writeJSON(MASTER_DATA_KEY, v); }
       function getAutoPunchState() { return readJSON(AUTO_PUNCH_STATE_KEY, {}); }
       function setAutoPunchState(v) { writeJSON(AUTO_PUNCH_STATE_KEY, v); }
@@ -1640,12 +1656,21 @@ out center tags;`;
       }
       function renderTeamDirectorySelects() {
         const directory = getTeamDirectory();
-        const memberOptions = (directory.members || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
-        const catalogVehicles = (getMasterData().vehicles || []).map((entry)=>entry.name).filter(Boolean);
+        const masterData = getMasterData();
+        const catalogMembers = (masterData.colleagues || []).map((entry)=>entry.name).filter(Boolean);
+        const allMembers = [...new Set([...(directory.members || []), ...catalogMembers])];
+        const memberOptions = allMembers.map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
+        const catalogVehicles = (masterData.vehicles || []).map((entry)=>entry.name).filter(Boolean);
         const allVehicles = [...new Set([...(directory.vehicles || []), ...catalogVehicles])];
         const vehicleOptions = allVehicles.map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
+        const equipmentOptions = (masterData.equipment || []).map((entry)=>`<option value="${String(entry.name || '').replaceAll('"', '&quot;')}"></option>`).join('');
+        const commesseMaster = (masterData.commesse || []).map((entry)=>entry.name).filter(Boolean);
+        const commesseLocal = getCommesse().map((entry)=>entry.nome).filter(Boolean);
+        const commesseOptions = [...new Set([...commesseMaster, ...commesseLocal])].map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
         id('memberSuggestionsList').innerHTML = memberOptions;
         id('vehicleSuggestionsList').innerHTML = vehicleOptions;
+        id('equipmentSuggestionsList').innerHTML = equipmentOptions;
+        id('commessaSuggestionsList').innerHTML = commesseOptions;
       }
       function normalizeVehicleCatalogRows(rows=[]) {
         const seen = new Set();
@@ -1659,23 +1684,70 @@ out center tags;`;
             return true;
           });
       }
-      function saveCatalogVehicle() {
-        const name = id('catalogVehicleName').value.trim();
-        const fuelType = id('catalogVehicleFuelType').value || 'diesel';
-        if (!name) { showCatalogMsg('Inserisci il nome mezzo.', 'err'); return; }
-        const current = getMasterData();
-        const rows = normalizeVehicleCatalogRows([...(current.vehicles || []).filter((row)=>String(row?.name || '').toLowerCase() !== name.toLowerCase()), { name, fuel_type:fuelType }]);
-        setMasterData({ ...current, vehicles: rows });
-        id('catalogVehicleName').value = '';
+      function normalizeSimpleCatalogRows(rows=[]) {
+        const seen = new Set();
+        return rows
+          .map((row)=>({ name: String(row?.name || row || '').trim() }))
+          .filter((row)=>row.name)
+          .filter((row)=>{
+            const key = row.name.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+      }
+      function renderDataHubCategoryButtons() {
+        if (!id('catalogCategories')) return;
+        id('catalogCategories').innerHTML = DATA_HUB_CATEGORIES.map((cat)=>`<button type="button" class="catalog-cat-btn ${cat.key === selectedDataHubCategory ? 'active' : ''}" onclick="openDataHubCategory('${cat.key}')">${cat.label}</button>`).join('');
+      }
+      function getCatalogRowsByCategory(category='vehicles') {
+        const md = getMasterData();
+        if (category === 'vehicles') return normalizeVehicleCatalogRows(md.vehicles || []);
+        return normalizeSimpleCatalogRows(md[category] || []);
+      }
+      function setCatalogRowsByCategory(category='vehicles', rows=[]) {
+        const md = getMasterData();
+        const normalized = category === 'vehicles' ? normalizeVehicleCatalogRows(rows) : normalizeSimpleCatalogRows(rows);
+        setMasterData({ ...md, [category]: normalized });
+      }
+      function openDataHubCategory(category='vehicles') {
+        selectedDataHubCategory = DATA_HUB_CATEGORIES.some((cat)=>cat.key === category) ? category : 'vehicles';
+        renderCatalogDataUI();
+      }
+      function saveCatalogEntry() {
+        const category = selectedDataHubCategory || 'vehicles';
+        const name = id('catalogPrimaryInput').value.trim();
+        if (!name) { showCatalogMsg('Inserisci almeno un nome.', 'err'); return; }
+        const existing = getCatalogRowsByCategory(category);
+        if (category === 'vehicles') {
+          const fuelType = id('catalogVehicleFuelType').value || 'diesel';
+          setCatalogRowsByCategory('vehicles', [...existing.filter((row)=>row.name.toLowerCase() !== name.toLowerCase()), { name, fuel_type:fuelType }]);
+          showCatalogMsg('Mezzo salvato.', 'ok');
+        } else {
+          setCatalogRowsByCategory(category, [...existing.filter((row)=>row.name.toLowerCase() !== name.toLowerCase()), { name }]);
+          showCatalogMsg('Dato salvato.', 'ok');
+        }
+        if (category === 'commesse') {
+          const commesse = getCommesse();
+          if (!commesse.some((row)=>String(row.nome || '').toLowerCase() === name.toLowerCase())) {
+            const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome:name, impianto:'', updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
+            setCommesse([next, ...commesse]);
+            renderCommesseList();
+            renderGlobalCommesseSelect();
+          }
+        }
+        id('catalogPrimaryInput').value = '';
         id('catalogVehicleFuelType').value = 'diesel';
         renderCatalogDataUI();
         renderTeamDirectorySelects();
-        showCatalogMsg('Mezzo salvato nell’anagrafica app.', 'ok');
       }
-      function deleteCatalogVehicle(name='') {
-        const current = getMasterData();
-        const rows = (current.vehicles || []).filter((row)=>String(row?.name || '').toLowerCase() !== String(name || '').toLowerCase());
-        setMasterData({ ...current, vehicles: rows });
+      function deleteCatalogEntry(category='vehicles', name='') {
+        setCatalogRowsByCategory(category, getCatalogRowsByCategory(category).filter((row)=>String(row?.name || '').toLowerCase() !== String(name || '').toLowerCase()));
+        if (category === 'commesse') {
+          setCommesse(getCommesse().filter((row)=>String(row.nome || '').toLowerCase() !== String(name || '').toLowerCase()));
+          renderCommesseList();
+          renderGlobalCommesseSelect();
+        }
         renderCatalogDataUI();
         renderTeamDirectorySelects();
       }
@@ -1686,12 +1758,20 @@ out center tags;`;
         if (match?.fuel_type && id('fuelType')) id('fuelType').value = match.fuel_type;
       }
       function renderCatalogDataUI() {
-        const rows = normalizeVehicleCatalogRows(getMasterData().vehicles || []);
-        if (rows.length !== (getMasterData().vehicles || []).length) setMasterData({ ...getMasterData(), vehicles: rows });
+        const category = selectedDataHubCategory || 'vehicles';
+        const cfg = DATA_HUB_CATEGORIES.find((cat)=>cat.key === category) || DATA_HUB_CATEGORIES[0];
+        renderDataHubCategoryButtons();
+        id('catalogSectionTitle').textContent = cfg.label;
+        id('catalogSectionHint').textContent = cfg.hint;
+        id('catalogPrimaryLabel').firstChild.textContent = category === 'vehicles' ? 'Nome mezzo' : (category === 'commesse' ? 'Nome commessa/cantiere' : 'Nome');
+        id('catalogPrimaryInput').placeholder = category === 'vehicles' ? 'Es. Daily AB123CD / Escavatore Volvo' : (category === 'equipment' ? 'Es. Motosega Stihl' : (category === 'colleagues' ? 'Es. Mario Rossi' : 'Es. Commessa Bologna Nord'));
+        id('catalogSecondaryWrap').classList.toggle('force-hidden', category !== 'vehicles');
+        const rows = getCatalogRowsByCategory(category);
+        if (category === 'vehicles' && rows.length !== (getMasterData().vehicles || []).length) setMasterData({ ...getMasterData(), vehicles: rows });
         const labels = { diesel:'Diesel', octane_95:'Benzina (95)', lpg:'GPL', cng:'Metano (CNG)' };
         id('catalogVehiclesList').innerHTML = rows.length
-          ? rows.map((row)=>`<li class="catalog-item"><p><strong>${escapeHtml(row.name)}</strong> • ${labels[row.fuel_type] || row.fuel_type}</p><button type="button" class="secondary btn-small" onclick="deleteCatalogVehicle('${String(row.name).replaceAll("'", "\\'")}')">Elimina</button></li>`).join('')
-          : '<li class="catalog-item"><p>Nessun mezzo salvato.</p></li>';
+          ? rows.map((row)=>`<li class="catalog-item"><p><strong>${escapeHtml(row.name)}</strong>${category === 'vehicles' ? ` • ${labels[row.fuel_type] || row.fuel_type}` : ''}</p><button type="button" class="secondary btn-small" onclick="deleteCatalogEntry('${category}','${String(row.name).replaceAll("'", "\\'")}')">Elimina</button></li>`).join('')
+          : `<li class="catalog-item"><p>Nessun dato salvato per ${escapeHtml(cfg.label.toLowerCase())}.</p></li>`;
       }
       function appendSuggestionToTextarea(inputId, textareaId) {
         const value = id(inputId).value.trim();
@@ -3181,6 +3261,7 @@ out center tags;`;
         const rows = getCommesse().slice().sort((a,b)=>String(a.nome || '').localeCompare(String(b.nome || '')));
         select.innerHTML = `<option value="">Seleziona commessa</option>${rows.map((c)=>`<option value="${escapeHtml(c.nome || '')}">${escapeHtml(c.nome || '')}${c.impianto ? ` • ${escapeHtml(c.impianto)}` : ''}</option>`).join('')}`;
         if (rows.some((c)=>c.nome === current)) select.value = current;
+        renderTeamDirectorySelects();
       }
       function promptAddCommessa() {
         const nome = (window.prompt('Nome commessa:') || '').trim();
@@ -4257,6 +4338,7 @@ out center tags;`;
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
         loadProfileUI();
+        renderDataHubCategoryButtons();
         renderTeamUI();
         renderCatalogDataUI();
         loadTeamDirectoryFromSheet(true);
@@ -4326,8 +4408,8 @@ out center tags;`;
         id('addPreventivoRowBtn').addEventListener('click', ()=>addPreventivoRow());
         id('finalizePreventivoBtn').addEventListener('click', finalizePreventivo);
         if (id('findFuelStationsBtn')) id('findFuelStationsBtn').addEventListener('click', findNearbyFuelStations);
-        if (id('saveCatalogVehicleBtn')) id('saveCatalogVehicleBtn').addEventListener('click', saveCatalogVehicle);
-        if (id('catalogVehicleName')) id('catalogVehicleName').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveCatalogVehicle(); } });
+        if (id('saveCatalogEntryBtn')) id('saveCatalogEntryBtn').addEventListener('click', saveCatalogEntry);
+        if (id('catalogPrimaryInput')) id('catalogPrimaryInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveCatalogEntry(); } });
         if (id('fuelVehicle')) id('fuelVehicle').addEventListener('change', ()=>applyFuelTypeByVehicleName(id('fuelVehicle').value));
         id('saveGoogleClientIdBtn').addEventListener('click', saveGoogleClientIdFromUI);
         id('connectGoogleDriveBtn').addEventListener('click', connectGoogleDrive);
@@ -4423,7 +4505,8 @@ out center tags;`;
       window.showDaySummary = showDaySummary;
       window.removeTeamMember = removeTeamMember;
       window.removeTeamVehicle = removeTeamVehicle;
-      window.deleteCatalogVehicle = deleteCatalogVehicle;
+      window.deleteCatalogEntry = deleteCatalogEntry;
+      window.openDataHubCategory = openDataHubCategory;
       window.openTeamRequestForDate = openTeamRequestForDate;
       window.openGoogleMapsNavigation = openGoogleMapsNavigation;
     </script>
