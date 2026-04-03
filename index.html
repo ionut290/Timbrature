@@ -156,6 +156,11 @@
       .viewer-overlay { position:fixed; inset:0; z-index:9999; background:rgba(2,6,23,.92); display:flex; align-items:center; justify-content:center; padding:16px; }
       .viewer-overlay img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.45); }
       .viewer-close { position:fixed; top:12px; right:12px; min-height:40px; min-width:40px; border-radius:999px; font-size:18px; background:#ef4444; }
+      .fuel-map { margin-top:10px; height:320px; border:1px solid #cbd5e1; border-radius:10px; overflow:hidden; }
+      .fuel-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
+      .fuel-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+      .fuel-item h4 { margin:0 0 4px; font-size:14px; color:#0f172a; }
+      .fuel-item p { margin:0; font-size:12px; color:#475569; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
     </style>
@@ -176,10 +181,9 @@
               <button type="button" class="menu-link" data-menu-target="teamCard">Caposquadra / squadra</button>
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
               <button type="button" class="menu-link" data-menu-target="calendarioCard">Calendario</button>
-              <button type="button" class="menu-link" data-menu-target="giornaleCard">Giornale Cantiere</button>
               <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
               <button type="button" class="menu-link" data-menu-target="createPreventivoCard">Crea preventivo</button>
-              <button type="button" class="menu-link" data-menu-target="preventiviListCard">Elenco preventivi</button>
+              <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
               <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
@@ -690,10 +694,7 @@
           </div>
           <p id="preventivoTotalLine" class="status-line status-neutral">Totale: € 0,00</p>
           <p id="preventivoEsito" class="msg"></p>
-        </div>
-
-        <div class="card hidden" id="preventiviListCard">
-          <h2>Elenco preventivi</h2>
+          <h3 style="margin:16px 0 8px;">Elenco preventivi</h3>
           <p class="small">Qui trovi i preventivi PDF salvati nell'app. Se Google Drive è collegato, vengono caricati anche nella cartella <strong>Timbrature/Preventivi</strong>.</p>
           <ul id="preventiviList" class="doc-list"></ul>
           <p id="preventiviEmptyText" class="doc-empty">Nessun preventivo salvato.</p>
@@ -721,10 +722,38 @@
           <p id="backupLinks" class="small"></p>
           <p id="backupEsito" class="msg"></p>
         </div>
+
+        <div class="card hidden" id="carburanteCard">
+          <h2>Carburante mezzo</h2>
+          <p class="small">Compila il form e trova i distributori <strong>Q8</strong> e <strong>ENI</strong> vicini a te che erogano il carburante selezionato.</p>
+          <div class="grid">
+            <label>Mezzo
+              <input type="text" id="fuelVehicle" placeholder="Es. A119 / Escavatore" />
+            </label>
+            <label>Carburante
+              <select id="fuelType">
+                <option value="diesel">Diesel</option>
+                <option value="octane_95">Benzina (95)</option>
+                <option value="lpg">GPL</option>
+                <option value="cng">Metano (CNG)</option>
+              </select>
+            </label>
+            <label>Raggio ricerca (km)
+              <input type="number" id="fuelRadiusKm" min="1" max="25" step="1" value="8" />
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="findFuelStationsBtn">Trova distributori vicini</button>
+          </div>
+          <p id="fuelEsito" class="msg"></p>
+          <div id="fuelMap" class="fuel-map"></div>
+          <ul id="fuelStationsList" class="fuel-list"></ul>
+        </div>
       </div>
     </div>
     <datalist id="memberSuggestionsList"></datalist>
     <datalist id="vehicleSuggestionsList"></datalist>
+    <datalist id="prezzarioSuggestionsList"></datalist>
 
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
@@ -751,7 +780,7 @@
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'createPreventivoCard', 'preventiviListCard', 'backupCard', 'userBox'];
+      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'createPreventivoCard', 'carburanteCard', 'backupCard', 'userBox'];
       const PREZZARIO_ITEMS = [
         { code:'A1', label:'Trituraz. erba NO rim (fino a 500 mq)', unit:'AC', price:59.25 },
         { code:'A2', label:'Trituraz. erba NO rim (oltre 500 mq)', unit:'M2', price:0.08 },
@@ -784,6 +813,7 @@
         { code:'B18', label:'Diserbo chimico recinzioni/piazzali', unit:'M2', price:3.17 },
         { code:'B19', label:'Diserbo chimico cordoli stradali', unit:'M', price:0.80 },
         { code:'B20', label:'Diserbo manuale', unit:'M2', price:4.23 },
+        { code:'B21', label:'Pulizia di fossati e canali (max 8 m)', unit:'M', price:16.92 },
         { code:'B22', label:'Rimozione/trasporto/smaltimento materiale', unit:'TO', price:99.00 },
         { code:'B25', label:'Manodopera con motosega/decespugliatore', unit:'H', price:27.84 },
         { code:'B26', label:'Recinzione metallica fornitura/posa', unit:'M2', price:23.27 },
@@ -805,7 +835,14 @@
         { code:'C05', label:'Fornitura e trasporto sale', unit:'TO', price:158.65 },
         { code:'C06', label:'Spalatura neve a mano', unit:'H', price:27.84 },
         { code:'20030031', label:'Pulizia mediante spazzatrice industriale', unit:'H', price:80.00 }
-      ];
+      ].map((item)=>({
+        ...item,
+        shortText: `${item.code} ${item.label}`,
+        extendedText: item.label,
+        capitolatoPrice: Number(item.price),
+        ribassoPercent: 1,
+        ribassoFlag: item.code === 'B32' || item.code === 'B33' || item.code === '20030031' ? 'NO' : 'SI'
+      }));
       const CONTRACT_PRESETS = {
         EDILIZIA: {
           label: 'Edilizia industria',
@@ -884,6 +921,8 @@
       let selectedCommessaId = '';
       let journalPendingPhotos = [];
       let preventivoDraftRows = [];
+      let fuelMap = null;
+      let fuelMarkersLayer = null;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -903,6 +942,7 @@
       const showGiornaleMsg = (m, t='ok') => { id('giornaleEsito').className = `msg ${t}`; id('giornaleEsito').textContent = m; };
       const showPreventivoMsg = (m, t='ok') => { id('preventivoEsito').className = `msg ${t}`; id('preventivoEsito').textContent = m; };
       const showPreventiviListMsg = (m, t='ok') => { id('preventiviEsito').className = `msg ${t}`; id('preventiviEsito').textContent = m; };
+      const showFuelMsg = (m, t='ok') => { id('fuelEsito').className = `msg ${t}`; id('fuelEsito').textContent = m; };
       function getNotificationSettings() {
         return readJSON(NOTIFICATION_SETTINGS_KEY, {
           entry_time: '07:55',
@@ -1179,11 +1219,228 @@
           { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:json&gid=${gid}`, type:'gviz_json' }
         ];
       }
+      function getActivePrezzarioItems() { return PREZZARIO_ITEMS; }
+      function renderPrezzarioSuggestions() {
+        const list = id('prezzarioSuggestionsList');
+        if (!list) return;
+        try {
+          list.innerHTML = getActivePrezzarioItems()
+            .map((item)=>{
+              const code = String(item.code || '').replace(/"/g, '&quot;');
+              const label = String(item.shortText || item.label || '').replace(/</g, '&lt;');
+              return `<option value="${code}">${label}</option>`;
+            })
+            .join('');
+        } catch (error) {
+          console.warn('Impossibile costruire suggerimenti prezzario:', error);
+          list.innerHTML = '';
+        }
+      }
       function updateWelcomeMessage() {
         const profile = getProfile();
         const displayName = (profile.nome || 'Ionel Varga').trim();
         id('welcomeText').textContent = 'Powered by Ionel Varga';
         id('locationBadge').textContent = `Utente: ${displayName}`;
+      }
+      function fuelTypeToOsmTag(fuelType='diesel') {
+        const map = { diesel:'fuel:diesel', octane_95:'fuel:octane_95', lpg:'fuel:lpg', cng:'fuel:cng' };
+        return map[String(fuelType || 'diesel')] || 'fuel:diesel';
+      }
+      function isPreferredFuelBrand(tags={}) {
+        const brand = String(tags.brand || tags.operator || tags.name || '').toLowerCase();
+        return /(q8|eni|agip)/i.test(brand);
+      }
+      function stationProvidesFuel(tags={}, fuelType='diesel') {
+        const key = fuelTypeToOsmTag(fuelType);
+        const value = String(tags[key] || '').toLowerCase();
+        if (value === 'yes' || value === '1' || value === 'true') return true;
+        if (value === 'no') return false;
+        return fuelType === 'diesel' || fuelType === 'octane_95';
+      }
+      function haversineKm(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const toRad = (v)=>v * Math.PI / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+      async function ensureLeafletLoaded() {
+        if (window.L?.map) return;
+        await new Promise((resolve, reject)=>{
+          const css = document.createElement('link');
+          css.rel = 'stylesheet';
+          css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(css);
+          const script = document.createElement('script');
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.onload = resolve;
+          script.onerror = ()=>reject(new Error('Impossibile caricare mappa Leaflet.'));
+          document.head.appendChild(script);
+        });
+      }
+      async function getCurrentPositionSafe() {
+        if (!navigator.geolocation) throw new Error('Geolocalizzazione non supportata dal dispositivo.');
+        return new Promise((resolve, reject)=>{
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:12_000, maximumAge:30_000 });
+        });
+      }
+      function extractLatLon(position) {
+        const lat = Number(position?.coords?.latitude ?? position?.latitude ?? position?.lat);
+        const lon = Number(position?.coords?.longitude ?? position?.longitude ?? position?.lng ?? position?.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          throw new Error('Posizione GPS non valida. Attiva la localizzazione precisa e riprova.');
+        }
+        return { lat, lon };
+      }
+      async function fetchNearbyFuelStations(lat, lon, radiusKm=8, fuelType='diesel') {
+        const radiusM = Math.max(1000, Math.min(Number(radiusKm || 8) * 1000, 25000));
+        const query = `
+[out:json][timeout:25];
+(
+  node["amenity"="fuel"](around:${radiusM},${lat},${lon});
+  way["amenity"="fuel"](around:${radiusM},${lat},${lon});
+  relation["amenity"="fuel"](around:${radiusM},${lat},${lon});
+);
+out center tags;`;
+        const endpoints = [
+          'https://overpass-api.de/api/interpreter',
+          'https://overpass.kumi.systems/api/interpreter',
+          'https://overpass.openstreetmap.fr/api/interpreter'
+        ];
+        let payload = null;
+        let lastError = null;
+        for (const endpoint of endpoints) {
+          try {
+            const directRes = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+              body: query
+            });
+            if (directRes.ok) {
+              payload = await directRes.json();
+              break;
+            }
+            const formRes = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+              body: `data=${encodeURIComponent(query)}`
+            });
+            if (formRes.ok) {
+              payload = await formRes.json();
+              break;
+            }
+            lastError = new Error(`Endpoint Overpass non disponibile (${endpoint})`);
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        if (!payload) {
+          console.warn('Overpass non disponibile:', lastError);
+          throw new Error('Servizio mappa distributori non disponibile ora. Riprova tra poco.');
+        }
+        const elements = Array.isArray(payload?.elements) ? payload.elements : [];
+        return elements
+          .map((el)=>{
+            const stLat = Number(el.lat ?? el.center?.lat);
+            const stLon = Number(el.lon ?? el.center?.lon);
+            if (!Number.isFinite(stLat) || !Number.isFinite(stLon)) return null;
+            const tags = el.tags || {};
+            return {
+              id: `${el.type}-${el.id}`,
+              name: tags.name || tags.brand || tags.operator || 'Distributore',
+              brand: tags.brand || tags.operator || '',
+              address: [tags['addr:street'], tags['addr:housenumber'], tags['addr:city']].filter(Boolean).join(', '),
+              lat: stLat,
+              lon: stLon,
+              tags,
+              distanceKm: haversineKm(lat, lon, stLat, stLon)
+            };
+          })
+          .filter(Boolean)
+          .filter((row)=>isPreferredFuelBrand(row.tags) && stationProvidesFuel(row.tags, fuelType))
+          .sort((a,b)=>a.distanceKm - b.distanceKm)
+          .slice(0, 25);
+      }
+      function openGoogleMapsNavigation(lat, lon) {
+        const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}&travelmode=driving`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      function renderFuelStationsMap(userLat, userLon, stations=[]) {
+        if (!window.L?.map) return;
+        const mapEl = id('fuelMap');
+        if (!mapEl) return;
+        if (!fuelMap) {
+          fuelMap = window.L.map(mapEl).setView([userLat, userLon], 13);
+          window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(fuelMap);
+          fuelMarkersLayer = window.L.layerGroup().addTo(fuelMap);
+        } else {
+          fuelMap.setView([userLat, userLon], 13);
+          fuelMarkersLayer?.clearLayers();
+        }
+        const truckIcon = window.L.divIcon({
+          className: 'fuel-user-truck-icon',
+          html: '<div style="background:#1d4ed8;color:#fff;border-radius:999px;min-width:34px;min-height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);">P🚛</div>',
+          iconSize: [34, 34],
+          iconAnchor: [17, 17]
+        });
+        const userMarker = window.L.marker([userLat, userLon], { icon: truckIcon }).bindPopup('La tua posizione (P in camion)');
+        fuelMarkersLayer.addLayer(userMarker);
+        stations.forEach((st)=>{
+          const marker = window.L.marker([st.lat, st.lon]);
+          marker.bindPopup(`<strong>${escapeHtml(st.name)}</strong><br>${escapeHtml(st.brand || '')}<br><button type="button" onclick="window.openGoogleMapsNavigation(${st.lat},${st.lon})">Naviga con Google Maps</button>`);
+          marker.on('click', ()=>openGoogleMapsNavigation(st.lat, st.lon));
+          fuelMarkersLayer.addLayer(marker);
+        });
+      }
+      function renderFuelStationsList(stations=[]) {
+        const list = id('fuelStationsList');
+        if (!list) return;
+        if (!stations.length) {
+          list.innerHTML = '<li class="small">Nessun distributore Q8/ENI compatibile trovato nel raggio indicato.</li>';
+          return;
+        }
+        list.innerHTML = stations.map((st)=>`
+          <li class="fuel-item">
+            <div>
+              <h4>${escapeHtml(st.name)} ${st.brand ? `(${escapeHtml(st.brand)})` : ''}</h4>
+              <p>${escapeHtml(st.address || 'Indirizzo non disponibile')}</p>
+              <p>Distanza: ${st.distanceKm.toFixed(2)} km</p>
+            </div>
+            <button type="button" class="btn-small" data-fuel-nav="${escapeHtml(st.id)}">Naviga</button>
+          </li>
+        `).join('');
+        list.querySelectorAll('[data-fuel-nav]').forEach((btn)=>{
+          btn.addEventListener('click', ()=>{
+            const target = stations.find((st)=>st.id === btn.dataset.fuelNav);
+            if (!target) return;
+            openGoogleMapsNavigation(target.lat, target.lon);
+          });
+        });
+      }
+      async function findNearbyFuelStations() {
+        const fuelType = id('fuelType')?.value || 'diesel';
+        const radiusKm = Number(id('fuelRadiusKm')?.value || 8);
+        const vehicle = id('fuelVehicle')?.value?.trim() || 'Mezzo';
+        showFuelMsg(`Ricerca distributori per ${vehicle} (${fuelType}) in corso...`, 'ok');
+        try {
+          const position = await getCurrentPositionSafe();
+          const { lat, lon } = extractLatLon(position);
+          await ensureLeafletLoaded();
+          const stations = await fetchNearbyFuelStations(lat, lon, radiusKm, fuelType);
+          renderFuelStationsMap(lat, lon, stations);
+          renderFuelStationsList(stations);
+          showFuelMsg(`Trovati ${stations.length} distributori Q8/ENI compatibili. Tocca un punto per avviare Google Maps.`, stations.length ? 'ok' : 'err');
+        } catch (error) {
+          const geoCode = Number(error?.code);
+          if (geoCode === 1) showFuelMsg('Permesso posizione negato. Consenti la geolocalizzazione e riprova.', 'err');
+          else if (geoCode === 2) showFuelMsg('Posizione non disponibile al momento.', 'err');
+          else if (geoCode === 3) showFuelMsg('Timeout geolocalizzazione. Riprova tra qualche secondo.', 'err');
+          else showFuelMsg(error.message || 'Ricerca distributori non riuscita.', 'err');
+        }
       }
 
       function programForDate(dateValue) {
@@ -2896,15 +3153,10 @@
         const n = Number(value || 0);
         return new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number.isFinite(n) ? n : 0);
       }
-      function preventivoCatalogOptionsHtml(selectedCode='') {
-        return PREZZARIO_ITEMS.map((item)=>{
-          const selected = item.code === selectedCode ? 'selected' : '';
-          return `<option value="${escapeHtml(item.code)}" ${selected}>${escapeHtml(item.code)} - ${escapeHtml(item.label)} (${formatCurrencyEUR(item.price)}/${escapeHtml(item.unit)})</option>`;
-        }).join('');
-      }
       function addPreventivoRow(prefill={}) {
+        const items = getActivePrezzarioItems();
         preventivoDraftRows.push({
-          code: String(prefill.code || PREZZARIO_ITEMS[0]?.code || ''),
+          code: String(prefill.code || items[0]?.code || ''),
           quantity: Number(prefill.quantity || 1),
           note: String(prefill.note || '')
         });
@@ -2916,7 +3168,8 @@
         else renderPreventivoRows();
       }
       function getPrezzarioItemByCode(code='') {
-        return PREZZARIO_ITEMS.find((item)=>item.code === String(code || '').trim()) || null;
+        const clean = String(code || '').trim();
+        return getActivePrezzarioItems().find((item)=>item.code === clean) || null;
       }
       function getPreventivoComputedRows() {
         return preventivoDraftRows.map((row, index)=>{
@@ -2938,44 +3191,68 @@
       function renderPreventivoRows() {
         const wrap = id('preventivoRowsContainer');
         if (!wrap) return;
-        const rows = getPreventivoComputedRows();
-        wrap.innerHTML = rows.map((row)=>`
+        try {
+          const rows = getPreventivoComputedRows();
+          wrap.innerHTML = rows.map((row)=>`
           <div class="group-row">
             <div class="grid">
               <label>Codice prestazione
-                <select data-preventivo-field="code" data-row-index="${row.index}">${preventivoCatalogOptionsHtml(row.code)}</select>
+                <input type="text" list="prezzarioSuggestionsList" data-preventivo-field="code" data-row-index="${row.index}" value="${escapeHtml(row.code)}" placeholder="Es. B9" />
+              </label>
+              <label>Testo breve
+                <input type="text" value="${escapeHtml(row.shortText || '-')}" readonly />
+              </label>
+              <label>Testo esteso
+                <textarea rows="2" readonly>${escapeHtml(getPrezzarioItemByCode(row.code)?.extendedText || row.shortText || '-')}</textarea>
+              </label>
+              <label>Unità di misura
+                <input type="text" value="${escapeHtml(row.unit || '-')}" readonly />
               </label>
               <label>Quantità
                 <input type="number" min="0" step="0.01" data-preventivo-field="quantity" data-row-index="${row.index}" value="${row.quantity}" />
               </label>
-              <label>Prezzo unitario
+              <label>Prezzo Capitolato (€)
+                <input type="text" value="${formatCurrencyEUR(getPrezzarioItemByCode(row.code)?.capitolatoPrice || row.unitPrice)}" readonly />
+              </label>
+              <label>% Ribasso
+                <input type="text" value="${escapeHtml(String(getPrezzarioItemByCode(row.code)?.ribassoPercent ?? 1))}" readonly />
+              </label>
+              <label>Ribasso Sì/No
+                <input type="text" value="${escapeHtml(String(getPrezzarioItemByCode(row.code)?.ribassoFlag || 'SI'))}" readonly />
+              </label>
+              <label>Prezzo NETTO RIBASSATO (€)
                 <input type="text" value="${formatCurrencyEUR(row.unitPrice)} / ${escapeHtml(row.unit || '-')}" readonly />
               </label>
-              <label>Importo riga
+              <label>IMPORTO PRESTAZIONE (€)
                 <input type="text" value="${formatCurrencyEUR(row.amount)}" readonly />
               </label>
             </div>
-            <label style="margin-top:8px;">Note attività
+            <label style="margin-top:8px;">NOTE/DESCRIZIONI ATTIVITA' SVOLTA
               <textarea rows="2" data-preventivo-field="note" data-row-index="${row.index}">${escapeHtml(row.note)}</textarea>
             </label>
             <div class="inline-actions"><button type="button" class="secondary btn-small" data-preventivo-remove="${row.index}">Rimuovi riga</button></div>
           </div>
         `).join('');
-        wrap.querySelectorAll('[data-preventivo-field]').forEach((input)=>{
-          input.addEventListener('change', ()=>{
-            const field = input.dataset.preventivoField;
-            const rowIndex = Number(input.dataset.rowIndex || -1);
-            if (!Number.isInteger(rowIndex) || rowIndex < 0 || !preventivoDraftRows[rowIndex]) return;
-            if (field === 'quantity') preventivoDraftRows[rowIndex].quantity = Number(input.value || 0);
-            else preventivoDraftRows[rowIndex][field] = input.value;
-            renderPreventivoRows();
+          wrap.querySelectorAll('[data-preventivo-field]').forEach((input)=>{
+            input.addEventListener('change', ()=>{
+              const field = input.dataset.preventivoField;
+              const rowIndex = Number(input.dataset.rowIndex || -1);
+              if (!Number.isInteger(rowIndex) || rowIndex < 0 || !preventivoDraftRows[rowIndex]) return;
+              if (field === 'quantity') preventivoDraftRows[rowIndex].quantity = Number(input.value || 0);
+              else if (field === 'code') preventivoDraftRows[rowIndex].code = String(input.value || '').trim().split(/\s+/)[0].toUpperCase();
+              else preventivoDraftRows[rowIndex][field] = input.value;
+              renderPreventivoRows();
+            });
           });
-        });
-        wrap.querySelectorAll('[data-preventivo-remove]').forEach((btn)=>{
-          btn.addEventListener('click', ()=>removePreventivoRow(Number(btn.dataset.preventivoRemove || -1)));
-        });
-        const total = rows.reduce((acc, row)=>acc + Number(row.amount || 0), 0);
-        id('preventivoTotalLine').textContent = `Totale: ${formatCurrencyEUR(total)}`;
+          wrap.querySelectorAll('[data-preventivo-remove]').forEach((btn)=>{
+            btn.addEventListener('click', ()=>removePreventivoRow(Number(btn.dataset.preventivoRemove || -1)));
+          });
+          const total = rows.reduce((acc, row)=>acc + Number(row.amount || 0), 0);
+          id('preventivoTotalLine').textContent = `Totale: ${formatCurrencyEUR(total)}`;
+        } catch (error) {
+          console.error('Errore rendering righe preventivo:', error);
+          wrap.innerHTML = '<p class="small">Errore rendering prezzario. Ricarica la pagina.</p>';
+        }
       }
       function renderPreventiviList() {
         const rows = getPreventivi();
@@ -3033,42 +3310,68 @@
       async function createPreventivoPdfBlob(preventivo={}) {
         await ensureJsPdfLoaded();
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-        let y = 42;
-        doc.setFontSize(16);
-        doc.text('PREVENTIVO', 40, y);
-        y += 24;
-        doc.setFontSize(10);
-        doc.text(`Cliente: ${preventivo.cliente || '-'}`, 40, y); y += 14;
-        doc.text(`Impianto: ${preventivo.impianto || '-'}   Comune: ${preventivo.comune || '-'}`, 40, y); y += 14;
-        doc.text(`Data: ${preventivo.data || nowDateISO()}`, 40, y); y += 16;
-        const descr = String(preventivo.descrizione || '-');
-        const descrLines = doc.splitTextToSize(`Descrizione: ${descr}`, 510);
-        doc.text(descrLines, 40, y); y += descrLines.length * 12 + 10;
-        doc.setFontSize(9);
-        doc.text('Codice', 40, y);
-        doc.text('Descrizione', 90, y);
-        doc.text('Q.ta', 360, y);
-        doc.text('Prezzo', 420, y);
-        doc.text('Importo', 490, y);
-        y += 8;
-        doc.line(40, y, 555, y);
-        y += 14;
-        (Array.isArray(preventivo.rows) ? preventivo.rows : []).forEach((row)=>{
-          if (y > 780) { doc.addPage(); y = 48; }
-          const textLines = doc.splitTextToSize(`${row.shortText || ''}${row.note ? ` | Note: ${row.note}` : ''}`, 250);
-          doc.text(String(row.code || ''), 40, y);
-          doc.text(textLines, 90, y);
-          doc.text(String(row.quantity || 0), 360, y);
-          doc.text(formatCurrencyEUR(row.unitPrice || 0), 420, y);
-          doc.text(formatCurrencyEUR(row.amount || 0), 490, y);
-          y += Math.max(14, textLines.length * 11);
-        });
-        y += 8;
-        doc.line(40, y, 555, y);
-        y += 16;
+        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+        const pageW = 210;
+        let y = 8;
         doc.setFontSize(12);
-        doc.text(`Totale preventivo: ${formatCurrencyEUR(preventivo.total || 0)}`, 40, y);
+        doc.text('PREVENTIVO - FORMATO HERA/ASSOVERDE', 8, y);
+        y += 6;
+        doc.setFontSize(9);
+        doc.text(`NOME IMPIANTO: ${preventivo.impianto || '-'}`, 8, y);
+        doc.text(`COMUNE: ${preventivo.comune || '-'}`, 115, y);
+        y += 5;
+        doc.text(`RICHIEDENTE INTERVENTO: ${preventivo.cliente || '-'}`, 8, y);
+        doc.text(`DATA RICHIESTA: ${preventivo.data || nowDateISO()}`, 115, y);
+        y += 5;
+        const descLines = doc.splitTextToSize(`DESCRIZIONE INTERVENTO: ${preventivo.descrizione || '-'}`, 194);
+        doc.text(descLines, 8, y);
+        y += descLines.length * 4 + 2;
+        doc.setFillColor(148, 221, 74);
+        doc.rect(135, y, 67, 8, 'F');
+        doc.setFontSize(10);
+        doc.text('TOTALE INTERVENTO', 138, y + 5.5);
+        doc.text(formatCurrencyEUR(preventivo.total || 0), 184, y + 5.5, { align:'right' });
+        y += 10;
+        const headers = ['Cod. Prest. Est.', 'Testo breve', 'TESTO ESTESO', 'UM', 'Q.ta', 'Prezzo Capit.', '% Rib.', 'Ribasso', 'Prezzo NETTO', 'IMPORTO', 'NOTE'];
+        const widths = [18, 26, 34, 10, 10, 14, 10, 12, 18, 16, 32];
+        let x = 4;
+        doc.setFillColor(255, 242, 0);
+        headers.forEach((h, idx)=>{
+          doc.rect(x, y, widths[idx], 10, 'F');
+          doc.rect(x, y, widths[idx], 10);
+          doc.setFontSize(7);
+          doc.text(doc.splitTextToSize(h, widths[idx]-1), x + 1, y + 3);
+          x += widths[idx];
+        });
+        y += 10;
+        (Array.isArray(preventivo.rows) ? preventivo.rows : []).forEach((row)=>{
+          if (y > 280) { doc.addPage(); y = 10; }
+          const item = getPrezzarioItemByCode(row.code) || {};
+          const cells = [
+            row.code || '',
+            item.shortText || row.shortText || '',
+            item.extendedText || row.shortText || '',
+            item.unit || row.unit || '',
+            String(row.quantity || 0),
+            (item.capitolatoPrice ?? row.unitPrice ?? 0).toFixed(2),
+            String(item.ribassoPercent ?? 1),
+            item.ribassoFlag || 'SI',
+            (row.unitPrice || 0).toFixed(2),
+            (row.amount || 0).toFixed(2),
+            row.note || ''
+          ];
+          const lineH = 8;
+          x = 4;
+          cells.forEach((cell, idx)=>{
+            doc.setFillColor(idx === 0 ? 255 : 242, idx === 0 ? 242 : 242, idx === 0 ? 0 : 242);
+            doc.rect(x, y, widths[idx], lineH, 'F');
+            doc.rect(x, y, widths[idx], lineH);
+            doc.setFontSize(6.5);
+            doc.text(doc.splitTextToSize(String(cell), widths[idx]-1), x + 1, y + 3);
+            x += widths[idx];
+          });
+          y += lineH;
+        });
         return doc.output('blob');
       }
       async function uploadPreventivoPdfToDrive(accessToken='', parentFolderId='', fileName='', pdfBlob=null) {
@@ -3156,13 +3459,14 @@
             }
           }
           showPreventivoMsg(`Preventivo finalizzato. ${driveMsg}`, 'ok');
-          setMenuSection('preventiviListCard');
+          setMenuSection('createPreventivoCard');
         } catch (error) {
           showPreventivoMsg(error.message || 'Errore durante la creazione del preventivo PDF.', 'err');
         }
       }
       function initPreventivoForm() {
         if (!id('preventivoData').value) id('preventivoData').value = nowDateISO();
+        renderPrezzarioSuggestions();
         preventivoDraftRows = [];
         addPreventivoRow();
         renderPreventiviList();
@@ -3753,6 +4057,7 @@
         menuPanelIds.forEach((name)=>id(name).classList.toggle('hidden', name !== panelId));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId));
         if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
+        if (panelId === 'carburanteCard' && fuelMap) setTimeout(()=>fuelMap.invalidateSize(), 120);
         if (panelId === 'giornaleCard') {
           backToCommesse();
           renderCommesseList();
@@ -3781,7 +4086,12 @@
         loadMyMonth();
         initAgendaCalendar();
         renderDocuments();
-        initPreventivoForm();
+        try {
+          initPreventivoForm();
+        } catch (error) {
+          console.error('Errore inizializzazione preventivo:', error);
+          showPreventivoMsg('Errore inizializzazione modulo preventivi. Ricarica la pagina.', 'err');
+        }
         renderCommesseList();
         renderGlobalCommesseSelect();
         initNotificationUI();
@@ -3836,6 +4146,7 @@
         id('saveProfile').addEventListener('click', saveProfile);
         id('addPreventivoRowBtn').addEventListener('click', ()=>addPreventivoRow());
         id('finalizePreventivoBtn').addEventListener('click', finalizePreventivo);
+        if (id('findFuelStationsBtn')) id('findFuelStationsBtn').addEventListener('click', findNearbyFuelStations);
         id('saveGoogleClientIdBtn').addEventListener('click', saveGoogleClientIdFromUI);
         id('connectGoogleDriveBtn').addEventListener('click', connectGoogleDrive);
         id('disconnectGoogleDriveBtn').addEventListener('click', disconnectGoogleDrive);
@@ -3928,6 +4239,7 @@
       window.removeTeamMember = removeTeamMember;
       window.removeTeamVehicle = removeTeamVehicle;
       window.openTeamRequestForDate = openTeamRequestForDate;
+      window.openGoogleMapsNavigation = openGoogleMapsNavigation;
     </script>
   </body>
 </html>
