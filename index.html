@@ -182,6 +182,7 @@
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
               <button type="button" class="menu-link" data-menu-target="calendarioCard">Calendario</button>
               <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
+              <button type="button" class="menu-link" data-menu-target="prezzarioCard">Prezzario</button>
               <button type="button" class="menu-link" data-menu-target="createPreventivoCard">Crea preventivo</button>
               <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
               <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
@@ -667,6 +668,36 @@
           <p id="docUploadEsito" class="msg"></p>
         </div>
 
+        <div class="card hidden" id="prezzarioCard">
+          <h2>Gestione prezzario</h2>
+          <p class="small">Scegli il prezzario attivo per i preventivi. Puoi usare il catalogo interno oppure una fonte esterna (Google Sheet o PDF).</p>
+          <div class="grid">
+            <label>Prezzario attivo
+              <select id="prezzarioTypeSelect">
+                <option value="DEFAULT">Standard</option>
+                <option value="HERA">Hera</option>
+                <option value="ASSOVERDE">Assoverde</option>
+              </select>
+            </label>
+            <label>Sorgente dati
+              <select id="prezzarioSourceType">
+                <option value="builtin">Catalogo interno</option>
+                <option value="sheet">Google Sheet (Drive)</option>
+                <option value="pdf">PDF pubblico (link)</option>
+              </select>
+            </label>
+            <label>URL sorgente
+              <input type="url" id="prezzarioSourceUrl" placeholder="Incolla link Google Sheet o PDF" />
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="savePrezzarioConfigBtn">Salva configurazione</button>
+            <button type="button" class="secondary" id="syncPrezzarioBtn">Aggiorna da sorgente</button>
+          </div>
+          <p id="prezzarioStatusLine" class="status-line status-neutral">Prezzario standard attivo.</p>
+          <p id="prezzarioEsito" class="msg"></p>
+        </div>
+
         <div class="card hidden" id="createPreventivoCard">
           <h2>Crea preventivo</h2>
           <div class="grid">
@@ -775,6 +806,7 @@
       const COMMESSE_KEY = 'timbrature.local.commesse';
       const GIORNALE_ENTRIES_KEY = 'timbrature.local.giornale.entries';
       const PREVENTIVI_KEY = 'timbrature.local.preventivi';
+      const PREZZARIO_CONFIG_KEY = 'timbrature.local.prezzario.config';
       const DRIVE_BACKUP_STATE_KEY = 'timbrature.local.drive.backup.state';
       const GOOGLE_CLIENT_ID_KEY = 'timbrature.local.google.client_id';
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
@@ -941,6 +973,7 @@
       const showBackupMsg = (m, t='ok') => { id('backupEsito').className = `msg ${t}`; id('backupEsito').textContent = m; };
       const showGiornaleMsg = (m, t='ok') => { id('giornaleEsito').className = `msg ${t}`; id('giornaleEsito').textContent = m; };
       const showPreventivoMsg = (m, t='ok') => { id('preventivoEsito').className = `msg ${t}`; id('preventivoEsito').textContent = m; };
+      const showPrezzarioMsg = (m, t='ok') => { id('prezzarioEsito').className = `msg ${t}`; id('prezzarioEsito').textContent = m; };
       const showPreventiviListMsg = (m, t='ok') => { id('preventiviEsito').className = `msg ${t}`; id('preventiviEsito').textContent = m; };
       const showFuelMsg = (m, t='ok') => { id('fuelEsito').className = `msg ${t}`; id('fuelEsito').textContent = m; };
       function getNotificationSettings() {
@@ -4044,6 +4077,20 @@ out center tags;`;
         }
         showBackupMsg('Client ID salvato sul browser locale.', 'ok');
       }
+      function savePrezzarioConfigFromUI() {
+        const selected = id('prezzarioTypeSelect').value || 'DEFAULT';
+        const sourceType = id('prezzarioSourceType').value || 'builtin';
+        const sourceUrl = id('prezzarioSourceUrl').value.trim();
+        setPrezzarioConfig({
+          selected,
+          sourceType,
+          sourceUrl,
+          customItems: sourceType === 'builtin' ? null : getPrezzarioConfig().customItems
+        });
+        renderPrezzarioManager();
+        renderPreventivoRows();
+        showPrezzarioMsg('Configurazione prezzario salvata.', 'ok');
+      }
 
       function setMenuSection(panelId) {
         if (!menuPanelIds.includes(panelId)) return;
@@ -4220,6 +4267,9 @@ out center tags;`;
         if (notificationTimer) clearInterval(notificationTimer);
         notificationTick();
         notificationTimer = window.setInterval(()=>{ notificationTick(); }, 30000);
+        if (prezzarioSyncTimer) clearInterval(prezzarioSyncTimer);
+        prezzarioSyncTimer = window.setInterval(()=>{ syncPrezzarioSource(true); }, 5 * 60 * 1000);
+        syncPrezzarioSource(true);
         applyStatusFromQueryParams();
       }
 
