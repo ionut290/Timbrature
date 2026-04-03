@@ -778,6 +778,13 @@
             <button type="button" class="secondary" id="toggleFirebaseLiveSyncBtn">Attiva sync live</button>
           </div>
           <p id="firebaseSyncStatusLine" class="status-line status-neutral">Cloud Firebase non connesso.</p>
+          <hr style="margin:14px 0; border:none; border-top:1px solid #dbeafe;" />
+          <h3 style="margin:0 0 8px;">Installa app sul telefono/PC (PWA)</h3>
+          <p class="small">Puoi installare Timbrature come una vera app. Funziona anche offline; sincronizza quando torna internet.</p>
+          <div class="inline-actions">
+            <button type="button" id="installAppBtn" class="secondary" disabled>Installa app</button>
+          </div>
+          <p id="pwaInstallStatusLine" class="status-line status-neutral">Installazione app non disponibile su questo dispositivo/browser.</p>
         </div>
 
         <div class="card hidden" id="dataHubCard">
@@ -1040,6 +1047,7 @@
       let firebaseCloudDb = null;
       let firebaseLiveUnsubscribe = null;
       let firebaseLivePushTimer = null;
+      let deferredPwaInstallPrompt = null;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -4747,6 +4755,50 @@ out center tags;`;
           console.warn('Registrazione service worker fallita:', error);
         }
       }
+      function updatePwaInstallUI() {
+        const installBtn = id('installAppBtn');
+        const statusEl = id('pwaInstallStatusLine');
+        if (!installBtn || !statusEl) return;
+        const isInstalled = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+        if (isInstalled) {
+          installBtn.disabled = true;
+          statusEl.className = 'status-line status-ok';
+          statusEl.textContent = 'App già installata su questo dispositivo.';
+          return;
+        }
+        if (deferredPwaInstallPrompt) {
+          installBtn.disabled = false;
+          statusEl.className = 'status-line status-ok';
+          statusEl.textContent = 'Installazione disponibile: premi "Installa app".';
+          return;
+        }
+        installBtn.disabled = true;
+        statusEl.className = 'status-line status-neutral';
+        statusEl.textContent = 'Installazione automatica non disponibile qui. Su iPhone usa Condividi → Aggiungi a Home.';
+      }
+      function setupPwaInstallPrompt() {
+        window.addEventListener('beforeinstallprompt', (event) => {
+          event.preventDefault();
+          deferredPwaInstallPrompt = event;
+          updatePwaInstallUI();
+        });
+        window.addEventListener('appinstalled', () => {
+          deferredPwaInstallPrompt = null;
+          updatePwaInstallUI();
+          showBackupMsg('App installata con successo.', 'ok');
+        });
+      }
+      async function installPwaApp() {
+        if (!deferredPwaInstallPrompt) {
+          updatePwaInstallUI();
+          return;
+        }
+        deferredPwaInstallPrompt.prompt();
+        const choice = await deferredPwaInstallPrompt.userChoice;
+        deferredPwaInstallPrompt = null;
+        updatePwaInstallUI();
+        if (choice?.outcome === 'accepted') showBackupMsg('Installazione avviata.', 'ok');
+      }
       function init() {
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
@@ -4773,6 +4825,7 @@ out center tags;`;
         updateBackupStatusUI();
         loadFirebaseConfigUI();
         updateFirebaseSyncStatusUI();
+        updatePwaInstallUI();
         try {
           const cfg = getFirebaseConfigState();
           if (cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId) {
@@ -4859,6 +4912,7 @@ out center tags;`;
         if (id('pushFirebaseSyncBtn')) id('pushFirebaseSyncBtn').addEventListener('click', pushFirebaseSnapshotFromUI);
         if (id('pullFirebaseSyncBtn')) id('pullFirebaseSyncBtn').addEventListener('click', pullFirebaseSnapshotFromUI);
         if (id('toggleFirebaseLiveSyncBtn')) id('toggleFirebaseLiveSyncBtn').addEventListener('click', toggleFirebaseLiveSync);
+        if (id('installAppBtn')) id('installAppBtn').addEventListener('click', installPwaApp);
         if (id('addTeamCommessaRowBtn')) id('addTeamCommessaRowBtn').addEventListener('click', ()=>addTeamCommessaRow());
         id('extractTeamScreenshotBtn').addEventListener('click', extractTeamFromScreenshot);
         id('prefillTeamRequestBtn').addEventListener('click', prefillTeamRequestFromSavedTeam);
@@ -4938,6 +4992,7 @@ out center tags;`;
 
       window.onload = init;
       registerServiceWorker();
+      setupPwaInstallPrompt();
       window.loadMyMonth = loadMyMonth;
       window.exportExcel = exportExcel;
       window.deleteTimbraturaByDate = deleteTimbraturaByDate;
