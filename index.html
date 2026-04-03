@@ -1063,17 +1063,31 @@
         const now = new Date();
         const today = nowDateISO();
         const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        const nowMinutes = parseTimeToMinutes(hhmm);
+        const program = programForDate(today);
+        const workMode = (program?.work_mode || 'AZIENDA').toUpperCase();
+        let insideCompany = true;
+        if (workMode === 'TERRENO') {
+          const geo = await checkInsideGeofence(program);
+          insideCompany = Boolean(geo.inside);
+        }
         const entryKey = `entry-${today}-${settings.entry_time}`;
-        if (hhmm === settings.entry_time && !hasNotificationSent(entryKey)) {
-          const sent = await sendLocalNotification('Promemoria entrata', 'È ora di timbrare l’entrata.');
-          if (sent) markNotificationSent(entryKey);
-          if (settings.intense_sound) playIntenseReminderSound();
+        const entryMinutes = parseTimeToMinutes(settings.entry_time);
+        if (entryMinutes != null && nowMinutes != null && nowMinutes >= entryMinutes && !hasNotificationSent(entryKey)) {
+          if (workMode !== 'TERRENO' || insideCompany) {
+            const sent = await sendLocalNotification('Promemoria entrata', 'È ora di timbrare l’entrata.');
+            if (sent) markNotificationSent(entryKey);
+            if (settings.intense_sound) playIntenseReminderSound();
+          }
         }
         const exitKey = `exit-${today}-${settings.exit_time}`;
-        if (hhmm === settings.exit_time && !hasNotificationSent(exitKey)) {
-          const sent = await sendLocalNotification('Promemoria uscita', 'È ora di timbrare l’uscita.');
-          if (sent) markNotificationSent(exitKey);
-          if (settings.intense_sound) playIntenseReminderSound();
+        const exitMinutes = parseTimeToMinutes(settings.exit_time);
+        if (exitMinutes != null && nowMinutes != null && nowMinutes >= exitMinutes && !hasNotificationSent(exitKey)) {
+          if (workMode !== 'TERRENO' || insideCompany) {
+            const sent = await sendLocalNotification('Promemoria uscita', 'È ora di timbrare l’uscita.');
+            if (sent) markNotificationSent(exitKey);
+            if (settings.intense_sound) playIntenseReminderSound();
+          }
         }
         const appointments = getAppointments().find((x)=>x.date === today)?.items || [];
         appointments.forEach(async (entry, idx)=>{
@@ -2549,22 +2563,38 @@ out center tags;`;
             const minutesFromEntry = (nowMinutes != null && entryMinutes != null) ? Math.max(nowMinutes - entryMinutes, 0) : null;
             const geo = await checkInsideGeofence(program);
             const autoState = getAutoPunchState();
-            const dayState = autoState[today] || { leftCompany:false, aziendaOutsideTicks:0, aziendaOutsideSince:'' };
+            const dayState = autoState[today] || { leftCompany:false, aziendaOutsideTicks:0, aziendaOutsideSince:'', targetHoursReached:false };
             if (!geo.inside) dayState.leftCompany = true;
             autoState[today] = dayState;
             setAutoPunchState(autoState);
             if (workMode === 'TERRENO') {
-              if (dayState.leftCompany && geo.inside) {
+              const effectivePause = lunchBreakByContract(today, current.entrata, nowTime, Number(current.pausa || id('pausa').value || 0), Boolean(current.no_lunch_break_auto || id('disableAutoLunchBreak')?.checked));
+              const calc = computeHours(current.entrata, nowTime, effectivePause, current.causale || id('causale').value || 'LAV', resolveRulesForDate(today).rules);
+              const targetMinutes = Math.max(Math.round(Number(getProgramHoursByDay(program, dayIdx) || 0) * 60), 0);
+              const workedMinutes = Math.round(Number(calc.worked || 0) * 60);
+              if (targetMinutes > 0 && workedMinutes >= targetMinutes) dayState.targetHoursReached = true;
+              if (dayState.targetHoursReached && geo.inside) {
                 clockOutNow({
                   source:'auto',
-                  note:'Auto uscita rientro in azienda (modalità TERRENO)',
+                  note:'Auto uscita: ore contrattuali completate in modalità TERRENO',
                   distanceM: Math.round(Number(geo.distanceM || 0)),
                   forceDate: today,
-                  forceTime: nowLocalDateAndTime().time
+                  forceTime: nowTime
                 });
                 return;
               }
-              updateAutoPunchStatus('Modalità TERRENO: uscita automatica quando rientri in azienda.', false);
+              autoState[today] = dayState;
+              setAutoPunchState(autoState);
+              if (dayState.targetHoursReached) {
+                updateAutoPunchStatus('Ore completate: uscita automatica TERRENO appena rientri in azienda.', false);
+                return;
+              }
+              if (targetMinutes > 0) {
+                const remaining = Math.max(targetMinutes - workedMinutes, 0);
+                updateAutoPunchStatus(`Modalità TERRENO: mancano ${minutesToHHMM(remaining)} al completamento giornata.`, false);
+                return;
+              }
+              updateAutoPunchStatus('Modalità TERRENO: imposta ore giornaliere nel contratto per uscita automatica su target ore.', false);
               return;
             }
             const distance = Number(geo.distanceM || 0);
