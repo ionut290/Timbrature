@@ -755,17 +755,21 @@
           <p id="backupEsito" class="msg"></p>
           <hr style="margin:14px 0; border:none; border-top:1px solid #dbeafe;" />
           <h3 style="margin:0 0 8px;">Cloud Sync multi-dispositivo (Firebase)</h3>
-          <p class="small">Sincronizza automaticamente tra più telefoni e PC (Android/iPhone inclusi) usando Firestore.</p>
+          <p class="small">Sincronizza automaticamente tra più telefoni e PC (Android/iPhone inclusi) usando Firestore. La configurazione Firebase è già preimpostata: inserisci solo email e password.</p>
           <div class="grid">
-            <label>Firebase API Key<input type="text" id="fbApiKeyInput" placeholder="AIza..." /></label>
-            <label>Firebase Auth Domain<input type="text" id="fbAuthDomainInput" placeholder="progetto.firebaseapp.com" /></label>
-            <label>Firebase Project ID<input type="text" id="fbProjectIdInput" placeholder="id-progetto" /></label>
-            <label>Firebase App ID<input type="text" id="fbAppIdInput" placeholder="1:...:web:..." /></label>
             <label>Email utente cloud<input type="email" id="fbEmailInput" placeholder="utente@email.com" /></label>
             <label>Password cloud<input type="password" id="fbPasswordInput" placeholder="min 6 caratteri" /></label>
           </div>
+          <details class="small" style="margin-top:8px;">
+            <summary>Mostra configurazione tecnica Firebase</summary>
+            <div class="grid" style="margin-top:8px;">
+              <label>Firebase API Key<input type="text" id="fbApiKeyInput" placeholder="AIza..." /></label>
+              <label>Firebase Auth Domain<input type="text" id="fbAuthDomainInput" placeholder="progetto.firebaseapp.com" /></label>
+              <label>Firebase Project ID<input type="text" id="fbProjectIdInput" placeholder="id-progetto" /></label>
+              <label>Firebase App ID<input type="text" id="fbAppIdInput" placeholder="1:...:web:..." /></label>
+            </div>
+          </details>
           <div class="inline-actions" style="margin-top:10px;">
-            <button type="button" class="secondary" id="saveFirebaseConfigBtn">Salva config Firebase</button>
             <button type="button" id="connectFirebaseBtn">Connetti cloud Firebase</button>
             <button type="button" class="secondary" id="pushFirebaseSyncBtn">Carica dati su cloud</button>
             <button type="button" class="secondary" id="pullFirebaseSyncBtn">Scarica dati dal cloud</button>
@@ -866,6 +870,16 @@
       const FIREBASE_CONFIG_KEY = 'timbrature.local.firebase.config';
       const FIREBASE_SYNC_STATE_KEY = 'timbrature.local.firebase.sync.state';
       const DEVICE_ID_KEY = 'timbrature.local.device.id';
+      const DEFAULT_FIREBASE_WEB_CONFIG = {
+        apiKey: 'AIzaSyDFF7gaDLCGmb-abDRutX_y0vf_MzM449E',
+        authDomain: 'timbrature-varga.firebaseapp.com',
+        projectId: 'timbrature-varga',
+        storageBucket: 'timbrature-varga.firebasestorage.app',
+        messagingSenderId: '68842798266',
+        appId: '1:68842798266:web:bb0df9bbdfe2d5980f9683',
+        measurementId: 'G-8N09DJ0P95',
+        email: ''
+      };
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
@@ -3868,12 +3882,30 @@ out center tags;`;
         return next;
       }
       function getFirebaseConfigState() {
-        return readJSON(FIREBASE_CONFIG_KEY, { apiKey:'', authDomain:'', projectId:'', appId:'', email:'' });
+        const stored = readJSON(FIREBASE_CONFIG_KEY, {}) || {};
+        return normalizeKnownFirebaseProjectConfig({ ...DEFAULT_FIREBASE_WEB_CONFIG, ...stored });
       }
       function setFirebaseConfigState(next={}) {
-        const merged = { ...getFirebaseConfigState(), ...next };
+        const merged = normalizeKnownFirebaseProjectConfig({ ...getFirebaseConfigState(), ...next });
         writeJSON(FIREBASE_CONFIG_KEY, merged);
         return merged;
+      }
+      function normalizeKnownFirebaseProjectConfig(input={}) {
+        const cfg = sanitizeFirebaseConfig(input);
+        const isKnownProject = cfg.projectId === DEFAULT_FIREBASE_WEB_CONFIG.projectId
+          || cfg.authDomain === DEFAULT_FIREBASE_WEB_CONFIG.authDomain
+          || cfg.appId === DEFAULT_FIREBASE_WEB_CONFIG.appId;
+        if (!isKnownProject) return cfg;
+        return {
+          ...cfg,
+          apiKey: DEFAULT_FIREBASE_WEB_CONFIG.apiKey,
+          authDomain: DEFAULT_FIREBASE_WEB_CONFIG.authDomain,
+          projectId: DEFAULT_FIREBASE_WEB_CONFIG.projectId,
+          appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
+          storageBucket: DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
+          messagingSenderId: DEFAULT_FIREBASE_WEB_CONFIG.messagingSenderId,
+          measurementId: DEFAULT_FIREBASE_WEB_CONFIG.measurementId
+        };
       }
       function getFirebaseSyncState() {
         return readJSON(FIREBASE_SYNC_STATE_KEY, { connected:false, uid:'', email:'', liveSync:false, lastPushAt:'', lastPullAt:'' });
@@ -3915,17 +3947,30 @@ out center tags;`;
           apiKey: String(input.apiKey || '').trim(),
           authDomain: String(input.authDomain || '').trim(),
           projectId: String(input.projectId || '').trim(),
+          storageBucket: String(input.storageBucket || '').trim(),
+          messagingSenderId: String(input.messagingSenderId || '').trim(),
           appId: String(input.appId || '').trim(),
+          measurementId: String(input.measurementId || '').trim(),
           email: String(input.email || '').trim()
         };
       }
       function readFirebaseConfigFromUI() {
+        const current = getFirebaseConfigState();
+        const readField = (fieldId, fallback='') => {
+          const el = id(fieldId);
+          if (!el) return String(fallback || '');
+          const val = String(el.value || '').trim();
+          return val || String(fallback || '');
+        };
         return sanitizeFirebaseConfig({
-          apiKey: id('fbApiKeyInput')?.value || '',
-          authDomain: id('fbAuthDomainInput')?.value || '',
-          projectId: id('fbProjectIdInput')?.value || '',
-          appId: id('fbAppIdInput')?.value || '',
-          email: id('fbEmailInput')?.value || ''
+          apiKey: readField('fbApiKeyInput', current.apiKey || DEFAULT_FIREBASE_WEB_CONFIG.apiKey),
+          authDomain: readField('fbAuthDomainInput', current.authDomain || DEFAULT_FIREBASE_WEB_CONFIG.authDomain),
+          projectId: readField('fbProjectIdInput', current.projectId || DEFAULT_FIREBASE_WEB_CONFIG.projectId),
+          appId: readField('fbAppIdInput', current.appId || DEFAULT_FIREBASE_WEB_CONFIG.appId),
+          email: readField('fbEmailInput', current.email || ''),
+          storageBucket: current.storageBucket || DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
+          messagingSenderId: current.messagingSenderId || DEFAULT_FIREBASE_WEB_CONFIG.messagingSenderId,
+          measurementId: current.measurementId || DEFAULT_FIREBASE_WEB_CONFIG.measurementId
         });
       }
       function loadFirebaseConfigUI() {
@@ -3937,7 +3982,7 @@ out center tags;`;
         if (id('fbEmailInput')) id('fbEmailInput').value = cfg.email;
       }
       function saveFirebaseConfigFromUI(showMessage=true) {
-        const next = readFirebaseConfigFromUI();
+        const next = normalizeKnownFirebaseProjectConfig(readFirebaseConfigFromUI());
         const saved = setFirebaseConfigState(next);
         if (showMessage) showBackupMsg('Configurazione Firebase salvata.', 'ok');
         return sanitizeFirebaseConfig(saved);
@@ -3991,7 +4036,10 @@ out center tags;`;
           apiKey: cfg.apiKey,
           authDomain: cfg.authDomain,
           projectId: cfg.projectId,
-          appId: cfg.appId
+          storageBucket: cfg.storageBucket || undefined,
+          messagingSenderId: cfg.messagingSenderId || undefined,
+          appId: cfg.appId,
+          measurementId: cfg.measurementId || undefined
         };
         console.log('[Firebase][debug] Config usata realmente:', firebaseConfig);
 
