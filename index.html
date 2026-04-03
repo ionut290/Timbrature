@@ -176,6 +176,13 @@
       .team-commessa-head h4 { margin:0; font-size:14px; color:#1e3a8a; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
+      @media (max-width: 768px) {
+        body.punch-focus .container { max-width:100%; padding:8px 8px 82px; }
+        body.punch-focus .container > h1,
+        body.punch-focus .container > .pill { display:none; }
+        body.punch-focus #topMenuBar { position:fixed; top:8px; right:8px; z-index:80; margin:0; }
+        body.punch-focus #timbratureCard { margin-top:0; }
+      }
     </style>
   </head>
   <body>
@@ -4774,9 +4781,14 @@ out center tags;`;
           backToCommesse();
           renderCommesseList();
         }
+        updateFocusMode();
         setMenuOpen(false);
       }
       function setMenuOpen(open) { menuOpen = !!open; id('leftMenu').classList.toggle('hidden', !menuOpen); id('menuToggleBtn').setAttribute('aria-expanded', menuOpen ? 'true' : 'false'); }
+      function updateFocusMode() {
+        const enabled = activeMenuPanel === 'timbratureCard';
+        document.body.classList.toggle('punch-focus', enabled);
+      }
 
       async function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
@@ -4834,6 +4846,7 @@ out center tags;`;
       function init() {
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
+        updateFocusMode();
         loadProfileUI();
         renderDataHubCategoryButtons();
         renderTeamUI();
