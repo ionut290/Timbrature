@@ -180,7 +180,6 @@
               <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
               <button type="button" class="menu-link" data-menu-target="prezzarioCard">Prezzario</button>
               <button type="button" class="menu-link" data-menu-target="createPreventivoCard">Crea preventivo</button>
-              <button type="button" class="menu-link" data-menu-target="preventiviListCard">Elenco preventivi</button>
               <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
@@ -721,10 +720,7 @@
           </div>
           <p id="preventivoTotalLine" class="status-line status-neutral">Totale: € 0,00</p>
           <p id="preventivoEsito" class="msg"></p>
-        </div>
-
-        <div class="card hidden" id="preventiviListCard">
-          <h2>Elenco preventivi</h2>
+          <h3 style="margin:16px 0 8px;">Elenco preventivi</h3>
           <p class="small">Qui trovi i preventivi PDF salvati nell'app. Se Google Drive è collegato, vengono caricati anche nella cartella <strong>Timbrature/Preventivi</strong>.</p>
           <ul id="preventiviList" class="doc-list"></ul>
           <p id="preventiviEmptyText" class="doc-empty">Nessun preventivo salvato.</p>
@@ -756,6 +752,7 @@
     </div>
     <datalist id="memberSuggestionsList"></datalist>
     <datalist id="vehicleSuggestionsList"></datalist>
+    <datalist id="prezzarioSuggestionsList"></datalist>
 
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
@@ -783,8 +780,8 @@
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'prezzarioCard', 'createPreventivoCard', 'preventiviListCard', 'backupCard', 'userBox'];
-      const DEFAULT_PREZZARIO_ITEMS = [
+      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'createPreventivoCard', 'backupCard', 'userBox'];
+      const PREZZARIO_ITEMS = [
         { code:'A1', label:'Trituraz. erba NO rim (fino a 500 mq)', unit:'AC', price:59.25 },
         { code:'A2', label:'Trituraz. erba NO rim (oltre 500 mq)', unit:'M2', price:0.08 },
         { code:'A11', label:'Trituraz. erba SI rim (fino a 500 mq)', unit:'AC', price:79.20 },
@@ -816,6 +813,7 @@
         { code:'B18', label:'Diserbo chimico recinzioni/piazzali', unit:'M2', price:3.17 },
         { code:'B19', label:'Diserbo chimico cordoli stradali', unit:'M', price:0.80 },
         { code:'B20', label:'Diserbo manuale', unit:'M2', price:4.23 },
+        { code:'B21', label:'Pulizia di fossati e canali (max 8 m)', unit:'M', price:16.92 },
         { code:'B22', label:'Rimozione/trasporto/smaltimento materiale', unit:'TO', price:99.00 },
         { code:'B25', label:'Manodopera con motosega/decespugliatore', unit:'H', price:27.84 },
         { code:'B26', label:'Recinzione metallica fornitura/posa', unit:'M2', price:23.27 },
@@ -837,12 +835,14 @@
         { code:'C05', label:'Fornitura e trasporto sale', unit:'TO', price:158.65 },
         { code:'C06', label:'Spalatura neve a mano', unit:'H', price:27.84 },
         { code:'20030031', label:'Pulizia mediante spazzatrice industriale', unit:'H', price:80.00 }
-      ];
-      const PREZZARIO_CATALOGS = {
-        DEFAULT: DEFAULT_PREZZARIO_ITEMS,
-        HERA: DEFAULT_PREZZARIO_ITEMS.map((item)=>({ ...item })),
-        ASSOVERDE: DEFAULT_PREZZARIO_ITEMS.map((item)=>({ ...item }))
-      };
+      ].map((item)=>({
+        ...item,
+        shortText: `${item.code} ${item.label}`,
+        extendedText: item.label,
+        capitolatoPrice: Number(item.price),
+        ribassoPercent: 1,
+        ribassoFlag: item.code === 'B32' || item.code === 'B33' || item.code === '20030031' ? 'NO' : 'SI'
+      }));
       const CONTRACT_PRESETS = {
         EDILIZIA: {
           label: 'Edilizia industria',
@@ -1218,128 +1218,13 @@
           { url:`https://docs.google.com/spreadsheets/d/${idMatch[1]}/gviz/tq?tqx=out:json&gid=${gid}`, type:'gviz_json' }
         ];
       }
-      function getPrezzarioConfig() {
-        return readJSON(PREZZARIO_CONFIG_KEY, {
-          selected: 'DEFAULT',
-          sourceType: 'builtin',
-          sourceUrl: '',
-          customItems: null,
-          synced_at: ''
-        });
-      }
-      function setPrezzarioConfig(next={}) {
-        const merged = { ...getPrezzarioConfig(), ...next };
-        writeJSON(PREZZARIO_CONFIG_KEY, merged);
-        return merged;
-      }
-      function getActivePrezzarioItems() {
-        const config = getPrezzarioConfig();
-        if (Array.isArray(config.customItems) && config.customItems.length) return config.customItems;
-        return PREZZARIO_CATALOGS[config.selected] || PREZZARIO_CATALOGS.DEFAULT;
-      }
-      function normalizePrezzarioPrice(raw='') {
-        const text = String(raw ?? '').replace(/[€\s]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.');
-        const value = Number(text);
-        return Number.isFinite(value) ? value : 0;
-      }
-      function parsePrezzarioRowsFromMatrix(rows=[]) {
-        if (!Array.isArray(rows) || !rows.length) return [];
-        const matrix = rows.map((row)=>Array.isArray(row) ? row : [row]);
-        const headerIndex = matrix.findIndex((row)=>row.some((cell)=>/(cod|art|descr|voce|unit|um|prezzo|importo)/i.test(String(cell || ''))));
-        const headerRow = (matrix[headerIndex >= 0 ? headerIndex : 0] || []).map((cell)=>String(cell || '').toLowerCase());
-        const codeIdx = headerRow.findIndex((cell)=>/(cod|art)/.test(cell));
-        const labelIdx = headerRow.findIndex((cell)=>/(descr|voce|prestazione|lavor)/.test(cell));
-        const unitIdx = headerRow.findIndex((cell)=>/(unit|u\.m|um|misura)/.test(cell));
-        const priceIdx = headerRow.findIndex((cell)=>/(prezzo|importo|euro|€)/.test(cell));
-        return matrix.slice((headerIndex >= 0 ? headerIndex : 0) + 1)
-          .map((row)=>({
-            code: String(row[codeIdx >= 0 ? codeIdx : 0] || '').trim(),
-            label: String(row[labelIdx >= 0 ? labelIdx : 1] || '').trim(),
-            unit: String(row[unitIdx >= 0 ? unitIdx : 2] || '').trim() || 'N',
-            price: normalizePrezzarioPrice(row[priceIdx >= 0 ? priceIdx : 3])
-          }))
-          .filter((item)=>item.code && item.label);
-      }
-      function parsePrezzarioRowsFromPdfText(text='') {
-        const lines = String(text || '').split(/\r?\n/).map((line)=>line.trim()).filter(Boolean);
-        return lines.map((line)=>{
-          const match = line.match(/^([A-Za-z0-9./-]+)\s+(.+?)\s+([A-Za-z]{1,6}|M2|MC|KG|TO|AC|H|N|M)\s+([\d.,]+)$/);
-          if (!match) return null;
-          return { code:match[1], label:match[2], unit:match[3], price:normalizePrezzarioPrice(match[4]) };
-        }).filter(Boolean);
-      }
-      async function ensurePdfJsLoaded() {
-        if (window.pdfjsLib?.getDocument) return;
-        await new Promise((resolve, reject)=>{
-          const script = document.createElement('script');
-          script.src = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.3.136/build/pdf.min.js';
-          script.onload = resolve;
-          script.onerror = ()=>reject(new Error('Impossibile caricare parser PDF.'));
-          document.head.appendChild(script);
-        });
-        if (window.pdfjsLib?.GlobalWorkerOptions) {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.3.136/build/pdf.worker.min.js';
-        }
-      }
-      async function loadPrezzarioFromPdfUrl(url='') {
-        await ensurePdfJsLoaded();
-        const pdf = await window.pdfjsLib.getDocument(url).promise;
-        let rawText = '';
-        for (let p = 1; p <= pdf.numPages; p += 1) {
-          const page = await pdf.getPage(p);
-          const content = await page.getTextContent();
-          rawText += content.items.map((item)=>item.str || '').join(' ') + '\n';
-        }
-        return parsePrezzarioRowsFromPdfText(rawText);
-      }
-      async function loadPrezzarioFromSheet(url='') {
-        const sources = buildGoogleSheetSources(url);
-        for (const source of sources) {
-          const response = await fetch(source.url);
-          if (!response.ok) continue;
-          const body = await response.text();
-          const rows = source.type === 'gviz_json' ? parseGvizJsonRows(body) : parseCsvRows(body);
-          const items = parsePrezzarioRowsFromMatrix(rows);
-          if (items.length) return items;
-        }
-        return [];
-      }
-      async function syncPrezzarioSource(silent=false) {
-        const config = getPrezzarioConfig();
-        if (config.sourceType === 'builtin') {
-          setPrezzarioConfig({ customItems:null, synced_at:new Date().toISOString() });
-          if (!silent) showPrezzarioMsg('Catalogo interno attivo.', 'ok');
-          renderPrezzarioManager();
-          renderPreventivoRows();
-          return;
-        }
-        if (!config.sourceUrl) {
-          if (!silent) showPrezzarioMsg('Inserisci URL sorgente prezzario.', 'err');
-          return;
-        }
-        try {
-          const items = config.sourceType === 'sheet'
-            ? await loadPrezzarioFromSheet(config.sourceUrl)
-            : await loadPrezzarioFromPdfUrl(config.sourceUrl);
-          if (!items.length) throw new Error('Nessuna voce valida trovata nella sorgente.');
-          setPrezzarioConfig({ customItems:items, synced_at:new Date().toISOString() });
-          renderPrezzarioManager();
-          renderPreventivoRows();
-          if (!silent) showPrezzarioMsg(`Prezzario aggiornato (${items.length} voci).`, 'ok');
-        } catch (error) {
-          if (!silent) showPrezzarioMsg(error.message || 'Aggiornamento prezzario non riuscito.', 'err');
-        }
-      }
-      function renderPrezzarioManager() {
-        const config = getPrezzarioConfig();
-        if (id('prezzarioTypeSelect')) id('prezzarioTypeSelect').value = config.selected || 'DEFAULT';
-        if (id('prezzarioSourceType')) id('prezzarioSourceType').value = config.sourceType || 'builtin';
-        if (id('prezzarioSourceUrl')) id('prezzarioSourceUrl').value = config.sourceUrl || '';
-        const items = getActivePrezzarioItems();
-        const when = config.synced_at ? ` • ultimo aggiornamento ${new Date(config.synced_at).toLocaleString('it-IT')}` : '';
-        const sourceLabel = config.sourceType === 'builtin' ? 'catalogo interno' : config.sourceType === 'sheet' ? 'Google Sheet' : 'PDF';
-        id('prezzarioStatusLine').className = 'status-line status-ok';
-        id('prezzarioStatusLine').textContent = `Prezzario ${config.selected} (${sourceLabel}) • ${items.length} voci${when}`;
+      function getActivePrezzarioItems() { return PREZZARIO_ITEMS; }
+      function renderPrezzarioSuggestions() {
+        const list = id('prezzarioSuggestionsList');
+        if (!list) return;
+        list.innerHTML = getActivePrezzarioItems()
+          .map((item)=>`<option value="${String(item.code).replaceAll('"', '&quot;')}">${String(item.shortText || item.label || '').replaceAll('<', '&lt;')}</option>`)
+          .join('');
       }
       function updateWelcomeMessage() {
         const profile = getProfile();
@@ -3058,12 +2943,6 @@
         const n = Number(value || 0);
         return new Intl.NumberFormat('it-IT', { style:'currency', currency:'EUR' }).format(Number.isFinite(n) ? n : 0);
       }
-      function preventivoCatalogOptionsHtml(selectedCode='') {
-        return getActivePrezzarioItems().map((item)=>{
-          const selected = item.code === selectedCode ? 'selected' : '';
-          return `<option value="${escapeHtml(item.code)}" ${selected}>${escapeHtml(item.code)} - ${escapeHtml(item.label)} (${formatCurrencyEUR(item.price)}/${escapeHtml(item.unit)})</option>`;
-        }).join('');
-      }
       function addPreventivoRow(prefill={}) {
         const items = getActivePrezzarioItems();
         preventivoDraftRows.push({
@@ -3079,7 +2958,8 @@
         else renderPreventivoRows();
       }
       function getPrezzarioItemByCode(code='') {
-        return getActivePrezzarioItems().find((item)=>item.code === String(code || '').trim()) || null;
+        const clean = String(code || '').trim();
+        return getActivePrezzarioItems().find((item)=>item.code === clean) || null;
       }
       function getPreventivoComputedRows() {
         return preventivoDraftRows.map((row, index)=>{
@@ -3106,19 +2986,37 @@
           <div class="group-row">
             <div class="grid">
               <label>Codice prestazione
-                <select data-preventivo-field="code" data-row-index="${row.index}">${preventivoCatalogOptionsHtml(row.code)}</select>
+                <input type="text" list="prezzarioSuggestionsList" data-preventivo-field="code" data-row-index="${row.index}" value="${escapeHtml(row.code)}" placeholder="Es. B9" />
+              </label>
+              <label>Testo breve
+                <input type="text" value="${escapeHtml(row.shortText || '-')}" readonly />
+              </label>
+              <label>Testo esteso
+                <textarea rows="2" readonly>${escapeHtml(getPrezzarioItemByCode(row.code)?.extendedText || row.shortText || '-')}</textarea>
+              </label>
+              <label>Unità di misura
+                <input type="text" value="${escapeHtml(row.unit || '-')}" readonly />
               </label>
               <label>Quantità
                 <input type="number" min="0" step="0.01" data-preventivo-field="quantity" data-row-index="${row.index}" value="${row.quantity}" />
               </label>
-              <label>Prezzo unitario
+              <label>Prezzo Capitolato (€)
+                <input type="text" value="${formatCurrencyEUR(getPrezzarioItemByCode(row.code)?.capitolatoPrice || row.unitPrice)}" readonly />
+              </label>
+              <label>% Ribasso
+                <input type="text" value="${escapeHtml(String(getPrezzarioItemByCode(row.code)?.ribassoPercent ?? 1))}" readonly />
+              </label>
+              <label>Ribasso Sì/No
+                <input type="text" value="${escapeHtml(String(getPrezzarioItemByCode(row.code)?.ribassoFlag || 'SI'))}" readonly />
+              </label>
+              <label>Prezzo NETTO RIBASSATO (€)
                 <input type="text" value="${formatCurrencyEUR(row.unitPrice)} / ${escapeHtml(row.unit || '-')}" readonly />
               </label>
-              <label>Importo riga
+              <label>IMPORTO PRESTAZIONE (€)
                 <input type="text" value="${formatCurrencyEUR(row.amount)}" readonly />
               </label>
             </div>
-            <label style="margin-top:8px;">Note attività
+            <label style="margin-top:8px;">NOTE/DESCRIZIONI ATTIVITA' SVOLTA
               <textarea rows="2" data-preventivo-field="note" data-row-index="${row.index}">${escapeHtml(row.note)}</textarea>
             </label>
             <div class="inline-actions"><button type="button" class="secondary btn-small" data-preventivo-remove="${row.index}">Rimuovi riga</button></div>
@@ -3130,6 +3028,7 @@
             const rowIndex = Number(input.dataset.rowIndex || -1);
             if (!Number.isInteger(rowIndex) || rowIndex < 0 || !preventivoDraftRows[rowIndex]) return;
             if (field === 'quantity') preventivoDraftRows[rowIndex].quantity = Number(input.value || 0);
+            else if (field === 'code') preventivoDraftRows[rowIndex].code = String(input.value || '').trim().split(/\s+/)[0].toUpperCase();
             else preventivoDraftRows[rowIndex][field] = input.value;
             renderPreventivoRows();
           });
@@ -3196,42 +3095,68 @@
       async function createPreventivoPdfBlob(preventivo={}) {
         await ensureJsPdfLoaded();
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-        let y = 42;
-        doc.setFontSize(16);
-        doc.text('PREVENTIVO', 40, y);
-        y += 24;
-        doc.setFontSize(10);
-        doc.text(`Cliente: ${preventivo.cliente || '-'}`, 40, y); y += 14;
-        doc.text(`Impianto: ${preventivo.impianto || '-'}   Comune: ${preventivo.comune || '-'}`, 40, y); y += 14;
-        doc.text(`Data: ${preventivo.data || nowDateISO()}`, 40, y); y += 16;
-        const descr = String(preventivo.descrizione || '-');
-        const descrLines = doc.splitTextToSize(`Descrizione: ${descr}`, 510);
-        doc.text(descrLines, 40, y); y += descrLines.length * 12 + 10;
-        doc.setFontSize(9);
-        doc.text('Codice', 40, y);
-        doc.text('Descrizione', 90, y);
-        doc.text('Q.ta', 360, y);
-        doc.text('Prezzo', 420, y);
-        doc.text('Importo', 490, y);
-        y += 8;
-        doc.line(40, y, 555, y);
-        y += 14;
-        (Array.isArray(preventivo.rows) ? preventivo.rows : []).forEach((row)=>{
-          if (y > 780) { doc.addPage(); y = 48; }
-          const textLines = doc.splitTextToSize(`${row.shortText || ''}${row.note ? ` | Note: ${row.note}` : ''}`, 250);
-          doc.text(String(row.code || ''), 40, y);
-          doc.text(textLines, 90, y);
-          doc.text(String(row.quantity || 0), 360, y);
-          doc.text(formatCurrencyEUR(row.unitPrice || 0), 420, y);
-          doc.text(formatCurrencyEUR(row.amount || 0), 490, y);
-          y += Math.max(14, textLines.length * 11);
-        });
-        y += 8;
-        doc.line(40, y, 555, y);
-        y += 16;
+        const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+        const pageW = 210;
+        let y = 8;
         doc.setFontSize(12);
-        doc.text(`Totale preventivo: ${formatCurrencyEUR(preventivo.total || 0)}`, 40, y);
+        doc.text('PREVENTIVO - FORMATO HERA/ASSOVERDE', 8, y);
+        y += 6;
+        doc.setFontSize(9);
+        doc.text(`NOME IMPIANTO: ${preventivo.impianto || '-'}`, 8, y);
+        doc.text(`COMUNE: ${preventivo.comune || '-'}`, 115, y);
+        y += 5;
+        doc.text(`RICHIEDENTE INTERVENTO: ${preventivo.cliente || '-'}`, 8, y);
+        doc.text(`DATA RICHIESTA: ${preventivo.data || nowDateISO()}`, 115, y);
+        y += 5;
+        const descLines = doc.splitTextToSize(`DESCRIZIONE INTERVENTO: ${preventivo.descrizione || '-'}`, 194);
+        doc.text(descLines, 8, y);
+        y += descLines.length * 4 + 2;
+        doc.setFillColor(148, 221, 74);
+        doc.rect(135, y, 67, 8, 'F');
+        doc.setFontSize(10);
+        doc.text('TOTALE INTERVENTO', 138, y + 5.5);
+        doc.text(formatCurrencyEUR(preventivo.total || 0), 184, y + 5.5, { align:'right' });
+        y += 10;
+        const headers = ['Cod. Prest. Est.', 'Testo breve', 'TESTO ESTESO', 'UM', 'Q.ta', 'Prezzo Capit.', '% Rib.', 'Ribasso', 'Prezzo NETTO', 'IMPORTO', 'NOTE'];
+        const widths = [18, 26, 34, 10, 10, 14, 10, 12, 18, 16, 32];
+        let x = 4;
+        doc.setFillColor(255, 242, 0);
+        headers.forEach((h, idx)=>{
+          doc.rect(x, y, widths[idx], 10, 'F');
+          doc.rect(x, y, widths[idx], 10);
+          doc.setFontSize(7);
+          doc.text(doc.splitTextToSize(h, widths[idx]-1), x + 1, y + 3);
+          x += widths[idx];
+        });
+        y += 10;
+        (Array.isArray(preventivo.rows) ? preventivo.rows : []).forEach((row)=>{
+          if (y > 280) { doc.addPage(); y = 10; }
+          const item = getPrezzarioItemByCode(row.code) || {};
+          const cells = [
+            row.code || '',
+            item.shortText || row.shortText || '',
+            item.extendedText || row.shortText || '',
+            item.unit || row.unit || '',
+            String(row.quantity || 0),
+            (item.capitolatoPrice ?? row.unitPrice ?? 0).toFixed(2),
+            String(item.ribassoPercent ?? 1),
+            item.ribassoFlag || 'SI',
+            (row.unitPrice || 0).toFixed(2),
+            (row.amount || 0).toFixed(2),
+            row.note || ''
+          ];
+          const lineH = 8;
+          x = 4;
+          cells.forEach((cell, idx)=>{
+            doc.setFillColor(idx === 0 ? 255 : 242, idx === 0 ? 242 : 242, idx === 0 ? 0 : 242);
+            doc.rect(x, y, widths[idx], lineH, 'F');
+            doc.rect(x, y, widths[idx], lineH);
+            doc.setFontSize(6.5);
+            doc.text(doc.splitTextToSize(String(cell), widths[idx]-1), x + 1, y + 3);
+            x += widths[idx];
+          });
+          y += lineH;
+        });
         return doc.output('blob');
       }
       async function uploadPreventivoPdfToDrive(accessToken='', parentFolderId='', fileName='', pdfBlob=null) {
@@ -3319,13 +3244,14 @@
             }
           }
           showPreventivoMsg(`Preventivo finalizzato. ${driveMsg}`, 'ok');
-          setMenuSection('preventiviListCard');
+          setMenuSection('createPreventivoCard');
         } catch (error) {
           showPreventivoMsg(error.message || 'Errore durante la creazione del preventivo PDF.', 'err');
         }
       }
       function initPreventivoForm() {
         if (!id('preventivoData').value) id('preventivoData').value = nowDateISO();
+        renderPrezzarioSuggestions();
         preventivoDraftRows = [];
         addPreventivoRow();
         renderPreventiviList();
