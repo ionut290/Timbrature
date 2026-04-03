@@ -1318,6 +1318,14 @@
           navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:12_000, maximumAge:30_000 });
         });
       }
+      function extractLatLon(position) {
+        const lat = Number(position?.coords?.latitude ?? position?.latitude ?? position?.lat);
+        const lon = Number(position?.coords?.longitude ?? position?.longitude ?? position?.lng ?? position?.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+          throw new Error('Posizione GPS non valida. Attiva la localizzazione precisa e riprova.');
+        }
+        return { lat, lon };
+      }
       async function fetchNearbyFuelStations(lat, lon, radiusKm=8, fuelType='diesel') {
         const radiusM = Math.max(1000, Math.min(Number(radiusKm || 8) * 1000, 25000));
         const query = `
@@ -1418,15 +1426,18 @@ out center tags;`;
         showFuelMsg(`Ricerca distributori per ${vehicle} (${fuelType}) in corso...`, 'ok');
         try {
           const position = await getCurrentPositionSafe();
-          const lat = Number(position.coords.latitude);
-          const lon = Number(position.coords.longitude);
+          const { lat, lon } = extractLatLon(position);
           await ensureLeafletLoaded();
           const stations = await fetchNearbyFuelStations(lat, lon, radiusKm, fuelType);
           renderFuelStationsMap(lat, lon, stations);
           renderFuelStationsList(stations);
           showFuelMsg(`Trovati ${stations.length} distributori Q8/ENI compatibili. Tocca un punto per avviare Google Maps.`, stations.length ? 'ok' : 'err');
         } catch (error) {
-          showFuelMsg(error.message || 'Ricerca distributori non riuscita.', 'err');
+          const geoCode = Number(error?.code);
+          if (geoCode === 1) showFuelMsg('Permesso posizione negato. Consenti la geolocalizzazione e riprova.', 'err');
+          else if (geoCode === 2) showFuelMsg('Posizione non disponibile al momento.', 'err');
+          else if (geoCode === 3) showFuelMsg('Timeout geolocalizzazione. Riprova tra qualche secondo.', 'err');
+          else showFuelMsg(error.message || 'Ricerca distributori non riuscita.', 'err');
         }
       }
 
