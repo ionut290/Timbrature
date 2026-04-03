@@ -1222,9 +1222,18 @@
       function renderPrezzarioSuggestions() {
         const list = id('prezzarioSuggestionsList');
         if (!list) return;
-        list.innerHTML = getActivePrezzarioItems()
-          .map((item)=>`<option value="${String(item.code).replaceAll('"', '&quot;')}">${String(item.shortText || item.label || '').replaceAll('<', '&lt;')}</option>`)
-          .join('');
+        try {
+          list.innerHTML = getActivePrezzarioItems()
+            .map((item)=>{
+              const code = String(item.code || '').replace(/"/g, '&quot;');
+              const label = String(item.shortText || item.label || '').replace(/</g, '&lt;');
+              return `<option value="${code}">${label}</option>`;
+            })
+            .join('');
+        } catch (error) {
+          console.warn('Impossibile costruire suggerimenti prezzario:', error);
+          list.innerHTML = '';
+        }
       }
       function updateWelcomeMessage() {
         const profile = getProfile();
@@ -2981,8 +2990,9 @@
       function renderPreventivoRows() {
         const wrap = id('preventivoRowsContainer');
         if (!wrap) return;
-        const rows = getPreventivoComputedRows();
-        wrap.innerHTML = rows.map((row)=>`
+        try {
+          const rows = getPreventivoComputedRows();
+          wrap.innerHTML = rows.map((row)=>`
           <div class="group-row">
             <div class="grid">
               <label>Codice prestazione
@@ -3022,22 +3032,26 @@
             <div class="inline-actions"><button type="button" class="secondary btn-small" data-preventivo-remove="${row.index}">Rimuovi riga</button></div>
           </div>
         `).join('');
-        wrap.querySelectorAll('[data-preventivo-field]').forEach((input)=>{
-          input.addEventListener('change', ()=>{
-            const field = input.dataset.preventivoField;
-            const rowIndex = Number(input.dataset.rowIndex || -1);
-            if (!Number.isInteger(rowIndex) || rowIndex < 0 || !preventivoDraftRows[rowIndex]) return;
-            if (field === 'quantity') preventivoDraftRows[rowIndex].quantity = Number(input.value || 0);
-            else if (field === 'code') preventivoDraftRows[rowIndex].code = String(input.value || '').trim().split(/\s+/)[0].toUpperCase();
-            else preventivoDraftRows[rowIndex][field] = input.value;
-            renderPreventivoRows();
+          wrap.querySelectorAll('[data-preventivo-field]').forEach((input)=>{
+            input.addEventListener('change', ()=>{
+              const field = input.dataset.preventivoField;
+              const rowIndex = Number(input.dataset.rowIndex || -1);
+              if (!Number.isInteger(rowIndex) || rowIndex < 0 || !preventivoDraftRows[rowIndex]) return;
+              if (field === 'quantity') preventivoDraftRows[rowIndex].quantity = Number(input.value || 0);
+              else if (field === 'code') preventivoDraftRows[rowIndex].code = String(input.value || '').trim().split(/\s+/)[0].toUpperCase();
+              else preventivoDraftRows[rowIndex][field] = input.value;
+              renderPreventivoRows();
+            });
           });
-        });
-        wrap.querySelectorAll('[data-preventivo-remove]').forEach((btn)=>{
-          btn.addEventListener('click', ()=>removePreventivoRow(Number(btn.dataset.preventivoRemove || -1)));
-        });
-        const total = rows.reduce((acc, row)=>acc + Number(row.amount || 0), 0);
-        id('preventivoTotalLine').textContent = `Totale: ${formatCurrencyEUR(total)}`;
+          wrap.querySelectorAll('[data-preventivo-remove]').forEach((btn)=>{
+            btn.addEventListener('click', ()=>removePreventivoRow(Number(btn.dataset.preventivoRemove || -1)));
+          });
+          const total = rows.reduce((acc, row)=>acc + Number(row.amount || 0), 0);
+          id('preventivoTotalLine').textContent = `Totale: ${formatCurrencyEUR(total)}`;
+        } catch (error) {
+          console.error('Errore rendering righe preventivo:', error);
+          wrap.innerHTML = '<p class="small">Errore rendering prezzario. Ricarica la pagina.</p>';
+        }
       }
       function renderPreventiviList() {
         const rows = getPreventivi();
@@ -3885,8 +3899,12 @@
         loadMyMonth();
         initAgendaCalendar();
         renderDocuments();
-        initPreventivoForm();
-        renderPrezzarioManager();
+        try {
+          initPreventivoForm();
+        } catch (error) {
+          console.error('Errore inizializzazione preventivo:', error);
+          showPreventivoMsg('Errore inizializzazione modulo preventivi. Ricarica la pagina.', 'err');
+        }
         renderCommesseList();
         renderGlobalCommesseSelect();
         initNotificationUI();
