@@ -1644,14 +1644,17 @@ out center tags;`;
         renderTeamDirectorySelects();
         renderTeamProgramsSelect();
       }
-      function normalizeTeamCommessePlan(rows=[]) {
+      function normalizeTeamCommessePlan(rows=[], keepEmpty=false) {
         const list = Array.isArray(rows) ? rows : [];
         const normalized = list.map((row)=>({
           cantiere: String(row?.cantiere || '').trim(),
           personale: normalizeListText(row?.personale || ''),
           mezzi: normalizeListText(row?.mezzi || '')
-        })).filter((row)=>row.cantiere || row.personale || row.mezzi);
-        return normalized.length ? normalized : [{ cantiere:'', personale:'', mezzi:'' }];
+        }));
+        const filtered = keepEmpty ? normalized : normalized.filter((row)=>row.cantiere || row.personale || row.mezzi);
+        if (keepEmpty && normalized.length) return normalized;
+        if (!keepEmpty && filtered.length) return filtered;
+        return [{ cantiere:'', personale:'', mezzi:'' }];
       }
       function teamCommessaRowHtml(row={}, idx=0) {
         return `
@@ -1688,7 +1691,8 @@ out center tags;`;
             cantiere: box.querySelector('[data-team-field="cantiere"]')?.value || '',
             personale: box.querySelector('[data-team-field="personale"]')?.value || '',
             mezzi: box.querySelector('[data-team-field="mezzi"]')?.value || ''
-          }))
+          })),
+          true
         );
       }
       function syncLegacyTeamFieldsFromPlan() {
@@ -1698,7 +1702,7 @@ out center tags;`;
         id('teamRequestVehicles').value = normalizeListText(plan.map((row)=>row.mezzi).filter(Boolean).join(', '));
       }
       function renderTeamCommessePlanUI(rows=[]) {
-        const plan = normalizeTeamCommessePlan(rows);
+        const plan = normalizeTeamCommessePlan(rows, true);
         const wrap = id('teamCommesseContainer');
         if (!wrap) return;
         wrap.innerHTML = plan.map((row, idx)=>teamCommessaRowHtml(row, idx)).join('');
@@ -1953,7 +1957,7 @@ out center tags;`;
       }
       function saveTeamRequestDraft() {
         syncLegacyTeamFieldsFromPlan();
-        const plan = collectTeamCommessePlanFromUI();
+        const plan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI());
         setTeamRequestDraft({
           date: id('teamRequestDate').value,
           cantiere: plan[0]?.cantiere || '',
@@ -2011,7 +2015,7 @@ out center tags;`;
         }
       }
       function buildTeamProgramPayload() {
-        const commessePlan = collectTeamCommessePlanFromUI();
+        const commessePlan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI());
         const first = commessePlan.find((row)=>row.cantiere) || commessePlan[0] || { cantiere:'', personale:'', mezzi:'' };
         return {
           id: id('teamProgramId').value || `team-program-${Date.now()}`,
@@ -2179,7 +2183,7 @@ out center tags;`;
       }
       function openWhatsAppTeamRequest() {
         const date = id('teamRequestDate').value || nowDateISO();
-        const commessePlan = collectTeamCommessePlanFromUI().filter((row)=>row.cantiere && row.personale && row.mezzi);
+        const commessePlan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI()).filter((row)=>row.cantiere && row.personale && row.mezzi);
         if (!date || !commessePlan.length) { showTeamMsg('Compila almeno una commessa completa prima di finalizzare.', 'err'); return; }
         const team = getTeamConfig();
         const liveCapo = id('caposquadra')?.value?.trim() || '';
