@@ -1,10 +1,10 @@
 {
-  "name": "Timbrature Aziendali",
-  "short_name": "Timbrature",
+  "name": "Timbrature Varga",
+  "short_name": "Varga",
   "description": "Applicazione timbrature installabile e utilizzabile offline.",
   "start_url": "/",
   "scope": "/",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#f4f6f8",
   "theme_color": "#2563eb",
