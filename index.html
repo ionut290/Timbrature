@@ -3910,24 +3910,45 @@ out center tags;`;
           linksEl.textContent = '';
         }
       }
-      function loadFirebaseConfigUI() {
-        const cfg = getFirebaseConfigState();
-        if (id('fbApiKeyInput')) id('fbApiKeyInput').value = cfg.apiKey || '';
-        if (id('fbAuthDomainInput')) id('fbAuthDomainInput').value = cfg.authDomain || '';
-        if (id('fbProjectIdInput')) id('fbProjectIdInput').value = cfg.projectId || '';
-        if (id('fbAppIdInput')) id('fbAppIdInput').value = cfg.appId || '';
-        if (id('fbEmailInput')) id('fbEmailInput').value = cfg.email || '';
-      }
-      function saveFirebaseConfigFromUI() {
-        const next = {
-          apiKey: id('fbApiKeyInput')?.value?.trim() || '',
-          authDomain: id('fbAuthDomainInput')?.value?.trim() || '',
-          projectId: id('fbProjectIdInput')?.value?.trim() || '',
-          appId: id('fbAppIdInput')?.value?.trim() || '',
-          email: id('fbEmailInput')?.value?.trim() || ''
+      function sanitizeFirebaseConfig(input={}) {
+        return {
+          apiKey: String(input.apiKey || '').trim(),
+          authDomain: String(input.authDomain || '').trim(),
+          projectId: String(input.projectId || '').trim(),
+          appId: String(input.appId || '').trim(),
+          email: String(input.email || '').trim()
         };
-        setFirebaseConfigState(next);
-        showBackupMsg('Configurazione Firebase salvata.', 'ok');
+      }
+      function readFirebaseConfigFromUI() {
+        return sanitizeFirebaseConfig({
+          apiKey: id('fbApiKeyInput')?.value || '',
+          authDomain: id('fbAuthDomainInput')?.value || '',
+          projectId: id('fbProjectIdInput')?.value || '',
+          appId: id('fbAppIdInput')?.value || '',
+          email: id('fbEmailInput')?.value || ''
+        });
+      }
+      function loadFirebaseConfigUI() {
+        const cfg = sanitizeFirebaseConfig(getFirebaseConfigState());
+        if (id('fbApiKeyInput')) id('fbApiKeyInput').value = cfg.apiKey;
+        if (id('fbAuthDomainInput')) id('fbAuthDomainInput').value = cfg.authDomain;
+        if (id('fbProjectIdInput')) id('fbProjectIdInput').value = cfg.projectId;
+        if (id('fbAppIdInput')) id('fbAppIdInput').value = cfg.appId;
+        if (id('fbEmailInput')) id('fbEmailInput').value = cfg.email;
+      }
+      function saveFirebaseConfigFromUI(showMessage=true) {
+        const next = readFirebaseConfigFromUI();
+        const saved = setFirebaseConfigState(next);
+        if (showMessage) showBackupMsg('Configurazione Firebase salvata.', 'ok');
+        return sanitizeFirebaseConfig(saved);
+      }
+      function firebaseConfigEquals(a={}, b={}) {
+        const left = sanitizeFirebaseConfig(a);
+        const right = sanitizeFirebaseConfig(b);
+        return left.apiKey === right.apiKey
+          && left.authDomain === right.authDomain
+          && left.projectId === right.projectId
+          && left.appId === right.appId;
       }
       function updateFirebaseSyncStatusUI() {
         const state = getFirebaseSyncState();
@@ -3943,19 +3964,41 @@ out center tags;`;
         }
         if (liveBtn) liveBtn.textContent = state.liveSync ? 'Disattiva sync live' : 'Attiva sync live';
       }
-      function ensureFirebaseCloudReady() {
+      async function ensureFirebaseCloudReady(options={}) {
         if (!window.firebase?.apps) throw new Error('SDK Firebase non disponibile. Ricarica la pagina.');
-        const cfg = getFirebaseConfigState();
-        if (!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) throw new Error('Compila prima tutti i campi Firebase (API key, Auth domain, Project ID, App ID).');
         const appName = 'timbratureCloudApp';
-        firebaseCloudApp = window.firebase.apps.find((app)=>app.name === appName) || window.firebase.initializeApp({
+        const preferUI = !!options.preferUI;
+        const forceRefresh = !!options.forceRefresh;
+        const overrideConfig = options.config ? sanitizeFirebaseConfig(options.config) : null;
+        let cfg = overrideConfig || (preferUI ? saveFirebaseConfigFromUI(false) : sanitizeFirebaseConfig(getFirebaseConfigState()));
+        cfg = sanitizeFirebaseConfig(cfg);
+        if (!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) throw new Error('Compila prima tutti i campi Firebase (API key, Auth domain, Project ID, App ID).');
+
+        let existingApp = window.firebase.apps.find((app)=>app.name === appName) || null;
+        if (existingApp) {
+          const existingCfg = sanitizeFirebaseConfig(existingApp.options || {});
+          const shouldReinitialize = forceRefresh || !firebaseConfigEquals(existingCfg, cfg);
+          if (shouldReinitialize) {
+            try { await existingApp.delete(); } catch (_) {}
+            firebaseCloudApp = null;
+            firebaseCloudAuth = null;
+            firebaseCloudDb = null;
+            existingApp = null;
+          }
+        }
+
+        const firebaseConfig = {
           apiKey: cfg.apiKey,
           authDomain: cfg.authDomain,
           projectId: cfg.projectId,
           appId: cfg.appId
-        }, appName);
+        };
+        console.log('[Firebase][debug] Config usata realmente:', firebaseConfig);
+
+        firebaseCloudApp = existingApp || window.firebase.initializeApp(firebaseConfig, appName);
         firebaseCloudAuth = window.firebase.auth(firebaseCloudApp);
         firebaseCloudDb = window.firebase.firestore(firebaseCloudApp);
+        setFirebaseConfigState(cfg);
         return { cfg, auth: firebaseCloudAuth, db: firebaseCloudDb };
       }
       function getFirebaseSnapshotRef() {
@@ -3963,8 +4006,8 @@ out center tags;`;
         return firebaseCloudDb.collection('timbrature_sync').doc(firebaseCloudAuth.currentUser.uid);
       }
       async function connectFirebaseCloud() {
-        saveFirebaseConfigFromUI();
-        const { cfg, auth } = ensureFirebaseCloudReady();
+        const cfg = saveFirebaseConfigFromUI(false);
+        const { auth } = await ensureFirebaseCloudReady({ config: cfg, forceRefresh:true });
         const email = (id('fbEmailInput')?.value || cfg.email || '').trim();
         const password = (id('fbPasswordInput')?.value || '').trim();
         if (!email || !password) throw new Error('Inserisci email e password cloud.');
@@ -4685,8 +4728,8 @@ out center tags;`;
         try {
           const cfg = getFirebaseConfigState();
           if (cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId) {
-            ensureFirebaseCloudReady();
-            firebaseCloudAuth.onAuthStateChanged((user)=>{
+            ensureFirebaseCloudReady().then(()=>{
+              firebaseCloudAuth.onAuthStateChanged((user)=>{
               if (!user) return;
               setFirebaseSyncState({ connected:true, uid:user.uid || '', email:user.email || getFirebaseSyncState().email || '' });
               if (getFirebaseSyncState().liveSync) {
@@ -4694,6 +4737,7 @@ out center tags;`;
               }
               updateFirebaseSyncStatusUI();
             });
+            }).catch(()=>{});
           }
         } catch (_) {}
 
