@@ -2185,19 +2185,16 @@ out center tags;`;
         const date = id('teamRequestDate').value || nowDateISO();
         const commessePlan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI()).filter((row)=>row.cantiere && row.personale && row.mezzi);
         if (!date || !commessePlan.length) { showTeamMsg('Compila almeno una commessa completa prima di finalizzare.', 'err'); return; }
-        const team = getTeamConfig();
-        const liveCapo = id('caposquadra')?.value?.trim() || '';
+        const formattedDate = formatDateIT(date);
         const details = commessePlan.map((row, idx)=>[
-          `• Commessa ${idx + 1}: ${row.cantiere}`,
+          `📌 Commessa ${idx + 1}: ${row.cantiere}`,
           `  👷 Personale: ${row.personale}`,
           `  🚜 Mezzi: ${row.mezzi}`
         ].join('\n')).join('\n');
         const message = [
-          `Buongiorno, richiesta squadra per il giorno ${date}.`,
+          `Buongiorno, richiesta squadra per il giorno ${formattedDate}.`,
           `Commesse programmate (${commessePlan.length}):`,
           details,
-          `Caposquadra: ${liveCapo || team.leader || 'non indicato'}`,
-          'Rispondi con APPROVO o RETTIFICO.',
           'Confermate disponibilità, grazie.'
         ].join('\n');
         saveTeamRequestDraft();
