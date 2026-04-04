@@ -852,6 +852,7 @@
             <div class="inline-actions">
               <button type="button" id="saveDataHubCantiereBtn">Aggiungi cantiere con GPS</button>
             </div>
+            <div id="dataHubCantieriMap" class="fuel-map" style="min-height:260px;"></div>
             <ul id="dataHubCantieriList" class="cantiere-list"></ul>
             <p id="dataHubCantieriEmpty" class="small">Nessun cantiere salvato in questa commessa.</p>
           </div>
@@ -1090,6 +1091,8 @@
       let preventivoDraftRows = [];
       let fuelMap = null;
       let fuelMarkersLayer = null;
+      let dataHubCantieriMap = null;
+      let dataHubCantieriLayer = null;
       let firebaseCloudApp = null;
       let firebaseCloudAuth = null;
       let firebaseCloudDb = null;
@@ -2001,10 +2004,92 @@ out center tags;`;
         if (!cantieri.length) {
           list.innerHTML = '';
           empty.classList.remove('hidden');
+          renderDataHubCantieriMap([]);
           return;
         }
         empty.classList.add('hidden');
-        list.innerHTML = cantieri.map((c)=>`<li class="cantiere-item"><h5>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</h5><p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}</p><p>${escapeHtml(c.notes || '-')}</p></li>`).join('');
+        list.innerHTML = cantieri.map((c)=>`<li class="cantiere-item">
+          <h5>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</h5>
+          <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}</p>
+          <p>Coordinate: ${Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)) ? `${Number(c.lat).toFixed(5)}, ${Number(c.lon).toFixed(5)}` : '-'}</p>
+          <p>${escapeHtml(c.notes || '-')}</p>
+          <div class="inline-actions" style="margin-top:6px;">
+            <button type="button" class="secondary btn-small" onclick="editCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Modifica</button>
+            <button type="button" class="secondary btn-small" onclick="deleteCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Elimina</button>
+          </div>
+        </li>`).join('');
+        renderDataHubCantieriMap(cantieri);
+      }
+      async function renderDataHubCantieriMap(cantieri=[]) {
+        const mapEl = id('dataHubCantieriMap');
+        if (!mapEl) return;
+        if (!cantieri.length) {
+          mapEl.innerHTML = '<p class="small" style="padding:10px;">Nessuna posizione GPS disponibile per i cantieri.</p>';
+          return;
+        }
+        try {
+          await ensureLeafletLoaded();
+          if (!dataHubCantieriMap) mapEl.innerHTML = '';
+          if (!dataHubCantieriMap) {
+            dataHubCantieriMap = window.L.map(mapEl).setView([cantieri[0].lat, cantieri[0].lon], 11);
+            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              maxZoom: 19,
+              attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(dataHubCantieriMap);
+            dataHubCantieriLayer = window.L.layerGroup().addTo(dataHubCantieriMap);
+          } else {
+            dataHubCantieriLayer?.clearLayers();
+            dataHubCantieriMap.invalidateSize();
+          }
+          const coords = [];
+          cantieri.forEach((c)=>{
+            if (!Number.isFinite(Number(c.lat)) || !Number.isFinite(Number(c.lon))) return;
+            coords.push([Number(c.lat), Number(c.lon)]);
+            const marker = window.L.marker([Number(c.lat), Number(c.lon)]);
+            marker.bindPopup(`<strong>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</strong><br>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}`);
+            dataHubCantieriLayer.addLayer(marker);
+          });
+          if (coords.length) dataHubCantieriMap.fitBounds(coords, { padding:[18, 18], maxZoom:15 });
+        } catch (error) {
+          console.warn('Impossibile renderizzare mappa cantieri:', error);
+          mapEl.innerHTML = '<p class="small" style="padding:10px;">Mappa non disponibile al momento.</p>';
+        }
+      }
+      function editCantiereFromDataHub(commessaId='', cantiereId='') {
+        const commesse = getCommesse();
+        const idx = commesse.findIndex((c)=>c.id === commessaId);
+        if (idx < 0) return;
+        const cantieri = Array.isArray(commesse[idx].cantieri) ? [...commesse[idx].cantieri] : [];
+        const cIdx = cantieri.findIndex((c)=>c.id === cantiereId);
+        if (cIdx < 0) return;
+        const current = cantieri[cIdx];
+        const nextName = (window.prompt('Nuovo nome cantiere:', current.name || '') || '').trim();
+        if (!nextName) return;
+        const nextNotes = (window.prompt('Nuove note cantiere:', current.notes || '') || '').trim();
+        cantieri[cIdx] = normalizeCantiere({ ...current, name: nextName, notes: nextNotes, updated_at: new Date().toISOString() });
+        commesse[idx] = { ...commesse[idx], cantieri, updated_at:new Date().toISOString() };
+        setCommesse(commesse);
+        renderCatalogDataUI();
+        renderDataHubCommessaDetail();
+        showCatalogMsg('Cantiere aggiornato.', 'ok');
+      }
+      function deleteCantiereFromDataHub(commessaId='', cantiereId='') {
+        const commesse = getCommesse();
+        const idx = commesse.findIndex((c)=>c.id === commessaId);
+        if (idx < 0) return;
+        const cantieri = Array.isArray(commesse[idx].cantieri) ? commesse[idx].cantieri : [];
+        const target = cantieri.find((c)=>c.id === cantiereId);
+        if (!target) return;
+        if (!window.confirm(`Eliminare cantiere ${target.code || ''} ${target.name || ''}?`)) return;
+        commesse[idx] = {
+          ...commesse[idx],
+          cantieri: cantieri.filter((c)=>c.id !== cantiereId),
+          updated_at: new Date().toISOString()
+        };
+        setCommesse(commesse);
+        renderCatalogDataUI();
+        renderDataHubCommessaDetail();
+        showCatalogMsg('Cantiere eliminato.', 'ok');
       }
       function exportCantieriDataHubExcel() {
         const commessa = getCommesse().find((c)=>c.id === selectedDataHubCommessaId);
@@ -2021,8 +2106,8 @@ out center tags;`;
           c.province || '',
           c.postcode || '',
           c.country || '',
-          Number.isFinite(Number(c.lat)) ? Number(c.lat).toFixed(6) : '',
-          Number.isFinite(Number(c.lon)) ? Number(c.lon).toFixed(6) : ''
+          Number.isFinite(Number(c.lat)) ? Number(c.lat).toFixed(5) : '',
+          Number.isFinite(Number(c.lon)) ? Number(c.lon).toFixed(5) : ''
         ]);
         const csv = [header, ...rows].map((row)=>row.map((cell)=>`"${String(cell || '').replaceAll('"', '""')}"`).join(';')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -3676,7 +3761,7 @@ out center tags;`;
           <li class="cantiere-item ${c.id === selectedCantiereId ? 'active' : ''}" data-cantiere-id="${escapeHtml(c.id)}">
             <h5>${escapeHtml(c.code || 'C')} • ${escapeHtml(c.name || 'Cantiere')}</h5>
             <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || c.country || '-')}</p>
-            <p>${Number.isFinite(c.lat) && Number.isFinite(c.lon) ? `${Number(c.lat).toFixed(6)}, ${Number(c.lon).toFixed(6)}` : 'Coordinate non disponibili'}</p>
+            <p>${Number.isFinite(c.lat) && Number.isFinite(c.lon) ? `${Number(c.lat).toFixed(5)}, ${Number(c.lon).toFixed(5)}` : 'Coordinate non disponibili'}</p>
           </li>
         `).join('');
         wrap.querySelectorAll('[data-cantiere-id]').forEach((el)=>el.addEventListener('click', ()=>{
