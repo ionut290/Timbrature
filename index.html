@@ -451,6 +451,7 @@
             </div>
             <div class="inline-actions">
               <button type="button" class="secondary btn-small" id="globalAddCommessaBtn">Aggiungi commessa</button>
+              <button type="button" class="secondary btn-small" id="globalAddCantiereGpsBtn">Aggiungi cantiere GPS</button>
             </div>
             <div class="actions">
               <button type="button" class="secondary" id="cancelClockInSetupBtn">Annulla</button>
@@ -3589,13 +3590,21 @@ out center tags;`;
         showGiornaleMsg('Commessa aggiunta.', 'ok');
       }
       async function addCantiereFromGpsForSelectedCommessa() {
-        if (!selectedCommessaId) { showGiornaleMsg('Apri prima una commessa.', 'err'); return; }
         const commesse = getCommesse();
-        const idx = commesse.findIndex((c)=>c.id === selectedCommessaId);
+        const selectedGlobalName = String(id('globalCommessaSelect')?.value || '').trim().toLowerCase();
+        const fallbackFromGlobal = commesse.find((c)=>String(c.nome || '').trim().toLowerCase() === selectedGlobalName)?.id || '';
+        const commessaId = selectedCommessaId || fallbackFromGlobal;
+        if (!commessaId) {
+          showMsg('Seleziona prima una commessa dal menu o dal campo "Commessa globale".', 'err');
+          showGiornaleMsg('Seleziona prima una commessa.', 'err');
+          return;
+        }
+        const idx = commesse.findIndex((c)=>c.id === commessaId);
         if (idx < 0) { showGiornaleMsg('Commessa non trovata.', 'err'); return; }
         const name = (window.prompt('Nome cantiere:') || '').trim();
         if (!name) return;
         showGiornaleMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
+        showMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
         try {
           const pos = await getCurrentPositionSafe();
           const { lat, lon } = extractLatLon(pos);
@@ -3603,37 +3612,63 @@ out center tags;`;
           const road = [geo.road, geo.houseNumber].filter(Boolean).join(' ').trim();
           const cantieri = Array.isArray(commesse[idx].cantieri) ? [...commesse[idx].cantieri] : [];
           const existing = cantieri.find((c)=>String(c.name || '').toLowerCase() === name.toLowerCase());
+          if (existing) {
+            showGiornaleMsg(`Cantiere già presente in questa commessa (${existing.code || existing.id}).`, 'err');
+            showMsg(`Cantiere già presente in questa commessa (${existing.code || existing.id}).`, 'err');
+            return;
+          }
+          const nearbyThresholdM = 250;
+          const nearbyDuplicate = commesse
+            .flatMap((cm)=>Array.isArray(cm.cantieri) ? cm.cantieri.map((c)=>({ ...c, commessaNome: cm.nome || 'Commessa' })) : [])
+            .filter((c)=>Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)))
+            .map((c)=>({ ...c, distanceM: haversineDistanceMeters(lat, lon, Number(c.lat), Number(c.lon)) }))
+            .sort((a,b)=>a.distanceM - b.distanceM)
+            .find((c)=>c.distanceM <= nearbyThresholdM || String(c.name || '').toLowerCase() === name.toLowerCase());
+          if (nearbyDuplicate) {
+            const km = (nearbyDuplicate.distanceM / 1000).toFixed(3);
+            const proceed = window.confirm(`Attenzione: cantiere vicino/esistente trovato (${nearbyDuplicate.code || '-'} • ${nearbyDuplicate.name || '-'} • ${km} km). Vuoi salvarlo comunque?`);
+            if (!proceed) {
+              showGiornaleMsg(`Salvataggio annullato: trovato cantiere a ${km} km.`, 'err');
+              showMsg(`Salvataggio annullato: trovato cantiere a ${km} km.`, 'err');
+              return;
+            }
+          }
           const next = normalizeCantiere({
-            id: existing?.id || `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
-            code: existing?.code || generateCantiereCode(cantieri),
+            id: `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+            code: generateCantiereCode(cantieri),
             name,
-            address: road || existing?.address || '',
-            city: geo.city || existing?.city || '',
-            province: geo.province || existing?.province || '',
-            postcode: geo.postcode || existing?.postcode || '',
-            country: geo.country || existing?.country || '',
+            address: road || '',
+            city: geo.city || '',
+            province: geo.province || '',
+            postcode: geo.postcode || '',
+            country: geo.country || '',
             lat,
             lon,
-            created_at: existing?.created_at || new Date().toISOString(),
+            created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
-          const nextCantieri = existing
-            ? cantieri.map((c)=>c.id === existing.id ? next : c)
-            : [next, ...cantieri];
+          const nextCantieri = [next, ...cantieri];
           commesse[idx] = { ...commesse[idx], impianto: next.name || commesse[idx].impianto || '', cantieri: nextCantieri, updated_at:new Date().toISOString() };
           setCommesse(commesse);
+          selectedCommessaId = commessaId;
           selectedCantiereId = next.id;
           renderCommesseList();
           renderCantieriForSelectedCommessa();
           id('journalSiteName').value = next.name || '';
           id('journalLocation').value = [next.address, next.city].filter(Boolean).join(', ');
           showGiornaleMsg(`Cantiere ${next.code} salvato con coordinate automatiche.`, 'ok');
+          showMsg(`Cantiere ${next.code} salvato (${next.name}).`, 'ok');
         } catch (error) {
           const geoCode = Number(error?.code);
-          if (geoCode === 1) showGiornaleMsg('Permesso posizione negato. Consenti GPS e riprova.', 'err');
-          else if (geoCode === 2) showGiornaleMsg('Posizione non disponibile al momento.', 'err');
-          else if (geoCode === 3) showGiornaleMsg('Timeout geolocalizzazione. Riprova.', 'err');
-          else showGiornaleMsg(error.message || 'Aggiunta cantiere da GPS non riuscita.', 'err');
+          const msg = geoCode === 1
+            ? 'Permesso posizione negato. Consenti GPS e riprova.'
+            : (geoCode === 2
+              ? 'Posizione non disponibile al momento.'
+              : (geoCode === 3
+                ? 'Timeout geolocalizzazione. Riprova.'
+                : (error.message || 'Aggiunta cantiere da GPS non riuscita.')));
+          showGiornaleMsg(msg, 'err');
+          showMsg(msg, 'err');
         }
       }
       function openCommessaDetail(commessaId='') {
@@ -5154,6 +5189,7 @@ out center tags;`;
           promptAddCommessa();
           renderGlobalCommesseSelect();
         });
+        if (id('globalAddCantiereGpsBtn')) id('globalAddCantiereGpsBtn').addEventListener('click', addCantiereFromGpsForSelectedCommessa);
         if (id('globalCommessaSelect')) id('globalCommessaSelect').addEventListener('change', ()=>{
           if (id('clockInCantiere') && !id('clockInCantiere').value) id('clockInCantiere').value = id('globalCommessaSelect').value || '';
           if (id('cantiere') && !id('cantiere').value) id('cantiere').value = id('globalCommessaSelect').value || '';
