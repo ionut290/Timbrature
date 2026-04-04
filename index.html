@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#2563eb" />
     <meta name="description" content="App timbrature aziendali installabile offline" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Timbrature Varga" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
-    <title>Timbrature Locale</title>
+    <title>Timbrature Varga</title>
     <style>
       :root { --bg:#e0ecff; --card:#fff; --line:#d8dde3; --text:#1e293b; --primary:#2563eb; --secondary:#475569; --ok:#047857; --error:#b91c1c; }
       * { box-sizing: border-box; }
@@ -164,13 +167,27 @@
       .catalog-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
       .catalog-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
       .catalog-item p { margin:0; font-size:13px; color:#0f172a; }
+      .catalog-categories { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-top:10px; }
+      .catalog-cat-btn { background:#e2e8f0; color:#0f172a; border:1px solid #cbd5e1; }
+      .catalog-cat-btn.active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
+      .catalog-subtitle { margin:8px 0 0; font-size:13px; color:#475569; }
+      .team-commessa-box { border:1px solid #bfdbfe; border-radius:10px; background:#f8fbff; padding:10px; margin-top:10px; }
+      .team-commessa-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
+      .team-commessa-head h4 { margin:0; font-size:14px; color:#1e3a8a; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
+      @media (max-width: 768px) {
+        body.punch-focus .container { max-width:100%; padding:8px 8px 82px; }
+        body.punch-focus .container > h1,
+        body.punch-focus .container > .pill { display:none; }
+        body.punch-focus #topMenuBar { position:fixed; top:8px; right:8px; z-index:80; margin:0; }
+        body.punch-focus #timbratureCard { margin-top:0; }
+      }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>Timbrature Aziendali</h1>
+      <h1>Timbrature Varga</h1>
       <p class="pill">Salvataggio locale: tutti i dati restano sul dispositivo</p>
 
       <div class="app-shell">
@@ -345,24 +362,14 @@
               <label>Data richiesta
                 <input type="date" id="teamRequestDate" />
               </label>
-              <label>Cantiere richiesto
-                <input type="text" id="teamRequestCantiere" placeholder="Nome cantiere" />
-              </label>
-              <label>Personale richiesto
-                <textarea id="teamRequestPersonnel" rows="3" placeholder="Es. Mario Rossi, Luca Bianchi"></textarea>
-              </label>
-              <label>Mezzi richiesti
-                <textarea id="teamRequestVehicles" rows="3" placeholder="Es. Furgone + piattaforma"></textarea>
-              </label>
             </div>
-            <div class="grid">
-              <label>Aggiungi persona da elenco
-                <input type="text" id="teamRequestPersonSuggest" list="memberSuggestionsList" placeholder="Scrivi e scegli un nome" />
-              </label>
-              <label>Aggiungi mezzo da elenco
-                <input type="text" id="teamRequestVehicleSuggest" list="vehicleSuggestionsList" placeholder="Scrivi e scegli un mezzo" />
-              </label>
+            <div class="inline-actions">
+              <button type="button" class="secondary" id="addTeamCommessaRowBtn">+ Aggiungi commessa per il giorno</button>
             </div>
+            <div id="teamCommesseContainer"></div>
+            <input type="hidden" id="teamRequestCantiere" />
+            <input type="hidden" id="teamRequestPersonnel" />
+            <input type="hidden" id="teamRequestVehicles" />
             <input type="hidden" id="teamProgramId" />
             <input type="hidden" id="teamProgramStatus" value="IN_ATTESA" />
             <div class="grid">
@@ -431,7 +438,7 @@
                   <option value="FER">FER - Ferie</option>
                 </select>
               </label>
-              <label>Cantiere<input type="text" id="clockInCantiere" placeholder="Nome cantiere"></label>
+              <label>Cantiere<input type="text" id="clockInCantiere" list="commessaSuggestionsList" placeholder="Nome cantiere"></label>
               <label>Commessa globale
                 <select id="globalCommessaSelect"><option value="">Seleziona commessa</option></select>
               </label>
@@ -498,7 +505,7 @@
                 </select>
               </label>
               <label>Note<textarea id="note" rows="2"></textarea></label>
-              <label>Cantiere<input type="text" id="cantiere" /></label>
+              <label>Cantiere<input type="text" id="cantiere" list="commessaSuggestionsList" /></label>
               <label>Caposquadra<input type="text" id="caposquadra" list="memberSuggestionsList" /></label>
               <label>Tipo contratto
                 <select id="contratto">
@@ -583,7 +590,7 @@
             <div id="journalEntryForm" class="setup-box hidden">
               <div class="grid">
                 <label>Data<input type="date" id="journalDate" /></label>
-                <label>Nome cantiere / impianto<input type="text" id="journalSiteName" /></label>
+                <label>Nome cantiere / impianto<input type="text" id="journalSiteName" list="commessaSuggestionsList" /></label>
                 <label>Comune / località<input type="text" id="journalLocation" /></label>
                 <label>Responsabile / caposquadra<input type="text" id="journalLeader" list="memberSuggestionsList" /></label>
                 <label>Operatori presenti<textarea id="journalOperators" rows="2"></textarea></label>
@@ -603,7 +610,7 @@
                   <select id="journalProgress"><option value="Iniziato">Iniziato</option><option value="In corso">In corso</option><option value="Completato">Completato</option></select>
                 </label>
                 <label>Mezzi usati<textarea id="journalVehiclesUsed" rows="2"></textarea></label>
-                <label>Ore utilizzo mezzi<input type="text" id="journalVehicleHours" placeholder="Es. Escavatore 03:30" /></label>
+                <label>Ore utilizzo mezzi<input type="text" id="journalVehicleHours" list="equipmentSuggestionsList" placeholder="Es. Escavatore 03:30" /></label>
                 <label>Guasti / anomalie<textarea id="journalVehicleIssues" rows="2"></textarea></label>
                 <label>Materiali usati<textarea id="journalMaterialsUsed" rows="2"></textarea></label>
                 <label>Quantità<textarea id="journalMaterialsQty" rows="2"></textarea></label>
@@ -756,16 +763,51 @@
           <p id="backupStatusLine" class="status-line status-neutral">Backup non attivo.</p>
           <p id="backupLinks" class="small"></p>
           <p id="backupEsito" class="msg"></p>
+          <hr style="margin:14px 0; border:none; border-top:1px solid #dbeafe;" />
+          <h3 style="margin:0 0 8px;">Cloud Sync multi-dispositivo (Firebase)</h3>
+          <p class="small">Sincronizza automaticamente tra più telefoni e PC (Android/iPhone inclusi) usando Firestore. La configurazione Firebase è già preimpostata: inserisci solo email e password.</p>
+          <div class="grid">
+            <label>Email utente cloud<input type="email" id="fbEmailInput" placeholder="utente@email.com" /></label>
+            <label>Password cloud<input type="password" id="fbPasswordInput" placeholder="min 6 caratteri" /></label>
+          </div>
+          <details class="small" style="margin-top:8px;">
+            <summary>Mostra configurazione tecnica Firebase</summary>
+            <div class="grid" style="margin-top:8px;">
+              <label>Firebase API Key<input type="text" id="fbApiKeyInput" placeholder="AIza..." /></label>
+              <label>Firebase Auth Domain<input type="text" id="fbAuthDomainInput" placeholder="progetto.firebaseapp.com" /></label>
+              <label>Firebase Project ID<input type="text" id="fbProjectIdInput" placeholder="id-progetto" /></label>
+              <label>Firebase App ID<input type="text" id="fbAppIdInput" placeholder="1:...:web:..." /></label>
+            </div>
+          </details>
+          <div class="inline-actions" style="margin-top:10px;">
+            <button type="button" id="connectFirebaseBtn">Connetti cloud Firebase</button>
+            <button type="button" class="secondary" id="pushFirebaseSyncBtn">Carica dati su cloud</button>
+            <button type="button" class="secondary" id="pullFirebaseSyncBtn">Scarica dati dal cloud</button>
+          </div>
+          <div class="inline-actions">
+            <button type="button" class="secondary" id="toggleFirebaseLiveSyncBtn">Attiva sync live</button>
+          </div>
+          <p id="firebaseSyncStatusLine" class="status-line status-neutral">Cloud Firebase non connesso.</p>
+          <hr style="margin:14px 0; border:none; border-top:1px solid #dbeafe;" />
+          <h3 style="margin:0 0 8px;">Installa app sul telefono/PC (PWA)</h3>
+          <p class="small">Puoi installare Timbrature come una vera app. Funziona anche offline; sincronizza quando torna internet.</p>
+          <div class="inline-actions">
+            <button type="button" id="installAppBtn" class="secondary" disabled>Installa app</button>
+          </div>
+          <p id="pwaInstallStatusLine" class="status-line status-neutral">Installazione app non disponibile su questo dispositivo/browser.</p>
         </div>
 
         <div class="card hidden" id="dataHubCard">
           <h2>Dati app (anagrafiche)</h2>
-          <p class="small">Inserisci qui i dati comuni (es. mezzi + carburante). L'app li userà nei campi con suggerimenti.</p>
+          <p class="small">Scegli una categoria (mezzi, attrezzature, colleghi, commesse) e inserisci i dati. L'app usa questo elenco per compilare i campi nei vari moduli.</p>
+          <div class="catalog-categories" id="catalogCategories"></div>
+          <h3 id="catalogSectionTitle" style="margin:14px 0 4px;">Categoria</h3>
+          <p id="catalogSectionHint" class="catalog-subtitle">Seleziona una categoria per iniziare.</p>
           <div class="grid">
-            <label>Nome mezzo
-              <input type="text" id="catalogVehicleName" placeholder="Es. Daily AB123CD / Escavatore Volvo" />
+            <label id="catalogPrimaryLabel">Nome
+              <input type="text" id="catalogPrimaryInput" placeholder="Inserisci valore" />
             </label>
-            <label>Carburante mezzo
+            <label id="catalogSecondaryWrap">Valore aggiuntivo
               <select id="catalogVehicleFuelType">
                 <option value="diesel">Diesel</option>
                 <option value="octane_95">Benzina (95)</option>
@@ -775,7 +817,7 @@
             </label>
           </div>
           <div class="inline-actions">
-            <button type="button" id="saveCatalogVehicleBtn">Salva mezzo</button>
+            <button type="button" id="saveCatalogEntryBtn">Salva dato</button>
           </div>
           <p id="catalogEsito" class="msg"></p>
           <ul id="catalogVehiclesList" class="catalog-list"></ul>
@@ -811,8 +853,14 @@
     </div>
     <datalist id="memberSuggestionsList"></datalist>
     <datalist id="vehicleSuggestionsList"></datalist>
+    <datalist id="equipmentSuggestionsList"></datalist>
+    <datalist id="commessaSuggestionsList"></datalist>
     <datalist id="prezzarioSuggestionsList"></datalist>
 
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
       const FESTIVE_BONUS_PERCENT_DEFAULT = 30;
@@ -837,10 +885,30 @@
       const MASTER_DATA_KEY = 'timbrature.local.master.data';
       const DRIVE_BACKUP_STATE_KEY = 'timbrature.local.drive.backup.state';
       const GOOGLE_CLIENT_ID_KEY = 'timbrature.local.google.client_id';
+      const FIREBASE_CONFIG_KEY = 'timbrature.local.firebase.config';
+      const FIREBASE_SYNC_STATE_KEY = 'timbrature.local.firebase.sync.state';
+      const DEVICE_ID_KEY = 'timbrature.local.device.id';
+      const DEFAULT_FIREBASE_WEB_CONFIG = {
+        apiKey: 'AIzaSyDFF7gaDLCGmb-abDRutX_y0vf_MzM449E',
+        authDomain: 'timbrature-varga.firebaseapp.com',
+        projectId: 'timbrature-varga',
+        databaseURL: 'https://timbrature-varga-default-rtdb.europe-west1.firebasedatabase.app',
+        storageBucket: 'timbrature-varga.firebasestorage.app',
+        messagingSenderId: '68842798266',
+        appId: '1:68842798266:web:bb0df9bbdfe2d5980f9683',
+        measurementId: 'G-8N09DJ0P95',
+        email: ''
+      };
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
       const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'createPreventivoCard', 'carburanteCard', 'dataHubCard', 'backupCard', 'userBox'];
+      const DATA_HUB_CATEGORIES = [
+        { key:'vehicles', label:'Auto / Mezzi', hint:'Inserisci i mezzi con carburante.' },
+        { key:'equipment', label:'Attrezzature', hint:'Inserisci attrezzature o macchine usate nei lavori.' },
+        { key:'colleagues', label:'Colleghi', hint:'Inserisci persone della squadra per suggerimenti rapidi.' },
+        { key:'commesse', label:'Commesse', hint:'Inserisci le commesse/cantieri per compilare i campi cantiere.' }
+      ];
       const PREZZARIO_ITEMS = [
         { code:'A1', label:'Trituraz. erba NO rim (fino a 500 mq)', unit:'AC', price:59.25 },
         { code:'A2', label:'Trituraz. erba NO rim (oltre 500 mq)', unit:'M2', price:0.08 },
@@ -981,14 +1049,27 @@
       let selectedAgendaDate = '';
       let googleTokenClient = null;
       let selectedCommessaId = '';
+      let selectedDataHubCategory = 'vehicles';
       let journalPendingPhotos = [];
       let preventivoDraftRows = [];
       let fuelMap = null;
       let fuelMarkersLayer = null;
+      let firebaseCloudApp = null;
+      let firebaseCloudAuth = null;
+      let firebaseCloudDb = null;
+      let firebaseCloudRtdb = null;
+      let firebaseLiveUnsubscribe = null;
+      let firebaseLivePushTimer = null;
+      let firebaseAutoPushDebounceTimer = null;
+      let firebaseApplyingRemoteSnapshot = false;
+      let deferredPwaInstallPrompt = null;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
-      const writeJSON = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+      function writeJSON(k, v) {
+        localStorage.setItem(k, JSON.stringify(v));
+        scheduleFirebaseAutoPush(`writeJSON:${k}`);
+      }
       const nowDateISO = () => new Date().toISOString().slice(0, 10);
       const tomorrowDateISO = () => {
         const d = new Date();
@@ -1265,7 +1346,7 @@
       function setTeamRequestDraft(v) { writeJSON(TEAM_REQUEST_DRAFT_KEY, v); }
       function getTeamPrograms() { return readJSON(TEAM_PROGRAMS_KEY, []); }
       function setTeamPrograms(v) { writeJSON(TEAM_PROGRAMS_KEY, v); }
-      function getMasterData() { return readJSON(MASTER_DATA_KEY, { vehicles:[] }); }
+      function getMasterData() { return readJSON(MASTER_DATA_KEY, { vehicles:[], equipment:[], colleagues:[], commesse:[] }); }
       function setMasterData(v) { writeJSON(MASTER_DATA_KEY, v); }
       function getAutoPunchState() { return readJSON(AUTO_PUNCH_STATE_KEY, {}); }
       function setAutoPunchState(v) { writeJSON(AUTO_PUNCH_STATE_KEY, v); }
@@ -1420,7 +1501,7 @@ out center tags;`;
           throw new Error('Servizio mappa distributori non disponibile ora. Riprova tra poco.');
         }
         const elements = Array.isArray(payload?.elements) ? payload.elements : [];
-        return elements
+        const rows = elements
           .map((el)=>{
             const stLat = Number(el.lat ?? el.center?.lat);
             const stLon = Number(el.lon ?? el.center?.lon);
@@ -1438,9 +1519,10 @@ out center tags;`;
             };
           })
           .filter(Boolean)
-          .filter((row)=>isPreferredFuelBrand(row.tags) && stationProvidesFuel(row.tags, fuelType))
-          .sort((a,b)=>a.distanceKm - b.distanceKm)
-          .slice(0, 25);
+          .filter((row)=>stationProvidesFuel(row.tags, fuelType))
+          .sort((a,b)=>a.distanceKm - b.distanceKm);
+        const preferred = rows.filter((row)=>isPreferredFuelBrand(row.tags));
+        return (preferred.length ? preferred : rows).slice(0, 25);
       }
       function openGoogleMapsNavigation(lat, lon) {
         const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}&travelmode=driving`;
@@ -1480,7 +1562,7 @@ out center tags;`;
         const list = id('fuelStationsList');
         if (!list) return;
         if (!stations.length) {
-          list.innerHTML = '<li class="small">Nessun distributore Q8/ENI compatibile trovato nel raggio indicato.</li>';
+          list.innerHTML = '<li class="small">Nessun distributore compatibile trovato nel raggio indicato.</li>';
           return;
         }
         list.innerHTML = stations.map((st)=>`
@@ -1513,7 +1595,7 @@ out center tags;`;
           const stations = await fetchNearbyFuelStations(lat, lon, radiusKm, fuelType);
           renderFuelStationsMap(lat, lon, stations);
           renderFuelStationsList(stations);
-          showFuelMsg(`Trovati ${stations.length} distributori Q8/ENI compatibili. Tocca un punto per avviare Google Maps.`, stations.length ? 'ok' : 'err');
+          showFuelMsg(`Trovati ${stations.length} distributori compatibili. Tocca un punto per avviare Google Maps.`, stations.length ? 'ok' : 'err');
         } catch (error) {
           const geoCode = Number(error?.code);
           if (geoCode === 1) showFuelMsg('Permesso posizione negato. Consenti la geolocalizzazione e riprova.', 'err');
@@ -1625,11 +1707,8 @@ out center tags;`;
       function renderTeamUI() {
         const draft = getTeamRequestDraft() || {};
         id('teamRequestDate').value = draft.date || selectedMonthDay || tomorrowDateISO();
-        id('teamRequestCantiere').value = draft.cantiere || '';
-        id('teamRequestPersonnel').value = draft.personale || '';
-        id('teamRequestVehicles').value = draft.mezzi || '';
-        id('teamRequestPersonSuggest').value = '';
-        id('teamRequestVehicleSuggest').value = '';
+        const commessePlan = normalizeTeamCommessePlan(draft.commesse_plan?.length ? draft.commesse_plan : [{ cantiere:draft.cantiere || '', personale:draft.personale || '', mezzi:draft.mezzi || '' }]);
+        renderTeamCommessePlanUI(commessePlan);
         id('teamWhatsappReplyInput').value = '';
         id('teamProgramId').value = '';
         id('teamProgramStatus').value = draft.status || 'IN_ATTESA';
@@ -1638,14 +1717,114 @@ out center tags;`;
         renderTeamDirectorySelects();
         renderTeamProgramsSelect();
       }
+      function normalizeTeamCommessePlan(rows=[], keepEmpty=false) {
+        const list = Array.isArray(rows) ? rows : [];
+        const normalized = list.map((row)=>({
+          cantiere: String(row?.cantiere || '').trim(),
+          personale: normalizeListText(row?.personale || ''),
+          mezzi: normalizeListText(row?.mezzi || '')
+        }));
+        const filtered = keepEmpty ? normalized : normalized.filter((row)=>row.cantiere || row.personale || row.mezzi);
+        if (keepEmpty && normalized.length) return normalized;
+        if (!keepEmpty && filtered.length) return filtered;
+        return [{ cantiere:'', personale:'', mezzi:'' }];
+      }
+      function teamCommessaRowHtml(row={}, idx=0) {
+        return `
+          <div class="team-commessa-box" data-team-commessa-index="${idx}">
+            <div class="team-commessa-head">
+              <h4>Commessa ${idx + 1}</h4>
+              <button type="button" class="secondary btn-small" data-team-remove-commessa="${idx}">Rimuovi</button>
+            </div>
+            <div class="grid">
+              <label>Cantiere / commessa
+                <input type="text" data-team-field="cantiere" list="commessaSuggestionsList" value="${escapeHtml(row.cantiere || '')}" placeholder="Nome cantiere" />
+              </label>
+              <label>Personale richiesto
+                <textarea data-team-field="personale" rows="2" placeholder="Es. Mario Rossi, Luca Bianchi">${escapeHtml(row.personale || '')}</textarea>
+              </label>
+              <label>Mezzi richiesti
+                <textarea data-team-field="mezzi" rows="2" placeholder="Es. Furgone + piattaforma">${escapeHtml(row.mezzi || '')}</textarea>
+              </label>
+            </div>
+            <div class="grid">
+              <label>Aggiungi persona da elenco
+                <input type="text" data-team-suggest="personale" list="memberSuggestionsList" placeholder="Scrivi e scegli un nome" />
+              </label>
+              <label>Aggiungi mezzo da elenco
+                <input type="text" data-team-suggest="mezzi" list="vehicleSuggestionsList" placeholder="Scrivi e scegli un mezzo" />
+              </label>
+            </div>
+          </div>
+        `;
+      }
+      function collectTeamCommessePlanFromUI() {
+        return normalizeTeamCommessePlan(
+          Array.from(document.querySelectorAll('[data-team-commessa-index]')).map((box)=>({
+            cantiere: box.querySelector('[data-team-field="cantiere"]')?.value || '',
+            personale: box.querySelector('[data-team-field="personale"]')?.value || '',
+            mezzi: box.querySelector('[data-team-field="mezzi"]')?.value || ''
+          })),
+          true
+        );
+      }
+      function syncLegacyTeamFieldsFromPlan() {
+        const plan = collectTeamCommessePlanFromUI();
+        id('teamRequestCantiere').value = plan[0]?.cantiere || '';
+        id('teamRequestPersonnel').value = normalizeListText(plan.map((row)=>row.personale).filter(Boolean).join(', '));
+        id('teamRequestVehicles').value = normalizeListText(plan.map((row)=>row.mezzi).filter(Boolean).join(', '));
+      }
+      function renderTeamCommessePlanUI(rows=[]) {
+        const plan = normalizeTeamCommessePlan(rows, true);
+        const wrap = id('teamCommesseContainer');
+        if (!wrap) return;
+        wrap.innerHTML = plan.map((row, idx)=>teamCommessaRowHtml(row, idx)).join('');
+        wrap.querySelectorAll('[data-team-remove-commessa]').forEach((btn)=>btn.addEventListener('click', ()=>removeTeamCommessaRow(Number(btn.dataset.teamRemoveCommessa))));
+        wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('change', ()=>appendSuggestionToTeamCommessa(input)));
+        wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTeamCommessa(input); } }));
+        wrap.querySelectorAll('[data-team-field]').forEach((input)=>input.addEventListener('change', saveTeamRequestDraft));
+        syncLegacyTeamFieldsFromPlan();
+      }
+      function addTeamCommessaRow(initialRow={ cantiere:'', personale:'', mezzi:'' }) {
+        const current = collectTeamCommessePlanFromUI();
+        current.push({ cantiere:initialRow.cantiere || '', personale:initialRow.personale || '', mezzi:initialRow.mezzi || '' });
+        renderTeamCommessePlanUI(current);
+        saveTeamRequestDraft();
+      }
+      function removeTeamCommessaRow(index=0) {
+        const current = collectTeamCommessePlanFromUI().filter((_, idx)=>idx !== index);
+        renderTeamCommessePlanUI(current);
+        saveTeamRequestDraft();
+      }
+      function appendSuggestionToTeamCommessa(inputEl) {
+        if (!inputEl) return;
+        const value = (inputEl.value || '').trim();
+        if (!value) return;
+        const box = inputEl.closest('[data-team-commessa-index]');
+        const field = inputEl.dataset.teamSuggest || '';
+        const target = box?.querySelector(`[data-team-field="${field}"]`);
+        if (!target) return;
+        target.value = normalizeListText([target.value, value].filter(Boolean).join(', '));
+        inputEl.value = '';
+        saveTeamRequestDraft();
+      }
       function renderTeamDirectorySelects() {
         const directory = getTeamDirectory();
-        const memberOptions = (directory.members || []).map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
-        const catalogVehicles = (getMasterData().vehicles || []).map((entry)=>entry.name).filter(Boolean);
+        const masterData = getMasterData();
+        const catalogMembers = (masterData.colleagues || []).map((entry)=>entry.name).filter(Boolean);
+        const allMembers = [...new Set([...(directory.members || []), ...catalogMembers])];
+        const memberOptions = allMembers.map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
+        const catalogVehicles = (masterData.vehicles || []).map((entry)=>entry.name).filter(Boolean);
         const allVehicles = [...new Set([...(directory.vehicles || []), ...catalogVehicles])];
         const vehicleOptions = allVehicles.map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
+        const equipmentOptions = (masterData.equipment || []).map((entry)=>`<option value="${String(entry.name || '').replaceAll('"', '&quot;')}"></option>`).join('');
+        const commesseMaster = (masterData.commesse || []).map((entry)=>entry.name).filter(Boolean);
+        const commesseLocal = getCommesse().map((entry)=>entry.nome).filter(Boolean);
+        const commesseOptions = [...new Set([...commesseMaster, ...commesseLocal])].map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
         id('memberSuggestionsList').innerHTML = memberOptions;
         id('vehicleSuggestionsList').innerHTML = vehicleOptions;
+        id('equipmentSuggestionsList').innerHTML = equipmentOptions;
+        id('commessaSuggestionsList').innerHTML = commesseOptions;
       }
       function normalizeVehicleCatalogRows(rows=[]) {
         const seen = new Set();
@@ -1659,23 +1838,70 @@ out center tags;`;
             return true;
           });
       }
-      function saveCatalogVehicle() {
-        const name = id('catalogVehicleName').value.trim();
-        const fuelType = id('catalogVehicleFuelType').value || 'diesel';
-        if (!name) { showCatalogMsg('Inserisci il nome mezzo.', 'err'); return; }
-        const current = getMasterData();
-        const rows = normalizeVehicleCatalogRows([...(current.vehicles || []).filter((row)=>String(row?.name || '').toLowerCase() !== name.toLowerCase()), { name, fuel_type:fuelType }]);
-        setMasterData({ ...current, vehicles: rows });
-        id('catalogVehicleName').value = '';
+      function normalizeSimpleCatalogRows(rows=[]) {
+        const seen = new Set();
+        return rows
+          .map((row)=>({ name: String(row?.name || row || '').trim() }))
+          .filter((row)=>row.name)
+          .filter((row)=>{
+            const key = row.name.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+      }
+      function renderDataHubCategoryButtons() {
+        if (!id('catalogCategories')) return;
+        id('catalogCategories').innerHTML = DATA_HUB_CATEGORIES.map((cat)=>`<button type="button" class="catalog-cat-btn ${cat.key === selectedDataHubCategory ? 'active' : ''}" onclick="openDataHubCategory('${cat.key}')">${cat.label}</button>`).join('');
+      }
+      function getCatalogRowsByCategory(category='vehicles') {
+        const md = getMasterData();
+        if (category === 'vehicles') return normalizeVehicleCatalogRows(md.vehicles || []);
+        return normalizeSimpleCatalogRows(md[category] || []);
+      }
+      function setCatalogRowsByCategory(category='vehicles', rows=[]) {
+        const md = getMasterData();
+        const normalized = category === 'vehicles' ? normalizeVehicleCatalogRows(rows) : normalizeSimpleCatalogRows(rows);
+        setMasterData({ ...md, [category]: normalized });
+      }
+      function openDataHubCategory(category='vehicles') {
+        selectedDataHubCategory = DATA_HUB_CATEGORIES.some((cat)=>cat.key === category) ? category : 'vehicles';
+        renderCatalogDataUI();
+      }
+      function saveCatalogEntry() {
+        const category = selectedDataHubCategory || 'vehicles';
+        const name = id('catalogPrimaryInput').value.trim();
+        if (!name) { showCatalogMsg('Inserisci almeno un nome.', 'err'); return; }
+        const existing = getCatalogRowsByCategory(category);
+        if (category === 'vehicles') {
+          const fuelType = id('catalogVehicleFuelType').value || 'diesel';
+          setCatalogRowsByCategory('vehicles', [...existing.filter((row)=>row.name.toLowerCase() !== name.toLowerCase()), { name, fuel_type:fuelType }]);
+          showCatalogMsg('Mezzo salvato.', 'ok');
+        } else {
+          setCatalogRowsByCategory(category, [...existing.filter((row)=>row.name.toLowerCase() !== name.toLowerCase()), { name }]);
+          showCatalogMsg('Dato salvato.', 'ok');
+        }
+        if (category === 'commesse') {
+          const commesse = getCommesse();
+          if (!commesse.some((row)=>String(row.nome || '').toLowerCase() === name.toLowerCase())) {
+            const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome:name, impianto:'', updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
+            setCommesse([next, ...commesse]);
+            renderCommesseList();
+            renderGlobalCommesseSelect();
+          }
+        }
+        id('catalogPrimaryInput').value = '';
         id('catalogVehicleFuelType').value = 'diesel';
         renderCatalogDataUI();
         renderTeamDirectorySelects();
-        showCatalogMsg('Mezzo salvato nell’anagrafica app.', 'ok');
       }
-      function deleteCatalogVehicle(name='') {
-        const current = getMasterData();
-        const rows = (current.vehicles || []).filter((row)=>String(row?.name || '').toLowerCase() !== String(name || '').toLowerCase());
-        setMasterData({ ...current, vehicles: rows });
+      function deleteCatalogEntry(category='vehicles', name='') {
+        setCatalogRowsByCategory(category, getCatalogRowsByCategory(category).filter((row)=>String(row?.name || '').toLowerCase() !== String(name || '').toLowerCase()));
+        if (category === 'commesse') {
+          setCommesse(getCommesse().filter((row)=>String(row.nome || '').toLowerCase() !== String(name || '').toLowerCase()));
+          renderCommesseList();
+          renderGlobalCommesseSelect();
+        }
         renderCatalogDataUI();
         renderTeamDirectorySelects();
       }
@@ -1686,12 +1912,20 @@ out center tags;`;
         if (match?.fuel_type && id('fuelType')) id('fuelType').value = match.fuel_type;
       }
       function renderCatalogDataUI() {
-        const rows = normalizeVehicleCatalogRows(getMasterData().vehicles || []);
-        if (rows.length !== (getMasterData().vehicles || []).length) setMasterData({ ...getMasterData(), vehicles: rows });
+        const category = selectedDataHubCategory || 'vehicles';
+        const cfg = DATA_HUB_CATEGORIES.find((cat)=>cat.key === category) || DATA_HUB_CATEGORIES[0];
+        renderDataHubCategoryButtons();
+        id('catalogSectionTitle').textContent = cfg.label;
+        id('catalogSectionHint').textContent = cfg.hint;
+        id('catalogPrimaryLabel').firstChild.textContent = category === 'vehicles' ? 'Nome mezzo' : (category === 'commesse' ? 'Nome commessa/cantiere' : 'Nome');
+        id('catalogPrimaryInput').placeholder = category === 'vehicles' ? 'Es. Daily AB123CD / Escavatore Volvo' : (category === 'equipment' ? 'Es. Motosega Stihl' : (category === 'colleagues' ? 'Es. Mario Rossi' : 'Es. Commessa Bologna Nord'));
+        id('catalogSecondaryWrap').classList.toggle('force-hidden', category !== 'vehicles');
+        const rows = getCatalogRowsByCategory(category);
+        if (category === 'vehicles' && rows.length !== (getMasterData().vehicles || []).length) setMasterData({ ...getMasterData(), vehicles: rows });
         const labels = { diesel:'Diesel', octane_95:'Benzina (95)', lpg:'GPL', cng:'Metano (CNG)' };
         id('catalogVehiclesList').innerHTML = rows.length
-          ? rows.map((row)=>`<li class="catalog-item"><p><strong>${escapeHtml(row.name)}</strong> • ${labels[row.fuel_type] || row.fuel_type}</p><button type="button" class="secondary btn-small" onclick="deleteCatalogVehicle('${String(row.name).replaceAll("'", "\\'")}')">Elimina</button></li>`).join('')
-          : '<li class="catalog-item"><p>Nessun mezzo salvato.</p></li>';
+          ? rows.map((row)=>`<li class="catalog-item"><p><strong>${escapeHtml(row.name)}</strong>${category === 'vehicles' ? ` • ${labels[row.fuel_type] || row.fuel_type}` : ''}</p><button type="button" class="secondary btn-small" onclick="deleteCatalogEntry('${category}','${String(row.name).replaceAll("'", "\\'")}')">Elimina</button></li>`).join('')
+          : `<li class="catalog-item"><p>Nessun dato salvato per ${escapeHtml(cfg.label.toLowerCase())}.</p></li>`;
       }
       function appendSuggestionToTextarea(inputId, textareaId) {
         const value = id(inputId).value.trim();
@@ -1788,15 +2022,21 @@ out center tags;`;
       function renderTeamProgramsSelect() {
         const rows = getTeamPrograms().slice().sort((a,b)=>a.date > b.date ? 1 : -1);
         id('teamProgramSelect').innerHTML = ['<option value="">Nuova programmazione</option>']
-          .concat(rows.map((row)=>`<option value="${row.id}">${row.date} • ${row.cantiere || 'Cantiere n/d'} • ${row.status || 'IN_ATTESA'}</option>`))
+          .concat(rows.map((row)=>{
+            const count = Array.isArray(row.commesse_plan) ? row.commesse_plan.length : (row.cantiere ? 1 : 0);
+            return `<option value="${row.id}">${row.date} • ${row.cantiere || 'Cantiere n/d'} • ${count} commesse • ${row.status || 'IN_ATTESA'}</option>`;
+          }))
           .join('');
       }
       function saveTeamRequestDraft() {
+        syncLegacyTeamFieldsFromPlan();
+        const plan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI());
         setTeamRequestDraft({
           date: id('teamRequestDate').value,
-          cantiere: id('teamRequestCantiere').value.trim(),
-          personale: id('teamRequestPersonnel').value.trim(),
-          mezzi: id('teamRequestVehicles').value.trim(),
+          cantiere: plan[0]?.cantiere || '',
+          personale: normalizeListText(plan.map((row)=>row.personale).filter(Boolean).join(', ')),
+          mezzi: normalizeListText(plan.map((row)=>row.mezzi).filter(Boolean).join(', ')),
+          commesse_plan: plan,
           status: id('teamProgramStatus').value || 'IN_ATTESA'
         });
       }
@@ -1834,8 +2074,11 @@ out center tags;`;
             return;
           }
           const parsed = parseNamesAndVehiclesFromText(extracted);
-          if (parsed.personnel) id('teamRequestPersonnel').value = parsed.personnel;
-          if (parsed.vehicles) id('teamRequestVehicles').value = parsed.vehicles;
+          const rows = collectTeamCommessePlanFromUI();
+          const first = rows[0] || { cantiere:'', personale:'', mezzi:'' };
+          if (parsed.personnel) first.personale = parsed.personnel;
+          if (parsed.vehicles) first.mezzi = parsed.vehicles;
+          renderTeamCommessePlanUI([first, ...rows.slice(1)]);
           id('teamImportPreview').textContent = `Testo estratto: ${extracted.slice(0, 280)}${extracted.length > 280 ? '…' : ''}`;
           saveTeamRequestDraft();
           showTeamMsg('Screenshot analizzato: campi aggiornati automaticamente.', 'ok');
@@ -1845,12 +2088,15 @@ out center tags;`;
         }
       }
       function buildTeamProgramPayload() {
+        const commessePlan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI());
+        const first = commessePlan.find((row)=>row.cantiere) || commessePlan[0] || { cantiere:'', personale:'', mezzi:'' };
         return {
           id: id('teamProgramId').value || `team-program-${Date.now()}`,
           date: id('teamRequestDate').value || tomorrowDateISO(),
-          cantiere: id('teamRequestCantiere').value.trim(),
-          personale: normalizeListText(id('teamRequestPersonnel').value),
-          mezzi: normalizeListText(id('teamRequestVehicles').value),
+          cantiere: first.cantiere || '',
+          personale: normalizeListText(commessePlan.map((row)=>row.personale).filter(Boolean).join(', ')),
+          mezzi: normalizeListText(commessePlan.map((row)=>row.mezzi).filter(Boolean).join(', ')),
+          commesse_plan: commessePlan,
           status: id('teamProgramStatus').value || 'IN_ATTESA',
           status_updated_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -1862,9 +2108,7 @@ out center tags;`;
         if (!row) return;
         id('teamProgramId').value = row.id;
         id('teamRequestDate').value = row.date || tomorrowDateISO();
-        id('teamRequestCantiere').value = row.cantiere || '';
-        id('teamRequestPersonnel').value = row.personale || '';
-        id('teamRequestVehicles').value = row.mezzi || '';
+        renderTeamCommessePlanUI(normalizeTeamCommessePlan(row.commesse_plan?.length ? row.commesse_plan : [{ cantiere:row.cantiere || '', personale:row.personale || '', mezzi:row.mezzi || '' }]));
         id('teamProgramStatus').value = row.status || 'IN_ATTESA';
         id('teamProgramStatusLabel').textContent = `Stato programmazione: ${id('teamProgramStatus').value}`;
         saveTeamRequestDraft();
@@ -1924,7 +2168,8 @@ out center tags;`;
       }
       function saveTeamProgram() {
         const payload = buildTeamProgramPayload();
-        if (!payload.date || !payload.cantiere || !payload.personale || !payload.mezzi) { showTeamMsg('Compila tutti i campi prima di salvare.', 'err'); return; }
+        const validRows = (payload.commesse_plan || []).filter((row)=>row.cantiere && row.personale && row.mezzi);
+        if (!payload.date || !validRows.length) { showTeamMsg('Inserisci almeno una commessa completa (cantiere, personale, mezzi).', 'err'); return; }
         const rows = getTeamPrograms().filter((entry)=>entry.id !== payload.id);
         rows.push(payload);
         setTeamPrograms(rows);
@@ -2001,26 +2246,28 @@ out center tags;`;
       }
       function prefillTeamRequestFromSavedTeam() {
         const directory = getTeamDirectory();
-        if (!id('teamRequestPersonnel').value.trim()) id('teamRequestPersonnel').value = (directory.members || []).join(', ');
-        if (!id('teamRequestVehicles').value.trim()) id('teamRequestVehicles').value = (directory.vehicles || []).join(', ');
+        const rows = collectTeamCommessePlanFromUI();
+        const first = rows[0] || { cantiere:'', personale:'', mezzi:'' };
+        if (!first.personale) first.personale = (directory.members || []).join(', ');
+        if (!first.mezzi) first.mezzi = (directory.vehicles || []).join(', ');
+        renderTeamCommessePlanUI([first, ...rows.slice(1)]);
         saveTeamRequestDraft();
         showTeamMsg('Richiesta precompilata con persone/mezzi dal foglio.', 'ok');
       }
       function openWhatsAppTeamRequest() {
         const date = id('teamRequestDate').value || nowDateISO();
-        const cantiere = id('teamRequestCantiere').value.trim();
-        const personale = id('teamRequestPersonnel').value.trim();
-        const mezzi = id('teamRequestVehicles').value.trim();
-        if (!date || !cantiere || !personale || !mezzi) { showTeamMsg('Compila data, cantiere, personale e mezzi prima di finalizzare.', 'err'); return; }
-        const team = getTeamConfig();
-        const liveCapo = id('caposquadra')?.value?.trim() || '';
+        const commessePlan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI()).filter((row)=>row.cantiere && row.personale && row.mezzi);
+        if (!date || !commessePlan.length) { showTeamMsg('Compila almeno una commessa completa prima di finalizzare.', 'err'); return; }
+        const formattedDate = formatDateIT(date);
+        const details = commessePlan.map((row, idx)=>[
+          `📌 Commessa ${idx + 1}: ${row.cantiere}`,
+          `  👷 Personale: ${row.personale}`,
+          `  🚜 Mezzi: ${row.mezzi}`
+        ].join('\n')).join('\n');
         const message = [
-          `Buongiorno, richiesta squadra per il giorno ${date}.`,
-          `Cantiere: ${cantiere}`,
-          `👷 Personale richiesto: ${personale}`,
-          `🚜 Mezzi richiesti: ${mezzi}`,
-          `Caposquadra: ${liveCapo || team.leader || 'non indicato'}`,
-          'Rispondi con APPROVO o RETTIFICO.',
+          `Buongiorno, richiesta squadra per il giorno ${formattedDate}.`,
+          `Commesse programmate (${commessePlan.length}):`,
+          details,
           'Confermate disponibilità, grazie.'
         ].join('\n');
         saveTeamRequestDraft();
@@ -3181,6 +3428,7 @@ out center tags;`;
         const rows = getCommesse().slice().sort((a,b)=>String(a.nome || '').localeCompare(String(b.nome || '')));
         select.innerHTML = `<option value="">Seleziona commessa</option>${rows.map((c)=>`<option value="${escapeHtml(c.nome || '')}">${escapeHtml(c.nome || '')}${c.impianto ? ` • ${escapeHtml(c.impianto)}` : ''}</option>`).join('')}`;
         if (rows.some((c)=>c.nome === current)) select.value = current;
+        renderTeamDirectorySelects();
       }
       function promptAddCommessa() {
         const nome = (window.prompt('Nome commessa:') || '').trim();
@@ -3653,6 +3901,48 @@ out center tags;`;
         writeJSON(DRIVE_BACKUP_STATE_KEY, merged);
         return merged;
       }
+      function getDeviceId() {
+        const existing = localStorage.getItem(DEVICE_ID_KEY);
+        if (existing) return existing;
+        const next = `dev-${Math.random().toString(36).slice(2,10)}-${Date.now()}`;
+        localStorage.setItem(DEVICE_ID_KEY, next);
+        return next;
+      }
+      function getFirebaseConfigState() {
+        const stored = readJSON(FIREBASE_CONFIG_KEY, {}) || {};
+        return normalizeKnownFirebaseProjectConfig({ ...DEFAULT_FIREBASE_WEB_CONFIG, ...stored });
+      }
+      function setFirebaseConfigState(next={}) {
+        const merged = normalizeKnownFirebaseProjectConfig({ ...getFirebaseConfigState(), ...next });
+        writeJSON(FIREBASE_CONFIG_KEY, merged);
+        return merged;
+      }
+      function normalizeKnownFirebaseProjectConfig(input={}) {
+        const cfg = sanitizeFirebaseConfig(input);
+        const isKnownProject = cfg.projectId === DEFAULT_FIREBASE_WEB_CONFIG.projectId
+          || cfg.authDomain === DEFAULT_FIREBASE_WEB_CONFIG.authDomain
+          || cfg.appId === DEFAULT_FIREBASE_WEB_CONFIG.appId;
+        if (!isKnownProject) return cfg;
+        return {
+          ...cfg,
+          apiKey: DEFAULT_FIREBASE_WEB_CONFIG.apiKey,
+          authDomain: DEFAULT_FIREBASE_WEB_CONFIG.authDomain,
+          projectId: DEFAULT_FIREBASE_WEB_CONFIG.projectId,
+          databaseURL: DEFAULT_FIREBASE_WEB_CONFIG.databaseURL,
+          appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
+          storageBucket: DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
+          messagingSenderId: DEFAULT_FIREBASE_WEB_CONFIG.messagingSenderId,
+          measurementId: DEFAULT_FIREBASE_WEB_CONFIG.measurementId
+        };
+      }
+      function getFirebaseSyncState() {
+        return readJSON(FIREBASE_SYNC_STATE_KEY, { connected:false, uid:'', email:'', liveSync:false, lastPushAt:'', lastPullAt:'' });
+      }
+      function setFirebaseSyncState(next={}) {
+        const merged = { ...getFirebaseSyncState(), ...next };
+        writeJSON(FIREBASE_SYNC_STATE_KEY, merged);
+        return merged;
+      }
       function getGoogleClientId() { return (localStorage.getItem(GOOGLE_CLIENT_ID_KEY) || '').trim(); }
       function setGoogleClientId(clientId='') {
         const clean = String(clientId || '').trim();
@@ -3680,6 +3970,259 @@ out center tags;`;
           linksEl.textContent = '';
         }
       }
+      function sanitizeFirebaseConfig(input={}) {
+        return {
+          apiKey: String(input.apiKey || '').trim(),
+          authDomain: String(input.authDomain || '').trim(),
+          projectId: String(input.projectId || '').trim(),
+          databaseURL: String(input.databaseURL || '').trim(),
+          storageBucket: String(input.storageBucket || '').trim(),
+          messagingSenderId: String(input.messagingSenderId || '').trim(),
+          appId: String(input.appId || '').trim(),
+          measurementId: String(input.measurementId || '').trim(),
+          email: String(input.email || '').trim()
+        };
+      }
+      function readFirebaseConfigFromUI() {
+        const current = getFirebaseConfigState();
+        const readField = (fieldId, fallback='') => {
+          const el = id(fieldId);
+          if (!el) return String(fallback || '');
+          const val = String(el.value || '').trim();
+          return val || String(fallback || '');
+        };
+        return sanitizeFirebaseConfig({
+          apiKey: readField('fbApiKeyInput', current.apiKey || DEFAULT_FIREBASE_WEB_CONFIG.apiKey),
+          authDomain: readField('fbAuthDomainInput', current.authDomain || DEFAULT_FIREBASE_WEB_CONFIG.authDomain),
+          projectId: readField('fbProjectIdInput', current.projectId || DEFAULT_FIREBASE_WEB_CONFIG.projectId),
+          databaseURL: current.databaseURL || DEFAULT_FIREBASE_WEB_CONFIG.databaseURL,
+          appId: readField('fbAppIdInput', current.appId || DEFAULT_FIREBASE_WEB_CONFIG.appId),
+          email: readField('fbEmailInput', current.email || ''),
+          storageBucket: current.storageBucket || DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
+          messagingSenderId: current.messagingSenderId || DEFAULT_FIREBASE_WEB_CONFIG.messagingSenderId,
+          measurementId: current.measurementId || DEFAULT_FIREBASE_WEB_CONFIG.measurementId
+        });
+      }
+      function loadFirebaseConfigUI() {
+        const cfg = sanitizeFirebaseConfig(getFirebaseConfigState());
+        if (id('fbApiKeyInput')) id('fbApiKeyInput').value = cfg.apiKey;
+        if (id('fbAuthDomainInput')) id('fbAuthDomainInput').value = cfg.authDomain;
+        if (id('fbProjectIdInput')) id('fbProjectIdInput').value = cfg.projectId;
+        if (id('fbAppIdInput')) id('fbAppIdInput').value = cfg.appId;
+        if (id('fbEmailInput')) id('fbEmailInput').value = cfg.email;
+      }
+      function saveFirebaseConfigFromUI(showMessage=true) {
+        const next = normalizeKnownFirebaseProjectConfig(readFirebaseConfigFromUI());
+        const saved = setFirebaseConfigState(next);
+        if (showMessage) showBackupMsg('Configurazione Firebase salvata.', 'ok');
+        return sanitizeFirebaseConfig(saved);
+      }
+      function firebaseConfigEquals(a={}, b={}) {
+        const left = sanitizeFirebaseConfig(a);
+        const right = sanitizeFirebaseConfig(b);
+        return left.apiKey === right.apiKey
+          && left.authDomain === right.authDomain
+          && left.projectId === right.projectId
+          && left.appId === right.appId;
+      }
+      function updateFirebaseSyncStatusUI() {
+        const state = getFirebaseSyncState();
+        const el = id('firebaseSyncStatusLine');
+        const liveBtn = id('toggleFirebaseLiveSyncBtn');
+        if (!el) return;
+        if (state.connected) {
+          el.className = 'status-line status-ok';
+          el.textContent = `Cloud Firebase connesso (${state.email || state.uid || 'utente'})${state.liveSync ? ' • sync live ATTIVO' : ' • sync live disattivo'}`;
+        } else {
+          el.className = 'status-line status-neutral';
+          el.textContent = 'Cloud Firebase non connesso.';
+        }
+        if (liveBtn) liveBtn.textContent = state.liveSync ? 'Disattiva sync live' : 'Attiva sync live';
+      }
+      async function ensureFirebaseCloudReady(options={}) {
+        if (!window.firebase?.apps) throw new Error('SDK Firebase non disponibile. Ricarica la pagina.');
+        const appName = 'timbratureCloudApp';
+        const preferUI = !!options.preferUI;
+        const forceRefresh = !!options.forceRefresh;
+        const overrideConfig = options.config ? sanitizeFirebaseConfig(options.config) : null;
+        let cfg = overrideConfig || (preferUI ? saveFirebaseConfigFromUI(false) : sanitizeFirebaseConfig(getFirebaseConfigState()));
+        cfg = sanitizeFirebaseConfig(cfg);
+        if (!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) throw new Error('Compila prima tutti i campi Firebase (API key, Auth domain, Project ID, App ID).');
+
+        let existingApp = window.firebase.apps.find((app)=>app.name === appName) || null;
+        if (existingApp) {
+          const existingCfg = sanitizeFirebaseConfig(existingApp.options || {});
+          const shouldReinitialize = forceRefresh || !firebaseConfigEquals(existingCfg, cfg);
+          if (shouldReinitialize) {
+            try { await existingApp.delete(); } catch (_) {}
+            firebaseCloudApp = null;
+            firebaseCloudAuth = null;
+            firebaseCloudDb = null;
+            firebaseCloudRtdb = null;
+            existingApp = null;
+          }
+        }
+
+        const firebaseConfig = {
+          apiKey: cfg.apiKey,
+          authDomain: cfg.authDomain,
+          projectId: cfg.projectId,
+          databaseURL: cfg.databaseURL || undefined,
+          storageBucket: cfg.storageBucket || undefined,
+          messagingSenderId: cfg.messagingSenderId || undefined,
+          appId: cfg.appId,
+          measurementId: cfg.measurementId || undefined
+        };
+        console.log('[Firebase][debug] Config usata realmente:', firebaseConfig);
+
+        firebaseCloudApp = existingApp || window.firebase.initializeApp(firebaseConfig, appName);
+        firebaseCloudAuth = window.firebase.auth(firebaseCloudApp);
+        firebaseCloudDb = window.firebase.firestore(firebaseCloudApp);
+        firebaseCloudRtdb = window.firebase.database(firebaseCloudApp);
+        setFirebaseConfigState(cfg);
+        return { cfg, auth: firebaseCloudAuth, db: firebaseCloudDb };
+      }
+      function scheduleFirebaseAutoPush(reason='') {
+        if (firebaseApplyingRemoteSnapshot) return;
+        const state = getFirebaseSyncState();
+        if (!state.connected) return;
+        if (!firebaseCloudAuth?.currentUser || !firebaseCloudRtdb) return;
+        if (firebaseAutoPushDebounceTimer) clearTimeout(firebaseAutoPushDebounceTimer);
+        firebaseAutoPushDebounceTimer = window.setTimeout(()=>{
+          pushFirebaseSnapshot().catch((error)=>console.warn('Auto push Firebase fallita:', reason, error?.message || error));
+        }, 1200);
+      }
+      function getFirebaseSnapshotRef() {
+        if (!firebaseCloudRtdb || !firebaseCloudAuth?.currentUser?.uid) throw new Error('Cloud Firebase non connesso.');
+        return firebaseCloudRtdb.ref(`timbrature_sync/${firebaseCloudAuth.currentUser.uid}`);
+      }
+      async function connectFirebaseCloud() {
+        const cfg = saveFirebaseConfigFromUI(false);
+        const { auth } = await ensureFirebaseCloudReady({ config: cfg, forceRefresh:true });
+        const email = (id('fbEmailInput')?.value || cfg.email || '').trim();
+        const password = (id('fbPasswordInput')?.value || '').trim();
+        if (!email || !password) throw new Error('Inserisci email e password cloud.');
+        try {
+          await auth.signInWithEmailAndPassword(email, password);
+        } catch (error) {
+          const code = String(error?.code || '');
+          if (code === 'auth/user-not-found' || code === 'auth/invalid-credential') {
+            await auth.createUserWithEmailAndPassword(email, password);
+          } else {
+            throw error;
+          }
+        }
+        const user = auth.currentUser;
+        setFirebaseSyncState({ connected:true, uid:user?.uid || '', email:user?.email || email, liveSync:true });
+        try { startFirebaseLiveSync(); } catch (_) {}
+        updateFirebaseSyncStatusUI();
+        showBackupMsg('Cloud Firebase connesso con successo.', 'ok');
+      }
+      async function pushFirebaseSnapshot() {
+        const ref = getFirebaseSnapshotRef();
+        await ref.update({
+          payload: buildBackupPayload(),
+          updatedAt: new Date().toISOString(),
+          deviceId: getDeviceId()
+        });
+        setFirebaseSyncState({ connected:true, uid:firebaseCloudAuth.currentUser?.uid || '', email:firebaseCloudAuth.currentUser?.email || '', lastPushAt:new Date().toISOString() });
+        updateFirebaseSyncStatusUI();
+      }
+      async function pullFirebaseSnapshot(confirmPrompt=true) {
+        const ref = getFirebaseSnapshotRef();
+        const snap = await ref.get();
+        const remote = snap?.val?.() || null;
+        if (!remote?.payload) throw new Error('Nessun snapshot cloud disponibile.');
+        if (confirmPrompt && !window.confirm('Vuoi sovrascrivere i dati locali con quelli cloud?')) return false;
+        firebaseApplyingRemoteSnapshot = true;
+        try {
+          applyBackupPayload(remote.payload || {});
+        } finally {
+          firebaseApplyingRemoteSnapshot = false;
+        }
+        setFirebaseSyncState({ connected:true, uid:firebaseCloudAuth.currentUser?.uid || '', email:firebaseCloudAuth.currentUser?.email || '', lastPullAt:new Date().toISOString() });
+        refreshUIAfterDataRestore();
+        updateFirebaseSyncStatusUI();
+        return true;
+      }
+      async function pushFirebaseSnapshotFromUI() {
+        try {
+          await pushFirebaseSnapshot();
+          showBackupMsg('Dati locali caricati su Firebase Cloud.', 'ok');
+        } catch (error) {
+          showBackupMsg(error.message || 'Errore upload su Firebase Cloud.', 'err');
+        }
+      }
+      async function pullFirebaseSnapshotFromUI() {
+        try {
+          const done = await pullFirebaseSnapshot(true);
+          if (done) showBackupMsg('Dati cloud ripristinati sul dispositivo.', 'ok');
+        } catch (error) {
+          showBackupMsg(error.message || 'Errore download da Firebase Cloud.', 'err');
+        }
+      }
+      function stopFirebaseLiveSync() {
+        if (firebaseLiveUnsubscribe) { try { firebaseLiveUnsubscribe(); } catch (_) {} }
+        firebaseLiveUnsubscribe = null;
+        if (firebaseLivePushTimer) clearInterval(firebaseLivePushTimer);
+        firebaseLivePushTimer = null;
+        if (firebaseAutoPushDebounceTimer) clearTimeout(firebaseAutoPushDebounceTimer);
+        firebaseAutoPushDebounceTimer = null;
+      }
+      function refreshUIAfterDataRestore() {
+        loadProfileUI();
+        renderTeamUI();
+        renderCatalogDataUI();
+        renderTeamDirectorySelects();
+        loadMyMonth();
+        renderCommesseList();
+        renderGlobalCommesseSelect();
+        renderDocuments();
+        renderPreventiviList();
+        initAgendaCalendar();
+        updateWelcomeMessage();
+      }
+      function startFirebaseLiveSync() {
+        stopFirebaseLiveSync();
+        const ref = getFirebaseSnapshotRef();
+        const listener = ref.on('value', (snap)=>{
+          const data = snap?.val?.() || null;
+          if (!data?.payload || data.deviceId === getDeviceId()) return;
+          const state = getFirebaseSyncState();
+          const remoteAt = String(data.updatedAt || '');
+          if (state.lastPullAt && remoteAt && remoteAt <= state.lastPullAt) return;
+          firebaseApplyingRemoteSnapshot = true;
+          try {
+            applyBackupPayload(data.payload || {});
+          } finally {
+            firebaseApplyingRemoteSnapshot = false;
+          }
+          setFirebaseSyncState({ connected:true, lastPullAt:new Date().toISOString() });
+          refreshUIAfterDataRestore();
+          showBackupMsg('Sincronizzazione live: aggiornati dati da altro dispositivo.', 'ok');
+        });
+        firebaseLiveUnsubscribe = ()=>ref.off('value', listener);
+        pushFirebaseSnapshot().catch(()=>{});
+        firebaseLivePushTimer = window.setInterval(()=>pushFirebaseSnapshot().catch(()=>{}), 45000);
+      }
+      function toggleFirebaseLiveSync() {
+        const state = getFirebaseSyncState();
+        const next = !state.liveSync;
+        setFirebaseSyncState({ liveSync: next });
+        if (next) {
+          try {
+            startFirebaseLiveSync();
+            showBackupMsg('Sync live Firebase attivato.', 'ok');
+          } catch (error) {
+            setFirebaseSyncState({ liveSync:false });
+            showBackupMsg(error.message || 'Impossibile attivare sync live.', 'err');
+          }
+        } else {
+          stopFirebaseLiveSync();
+          showBackupMsg('Sync live Firebase disattivato.', 'ok');
+        }
+        updateFirebaseSyncStatusUI();
+      }
       function buildBackupPayload() {
         return {
           exportedAt: new Date().toISOString(),
@@ -3691,12 +4234,17 @@ out center tags;`;
           teamDraft: readJSON(TEAM_REQUEST_DRAFT_KEY, {}),
           teamPrograms: readJSON(TEAM_PROGRAMS_KEY, []),
           teamDirectory: readJSON(TEAM_DIRECTORY_KEY, {}),
+          masterData: readJSON(MASTER_DATA_KEY, {}),
           documents: readJSON(DOCUMENTS_KEY, []),
           appointments: readJSON(APPOINTMENTS_KEY, []),
           notifications: readJSON(NOTIFICATION_SETTINGS_KEY, {}),
+          notificationSent: readJSON(NOTIFICATION_SENT_KEY, {}),
+          autoPunchState: readJSON(AUTO_PUNCH_STATE_KEY, {}),
+          monthlyEmailSent: readJSON(MONTHLY_EMAIL_SENT_KEY, {}),
           commesse: readJSON(COMMESSE_KEY, []),
           giornaleEntries: readJSON(GIORNALE_ENTRIES_KEY, []),
-          preventivi: readJSON(PREVENTIVI_KEY, [])
+          preventivi: readJSON(PREVENTIVI_KEY, []),
+          prezzarioConfig: readJSON(PREZZARIO_CONFIG_KEY, {})
         };
       }
       function applyBackupPayload(payload={}) {
@@ -3709,12 +4257,17 @@ out center tags;`;
           { key: TEAM_REQUEST_DRAFT_KEY, field: 'teamDraft', fallback: {} },
           { key: TEAM_PROGRAMS_KEY, field: 'teamPrograms', fallback: [] },
           { key: TEAM_DIRECTORY_KEY, field: 'teamDirectory', fallback: {} },
+          { key: MASTER_DATA_KEY, field: 'masterData', fallback: {} },
           { key: DOCUMENTS_KEY, field: 'documents', fallback: [] },
           { key: APPOINTMENTS_KEY, field: 'appointments', fallback: [] },
           { key: NOTIFICATION_SETTINGS_KEY, field: 'notifications', fallback: {} },
+          { key: NOTIFICATION_SENT_KEY, field: 'notificationSent', fallback: {} },
+          { key: AUTO_PUNCH_STATE_KEY, field: 'autoPunchState', fallback: {} },
+          { key: MONTHLY_EMAIL_SENT_KEY, field: 'monthlyEmailSent', fallback: {} },
           { key: COMMESSE_KEY, field: 'commesse', fallback: [] },
           { key: GIORNALE_ENTRIES_KEY, field: 'giornaleEntries', fallback: [] },
-          { key: PREVENTIVI_KEY, field: 'preventivi', fallback: [] }
+          { key: PREVENTIVI_KEY, field: 'preventivi', fallback: [] },
+          { key: PREZZARIO_CONFIG_KEY, field: 'prezzarioConfig', fallback: {} }
         ];
         mapping.forEach((entry)=>{
           const value = payload[entry.field];
@@ -4240,9 +4793,14 @@ out center tags;`;
           backToCommesse();
           renderCommesseList();
         }
+        updateFocusMode();
         setMenuOpen(false);
       }
       function setMenuOpen(open) { menuOpen = !!open; id('leftMenu').classList.toggle('hidden', !menuOpen); id('menuToggleBtn').setAttribute('aria-expanded', menuOpen ? 'true' : 'false'); }
+      function updateFocusMode() {
+        const enabled = activeMenuPanel === 'timbratureCard';
+        document.body.classList.toggle('punch-focus', enabled);
+      }
 
       async function registerServiceWorker() {
         if (!('serviceWorker' in navigator)) return;
@@ -4253,10 +4811,56 @@ out center tags;`;
           console.warn('Registrazione service worker fallita:', error);
         }
       }
+      function updatePwaInstallUI() {
+        const installBtn = id('installAppBtn');
+        const statusEl = id('pwaInstallStatusLine');
+        if (!installBtn || !statusEl) return;
+        const isInstalled = window.matchMedia?.('(display-mode: standalone)')?.matches || window.navigator.standalone === true;
+        if (isInstalled) {
+          installBtn.disabled = true;
+          statusEl.className = 'status-line status-ok';
+          statusEl.textContent = 'App già installata su questo dispositivo.';
+          return;
+        }
+        if (deferredPwaInstallPrompt) {
+          installBtn.disabled = false;
+          statusEl.className = 'status-line status-ok';
+          statusEl.textContent = 'Installazione disponibile: premi "Installa app".';
+          return;
+        }
+        installBtn.disabled = true;
+        statusEl.className = 'status-line status-neutral';
+        statusEl.textContent = 'Installazione automatica non disponibile qui. Su iPhone usa Condividi → Aggiungi a Home.';
+      }
+      function setupPwaInstallPrompt() {
+        window.addEventListener('beforeinstallprompt', (event) => {
+          event.preventDefault();
+          deferredPwaInstallPrompt = event;
+          updatePwaInstallUI();
+        });
+        window.addEventListener('appinstalled', () => {
+          deferredPwaInstallPrompt = null;
+          updatePwaInstallUI();
+          showBackupMsg('App installata con successo.', 'ok');
+        });
+      }
+      async function installPwaApp() {
+        if (!deferredPwaInstallPrompt) {
+          updatePwaInstallUI();
+          return;
+        }
+        deferredPwaInstallPrompt.prompt();
+        const choice = await deferredPwaInstallPrompt.userChoice;
+        deferredPwaInstallPrompt = null;
+        updatePwaInstallUI();
+        if (choice?.outcome === 'accepted') showBackupMsg('Installazione avviata.', 'ok');
+      }
       function init() {
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
+        updateFocusMode();
         loadProfileUI();
+        renderDataHubCategoryButtons();
         renderTeamUI();
         renderCatalogDataUI();
         loadTeamDirectoryFromSheet(true);
@@ -4276,6 +4880,22 @@ out center tags;`;
         initNotificationUI();
         id('googleClientIdInput').value = getGoogleClientId();
         updateBackupStatusUI();
+        loadFirebaseConfigUI();
+        updateFirebaseSyncStatusUI();
+        updatePwaInstallUI();
+        try {
+          const cfg = getFirebaseConfigState();
+          if (cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId) {
+            ensureFirebaseCloudReady().then(()=>{
+              firebaseCloudAuth.onAuthStateChanged((user)=>{
+              if (!user) return;
+              setFirebaseSyncState({ connected:true, uid:user.uid || '', email:user.email || getFirebaseSyncState().email || '', liveSync:true });
+              try { startFirebaseLiveSync(); } catch (_) {}
+              updateFirebaseSyncStatusUI();
+            });
+            }).catch(()=>{});
+          }
+        } catch (_) {}
 
         buildContractTemplateOptions();
         buildContractLevelsOptions();
@@ -4326,18 +4946,29 @@ out center tags;`;
         id('addPreventivoRowBtn').addEventListener('click', ()=>addPreventivoRow());
         id('finalizePreventivoBtn').addEventListener('click', finalizePreventivo);
         if (id('findFuelStationsBtn')) id('findFuelStationsBtn').addEventListener('click', findNearbyFuelStations);
-        if (id('saveCatalogVehicleBtn')) id('saveCatalogVehicleBtn').addEventListener('click', saveCatalogVehicle);
-        if (id('catalogVehicleName')) id('catalogVehicleName').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveCatalogVehicle(); } });
+        if (id('saveCatalogEntryBtn')) id('saveCatalogEntryBtn').addEventListener('click', saveCatalogEntry);
+        if (id('catalogPrimaryInput')) id('catalogPrimaryInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveCatalogEntry(); } });
         if (id('fuelVehicle')) id('fuelVehicle').addEventListener('change', ()=>applyFuelTypeByVehicleName(id('fuelVehicle').value));
         id('saveGoogleClientIdBtn').addEventListener('click', saveGoogleClientIdFromUI);
         id('connectGoogleDriveBtn').addEventListener('click', connectGoogleDrive);
         id('disconnectGoogleDriveBtn').addEventListener('click', disconnectGoogleDrive);
         id('runDriveBackupBtn').addEventListener('click', runGoogleDriveBackup);
         id('restoreLatestDriveBackupBtn').addEventListener('click', restoreLatestGoogleDriveBackup);
-        id('teamRequestPersonSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'));
-        id('teamRequestVehicleSuggest').addEventListener('change', ()=>appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'));
-        id('teamRequestPersonSuggest').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTextarea('teamRequestPersonSuggest', 'teamRequestPersonnel'); } });
-        id('teamRequestVehicleSuggest').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTextarea('teamRequestVehicleSuggest', 'teamRequestVehicles'); } });
+        if (id('saveFirebaseConfigBtn')) id('saveFirebaseConfigBtn').addEventListener('click', saveFirebaseConfigFromUI);
+        if (id('connectFirebaseBtn')) id('connectFirebaseBtn').addEventListener('click', async ()=>{
+          try {
+            await connectFirebaseCloud();
+            const state = getFirebaseSyncState();
+            if (state.liveSync) startFirebaseLiveSync();
+          } catch (error) {
+            showBackupMsg(error.message || 'Connessione Firebase fallita.', 'err');
+          }
+        });
+        if (id('pushFirebaseSyncBtn')) id('pushFirebaseSyncBtn').addEventListener('click', pushFirebaseSnapshotFromUI);
+        if (id('pullFirebaseSyncBtn')) id('pullFirebaseSyncBtn').addEventListener('click', pullFirebaseSnapshotFromUI);
+        if (id('toggleFirebaseLiveSyncBtn')) id('toggleFirebaseLiveSyncBtn').addEventListener('click', toggleFirebaseLiveSync);
+        if (id('installAppBtn')) id('installAppBtn').addEventListener('click', installPwaApp);
+        if (id('addTeamCommessaRowBtn')) id('addTeamCommessaRowBtn').addEventListener('click', ()=>addTeamCommessaRow());
         id('extractTeamScreenshotBtn').addEventListener('click', extractTeamFromScreenshot);
         id('prefillTeamRequestBtn').addEventListener('click', prefillTeamRequestFromSavedTeam);
         id('saveTeamProgramBtn').addEventListener('click', saveTeamProgram);
@@ -4348,7 +4979,7 @@ out center tags;`;
         id('applyWhatsappReplyBtn').addEventListener('click', applyWhatsappReplyStatus);
         id('teamProgramSelect').addEventListener('change', (e)=>loadTeamProgramById(e.target.value || ''));
         id('sendTeamRequestWhatsappBtn').addEventListener('click', openWhatsAppTeamRequest);
-        ['teamRequestDate','teamRequestCantiere','teamRequestPersonnel','teamRequestVehicles'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveTeamRequestDraft));
+        ['teamRequestDate'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveTeamRequestDraft));
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
         id('contractTemplate').addEventListener('change', ()=>{ buildContractLevelsOptions(); saveProgramDraftUI(); });
@@ -4416,6 +5047,7 @@ out center tags;`;
 
       window.onload = init;
       registerServiceWorker();
+      setupPwaInstallPrompt();
       window.loadMyMonth = loadMyMonth;
       window.exportExcel = exportExcel;
       window.deleteTimbraturaByDate = deleteTimbraturaByDate;
@@ -4423,7 +5055,8 @@ out center tags;`;
       window.showDaySummary = showDaySummary;
       window.removeTeamMember = removeTeamMember;
       window.removeTeamVehicle = removeTeamVehicle;
-      window.deleteCatalogVehicle = deleteCatalogVehicle;
+      window.deleteCatalogEntry = deleteCatalogEntry;
+      window.openDataHubCategory = openDataHubCategory;
       window.openTeamRequestForDate = openTeamRequestForDate;
       window.openGoogleMapsNavigation = openGoogleMapsNavigation;
     </script>
