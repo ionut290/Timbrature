@@ -1241,13 +1241,17 @@
       let sharedAppPushTimer = null;
       let applyingSharedAppPayload = false;
       let sharedAppReady = false;
+      let sharedAppPendingPush = false;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
       function writeJSON(k, v) {
         localStorage.setItem(k, JSON.stringify(v));
         scheduleFirebaseAutoPush(`writeJSON:${k}`);
-        if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) scheduleSharedAppPush(`writeJSON:${k}`);
+        if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) {
+          if (!sharedAppReady) sharedAppPendingPush = true;
+          scheduleSharedAppPush(`writeJSON:${k}`);
+        }
       }
       const nowDateISO = () => new Date().toISOString().slice(0, 10);
       const tomorrowDateISO = () => {
@@ -6149,6 +6153,7 @@ out center tags;`;
       }
       function stopSharedAppSync() {
         sharedAppReady = false;
+        sharedAppPendingPush = false;
         if (sharedAppUnsubscribe) {
           try { sharedAppUnsubscribe(); } catch (_) {}
           sharedAppUnsubscribe = null;
@@ -6164,6 +6169,7 @@ out center tags;`;
             reason,
             payload: buildSharedAppPayload()
           });
+          sharedAppPendingPush = false;
         } catch (error) {
           console.warn('Sync condivisa push fallita:', error);
         }
@@ -6171,7 +6177,7 @@ out center tags;`;
       function scheduleSharedAppPush(reason = 'auto') {
         if (!currentAuthUser || applyingSharedAppPayload || !sharedAppReady) return;
         if (sharedAppPushTimer) clearTimeout(sharedAppPushTimer);
-        sharedAppPushTimer = setTimeout(()=>{ pushSharedAppPayload(reason); }, 1000);
+        sharedAppPushTimer = setTimeout(()=>{ pushSharedAppPayload(reason); }, 350);
       }
       async function startSharedAppSync() {
         if (!currentAuthUser) return;
@@ -6189,6 +6195,10 @@ out center tags;`;
             }
             applySharedAppPayload(payload);
             sharedAppReady = true;
+            if (sharedAppPendingPush) {
+              sharedAppPendingPush = false;
+              scheduleSharedAppPush('pending-local-changes');
+            }
           };
           ref.on('value', handler);
           sharedAppUnsubscribe = ()=>ref.off('value', handler);
