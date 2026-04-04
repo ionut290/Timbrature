@@ -6820,6 +6820,16 @@ out center tags;`;
             Object.keys(localStorage).forEach((key)=>{
               if (/appcheck|firebase-app-check/i.test(key)) localStorage.removeItem(key);
             });
+            if (window.indexedDB?.databases) {
+              const dbs = await window.indexedDB.databases();
+              for (const db of (dbs || [])) {
+                const name = String(db?.name || '');
+                if (!name) continue;
+                if (/firebase-app-check|firebase-installations/i.test(name)) {
+                  try { window.indexedDB.deleteDatabase(name); } catch (_) {}
+                }
+              }
+            }
           } catch (_) {}
           if (firebaseMainAppCheck?.getToken) {
             try { await firebaseMainAppCheck.getToken(true); } catch (refreshError) {
@@ -6832,7 +6842,7 @@ out center tags;`;
       function friendlyAuthErrorMessage(error) {
         const code = String(error?.code || error?.message || '').toLowerCase();
         if (code.includes('firebase-app-check-token-is-invalid')) {
-          return 'Token App Check non valido. Verifica provider/site key App Check in Firebase Console e ricarica la pagina.';
+          return 'Token App Check non valido. In Firebase Console > App Check imposta Authentication su Monitoraggio (non Applicato), verifica provider/site key e ricarica la pagina.';
         }
         return error?.message || 'Operazione autenticazione non riuscita.';
       }
