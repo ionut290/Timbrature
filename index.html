@@ -166,9 +166,19 @@
       .catalog-cat-btn { background:#e2e8f0; color:#0f172a; border:1px solid #cbd5e1; }
       .catalog-cat-btn.active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
       .catalog-subtitle { margin:8px 0 0; font-size:13px; color:#475569; }
+      .fuel-map { min-height:320px; margin-top:10px; border:1px solid #bfdbfe; border-radius:12px; overflow:hidden; background:#f8fbff; }
+      .fuel-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
+      .fuel-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
+      .fuel-item h4 { margin:0 0 4px; font-size:14px; color:#0f172a; }
+      .fuel-item p { margin:0; font-size:12px; color:#475569; }
       .team-commessa-box { border:1px solid #bfdbfe; border-radius:10px; background:#f8fbff; padding:10px; margin-top:10px; }
       .team-commessa-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
       .team-commessa-head h4 { margin:0; font-size:14px; color:#1e3a8a; }
+      .cantiere-list { list-style:none; margin:8px 0 0; padding:0; display:grid; gap:8px; }
+      .cantiere-item { border:1px solid #dbeafe; border-radius:10px; background:#fff; padding:8px; cursor:pointer; }
+      .cantiere-item.active { border-color:#1d4ed8; box-shadow:0 0 0 2px #bfdbfe inset; }
+      .cantiere-item h5 { margin:0 0 4px; font-size:13px; color:#0f172a; }
+      .cantiere-item p { margin:0; font-size:12px; color:#475569; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
       @media (max-width: 768px) {
@@ -441,6 +451,7 @@
             </div>
             <div class="inline-actions">
               <button type="button" class="secondary btn-small" id="globalAddCommessaBtn">Aggiungi commessa</button>
+              <button type="button" class="secondary btn-small" id="globalAddCantiereGpsBtn">Aggiungi cantiere GPS</button>
             </div>
             <div class="actions">
               <button type="button" class="secondary" id="cancelClockInSetupBtn">Annulla</button>
@@ -582,6 +593,13 @@
             </div>
             <h3 id="selectedCommessaTitle">Commessa</h3>
             <p id="selectedCommessaMeta" class="small"></p>
+            <div class="setup-box">
+              <div class="inline-actions">
+                <button type="button" id="addCantiereGpsBtn">Aggiungi cantiere (GPS)</button>
+              </div>
+              <ul id="commessaCantieriList" class="cantiere-list"></ul>
+              <p id="commessaCantieriEmpty" class="small">Nessun cantiere registrato per questa commessa.</p>
+            </div>
             <div id="journalEntryForm" class="setup-box hidden">
               <div class="grid">
                 <label>Data<input type="date" id="journalDate" /></label>
@@ -1044,6 +1062,7 @@
       let selectedAgendaDate = '';
       let googleTokenClient = null;
       let selectedCommessaId = '';
+      let selectedCantiereId = '';
       let selectedDataHubCategory = 'vehicles';
       let journalPendingPhotos = [];
       let preventivoDraftRows = [];
@@ -1486,32 +1505,37 @@ out center tags;`;
           'https://overpass.kumi.systems/api/interpreter',
           'https://overpass.openstreetmap.fr/api/interpreter'
         ];
+        const fetchWithTimeout = async (url, options={}, timeoutMs=7500)=>{
+          const controller = new AbortController();
+          const timer = setTimeout(()=>controller.abort(), timeoutMs);
+          try {
+            const res = await fetch(url, { ...options, signal: controller.signal });
+            return res;
+          } finally {
+            clearTimeout(timer);
+          }
+        };
+        const fetchEndpointPayload = async (endpoint='')=>{
+          const directRes = await fetchWithTimeout(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: query
+          });
+          if (directRes.ok) return directRes.json();
+          const formRes = await fetchWithTimeout(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body: `data=${encodeURIComponent(query)}`
+          });
+          if (formRes.ok) return formRes.json();
+          throw new Error(`Endpoint Overpass non disponibile (${endpoint})`);
+        };
         let payload = null;
         let lastError = null;
-        for (const endpoint of endpoints) {
-          try {
-            const directRes = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-              body: query
-            });
-            if (directRes.ok) {
-              payload = await directRes.json();
-              break;
-            }
-            const formRes = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-              body: `data=${encodeURIComponent(query)}`
-            });
-            if (formRes.ok) {
-              payload = await formRes.json();
-              break;
-            }
-            lastError = new Error(`Endpoint Overpass non disponibile (${endpoint})`);
-          } catch (error) {
-            lastError = error;
-          }
+        try {
+          payload = await Promise.any(endpoints.map((endpoint)=>fetchEndpointPayload(endpoint)));
+        } catch (error) {
+          lastError = error;
         }
         if (!payload) {
           console.warn('Overpass non disponibile:', lastError);
@@ -1560,16 +1584,22 @@ out center tags;`;
           fuelMap.setView([userLat, userLon], 13);
           fuelMarkersLayer?.clearLayers();
         }
-        const truckIcon = window.L.divIcon({
-          className: 'fuel-user-truck-icon',
-          html: '<div style="background:#1d4ed8;color:#fff;border-radius:999px;min-width:34px;min-height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);">P🚛</div>',
-          iconSize: [34, 34],
-          iconAnchor: [17, 17]
+        const userIcon = window.L.divIcon({
+          className: 'fuel-user-worker-icon',
+          html: '<div style="background:#0f766e;color:#fff;border-radius:999px;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);">👷</div>',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
         });
-        const userMarker = window.L.marker([userLat, userLon], { icon: truckIcon }).bindPopup('La tua posizione (P in camion)');
+        const stationIcon = window.L.divIcon({
+          className: 'fuel-station-icon',
+          html: '<div style="background:#1d4ed8;color:#fff;border-radius:999px;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);">⛽</div>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+        const userMarker = window.L.marker([userLat, userLon], { icon: userIcon }).bindPopup('La tua posizione (operatore)');
         fuelMarkersLayer.addLayer(userMarker);
         stations.forEach((st)=>{
-          const marker = window.L.marker([st.lat, st.lon]);
+          const marker = window.L.marker([st.lat, st.lon], { icon: stationIcon });
           marker.bindPopup(`<strong>${escapeHtml(st.name)}</strong><br>${escapeHtml(st.brand || '')}<br><button type="button" onclick="window.openGoogleMapsNavigation(${st.lat},${st.lon})">Naviga con Google Maps</button>`);
           marker.on('click', ()=>openGoogleMapsNavigation(st.lat, st.lon));
           fuelMarkersLayer.addLayer(marker);
@@ -1913,7 +1943,7 @@ out center tags;`;
         if (category === 'commesse') {
           const commesse = getCommesse();
           if (!commesse.some((row)=>String(row.nome || '').toLowerCase() === name.toLowerCase())) {
-            const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome:name, impianto:'', updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
+            const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome:name, impianto:'', cantieri:[], updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
             setCommesse([next, ...commesse]);
             renderCommesseList();
             renderGlobalCommesseSelect();
@@ -3423,10 +3453,94 @@ out center tags;`;
         closeDeleteDocPanel();
         setMenuSection('documentiCard');
       }
-      function getCommesse() { return readJSON(COMMESSE_KEY, []); }
-      function setCommesse(rows=[]) { writeJSON(COMMESSE_KEY, rows); }
+      function normalizeCantiere(row={}) {
+        return {
+          id: String(row.id || `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`),
+          code: String(row.code || '').trim(),
+          name: String(row.name || row.nome || '').trim(),
+          address: String(row.address || row.indirizzo || '').trim(),
+          city: String(row.city || row.comune || '').trim(),
+          province: String(row.province || row.provincia || '').trim(),
+          postcode: String(row.postcode || row.cap || '').trim(),
+          country: String(row.country || row.paese || '').trim(),
+          lat: Number(row.lat),
+          lon: Number(row.lon),
+          created_at: row.created_at || new Date().toISOString(),
+          updated_at: row.updated_at || new Date().toISOString()
+        };
+      }
+      function normalizeCommessa(row={}) {
+        const cantieri = Array.isArray(row.cantieri) ? row.cantieri.map((c)=>normalizeCantiere(c)).filter((c)=>c.name) : [];
+        return {
+          ...row,
+          id: String(row.id || `commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`),
+          nome: String(row.nome || row.name || '').trim(),
+          impianto: String(row.impianto || '').trim(),
+          cantieri,
+          created_at: row.created_at || new Date().toISOString(),
+          updated_at: row.updated_at || new Date().toISOString()
+        };
+      }
+      function getCommesse() {
+        const raw = readJSON(COMMESSE_KEY, []);
+        return (Array.isArray(raw) ? raw : []).map((row)=>normalizeCommessa(row));
+      }
+      function setCommesse(rows=[]) { writeJSON(COMMESSE_KEY, (Array.isArray(rows) ? rows : []).map((row)=>normalizeCommessa(row))); }
       function getGiornaleEntries() { return readJSON(GIORNALE_ENTRIES_KEY, []); }
       function setGiornaleEntries(rows=[]) { writeJSON(GIORNALE_ENTRIES_KEY, rows); }
+      function generateCantiereCode(cantieri=[]) {
+        const used = new Set((Array.isArray(cantieri) ? cantieri : []).map((c)=>String(c.code || '').trim().toUpperCase()).filter((v)=>/^C\d+$/.test(v)));
+        for (let i=1; i<=9999; i+=1) {
+          const code = `C${String(i).padStart(3, '0')}`;
+          if (!used.has(code)) return code;
+        }
+        return `C${Date.now().toString().slice(-4)}`;
+      }
+      async function reverseGeocodeFromCoords(lat, lon) {
+        const endpoint = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&addressdetails=1`;
+        const res = await fetch(endpoint, { headers: { Accept:'application/json' } });
+        if (!res.ok) throw new Error('Geocodifica non disponibile.');
+        const payload = await res.json();
+        const address = payload?.address || {};
+        return {
+          displayName: String(payload?.display_name || '').trim(),
+          road: String(address.road || address.pedestrian || address.footway || '').trim(),
+          houseNumber: String(address.house_number || '').trim(),
+          city: String(address.city || address.town || address.village || address.municipality || '').trim(),
+          province: String(address.county || address.state_district || '').trim(),
+          postcode: String(address.postcode || '').trim(),
+          country: String(address.country || '').trim()
+        };
+      }
+      function renderCantieriForSelectedCommessa() {
+        const wrap = id('commessaCantieriList');
+        const empty = id('commessaCantieriEmpty');
+        if (!wrap || !empty || !selectedCommessaId) return;
+        const commessa = getCommesse().find((c)=>c.id === selectedCommessaId);
+        const cantieri = Array.isArray(commessa?.cantieri) ? commessa.cantieri : [];
+        if (!cantieri.length) {
+          wrap.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+        wrap.innerHTML = cantieri.map((c)=>`
+          <li class="cantiere-item ${c.id === selectedCantiereId ? 'active' : ''}" data-cantiere-id="${escapeHtml(c.id)}">
+            <h5>${escapeHtml(c.code || 'C')} • ${escapeHtml(c.name || 'Cantiere')}</h5>
+            <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || c.country || '-')}</p>
+            <p>${Number.isFinite(c.lat) && Number.isFinite(c.lon) ? `${Number(c.lat).toFixed(6)}, ${Number(c.lon).toFixed(6)}` : 'Coordinate non disponibili'}</p>
+          </li>
+        `).join('');
+        wrap.querySelectorAll('[data-cantiere-id]').forEach((el)=>el.addEventListener('click', ()=>{
+          selectedCantiereId = el.dataset.cantiereId || '';
+          const target = cantieri.find((c)=>c.id === selectedCantiereId);
+          if (target) {
+            id('journalSiteName').value = target.name || '';
+            id('journalLocation').value = [target.address, target.city].filter(Boolean).join(', ');
+          }
+          renderCantieriForSelectedCommessa();
+        }));
+      }
       function formatDateIT(iso='') {
         if (!iso) return '-';
         const d = new Date(`${iso}T00:00:00`);
@@ -3448,6 +3562,7 @@ out center tags;`;
           <li class="commessa-item" data-commessa-id="${escapeHtml(c.id)}">
             <h4>${escapeHtml(c.nome || 'Commessa')}</h4>
             <p>${escapeHtml(c.impianto || c.cantiere || '-')}</p>
+            <p>Cantieri registrati: ${Number(Array.isArray(c.cantieri) ? c.cantieri.length : 0)}</p>
             <p>Ultimo aggiornamento: ${escapeHtml(c.updated_at ? new Date(c.updated_at).toLocaleString('it-IT') : '-')}</p>
           </li>
         `).join('');
@@ -3468,25 +3583,110 @@ out center tags;`;
         if (!nome) return;
         const impianto = (window.prompt('Impianto / cantiere (opzionale):') || '').trim();
         const rows = getCommesse();
-        const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome, impianto, updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
+        const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome, impianto, cantieri:[], updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
         rows.push(next);
         setCommesse(rows);
         renderCommesseList();
         showGiornaleMsg('Commessa aggiunta.', 'ok');
+      }
+      async function addCantiereFromGpsForSelectedCommessa() {
+        const commesse = getCommesse();
+        const selectedGlobalName = String(id('globalCommessaSelect')?.value || '').trim().toLowerCase();
+        const fallbackFromGlobal = commesse.find((c)=>String(c.nome || '').trim().toLowerCase() === selectedGlobalName)?.id || '';
+        const commessaId = selectedCommessaId || fallbackFromGlobal;
+        if (!commessaId) {
+          showMsg('Seleziona prima una commessa dal menu o dal campo "Commessa globale".', 'err');
+          showGiornaleMsg('Seleziona prima una commessa.', 'err');
+          return;
+        }
+        const idx = commesse.findIndex((c)=>c.id === commessaId);
+        if (idx < 0) { showGiornaleMsg('Commessa non trovata.', 'err'); return; }
+        const name = (window.prompt('Nome cantiere:') || '').trim();
+        if (!name) return;
+        showGiornaleMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
+        showMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
+        try {
+          const pos = await getCurrentPositionSafe();
+          const { lat, lon } = extractLatLon(pos);
+          const geo = await reverseGeocodeFromCoords(lat, lon).catch(()=>({}));
+          const road = [geo.road, geo.houseNumber].filter(Boolean).join(' ').trim();
+          const cantieri = Array.isArray(commesse[idx].cantieri) ? [...commesse[idx].cantieri] : [];
+          const existing = cantieri.find((c)=>String(c.name || '').toLowerCase() === name.toLowerCase());
+          if (existing) {
+            showGiornaleMsg(`Cantiere già presente in questa commessa (${existing.code || existing.id}).`, 'err');
+            showMsg(`Cantiere già presente in questa commessa (${existing.code || existing.id}).`, 'err');
+            return;
+          }
+          const nearbyThresholdM = 250;
+          const nearbyDuplicate = commesse
+            .flatMap((cm)=>Array.isArray(cm.cantieri) ? cm.cantieri.map((c)=>({ ...c, commessaNome: cm.nome || 'Commessa' })) : [])
+            .filter((c)=>Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)))
+            .map((c)=>({ ...c, distanceM: haversineDistanceMeters(lat, lon, Number(c.lat), Number(c.lon)) }))
+            .sort((a,b)=>a.distanceM - b.distanceM)
+            .find((c)=>c.distanceM <= nearbyThresholdM || String(c.name || '').toLowerCase() === name.toLowerCase());
+          if (nearbyDuplicate) {
+            const km = (nearbyDuplicate.distanceM / 1000).toFixed(3);
+            const proceed = window.confirm(`Attenzione: cantiere vicino/esistente trovato (${nearbyDuplicate.code || '-'} • ${nearbyDuplicate.name || '-'} • ${km} km). Vuoi salvarlo comunque?`);
+            if (!proceed) {
+              showGiornaleMsg(`Salvataggio annullato: trovato cantiere a ${km} km.`, 'err');
+              showMsg(`Salvataggio annullato: trovato cantiere a ${km} km.`, 'err');
+              return;
+            }
+          }
+          const next = normalizeCantiere({
+            id: `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+            code: generateCantiereCode(cantieri),
+            name,
+            address: road || '',
+            city: geo.city || '',
+            province: geo.province || '',
+            postcode: geo.postcode || '',
+            country: geo.country || '',
+            lat,
+            lon,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          const nextCantieri = [next, ...cantieri];
+          commesse[idx] = { ...commesse[idx], impianto: next.name || commesse[idx].impianto || '', cantieri: nextCantieri, updated_at:new Date().toISOString() };
+          setCommesse(commesse);
+          selectedCommessaId = commessaId;
+          selectedCantiereId = next.id;
+          renderCommesseList();
+          renderCantieriForSelectedCommessa();
+          id('journalSiteName').value = next.name || '';
+          id('journalLocation').value = [next.address, next.city].filter(Boolean).join(', ');
+          showGiornaleMsg(`Cantiere ${next.code} salvato con coordinate automatiche.`, 'ok');
+          showMsg(`Cantiere ${next.code} salvato (${next.name}).`, 'ok');
+        } catch (error) {
+          const geoCode = Number(error?.code);
+          const msg = geoCode === 1
+            ? 'Permesso posizione negato. Consenti GPS e riprova.'
+            : (geoCode === 2
+              ? 'Posizione non disponibile al momento.'
+              : (geoCode === 3
+                ? 'Timeout geolocalizzazione. Riprova.'
+                : (error.message || 'Aggiunta cantiere da GPS non riuscita.')));
+          showGiornaleMsg(msg, 'err');
+          showMsg(msg, 'err');
+        }
       }
       function openCommessaDetail(commessaId='') {
         const commessa = getCommesse().find((c)=>c.id === commessaId);
         if (!commessa) return;
         if (!id('giornaleListView') || !id('giornaleDetailView')) return;
         selectedCommessaId = commessaId;
+        selectedCantiereId = '';
         id('giornaleListView').classList.add('hidden');
         id('giornaleDetailView').classList.remove('hidden');
         id('selectedCommessaTitle').textContent = commessa.nome || 'Commessa';
-        id('selectedCommessaMeta').textContent = `${commessa.impianto || '-'} • aggiornamento ${commessa.updated_at ? new Date(commessa.updated_at).toLocaleString('it-IT') : '-'}`;
+        id('selectedCommessaMeta').textContent = `${commessa.impianto || '-'} • ${Array.isArray(commessa.cantieri) ? commessa.cantieri.length : 0} cantieri • aggiornamento ${commessa.updated_at ? new Date(commessa.updated_at).toLocaleString('it-IT') : '-'}`;
+        renderCantieriForSelectedCommessa();
         renderJournalEntriesForCommessa();
       }
       function backToCommesse() {
         selectedCommessaId = '';
+        selectedCantiereId = '';
         if (!id('giornaleDetailView') || !id('giornaleListView')) return;
         id('giornaleDetailView').classList.add('hidden');
         id('giornaleListView').classList.remove('hidden');
@@ -3502,8 +3702,9 @@ out center tags;`;
         renderJournalPhotoPreview();
         id('journalDate').value = nowDateISO();
         const commessa = getCommesse().find((c)=>c.id === selectedCommessaId);
-        id('journalSiteName').value = commessa?.impianto || commessa?.nome || '';
-        id('journalLocation').value = '';
+        const defaultCantiere = (commessa?.cantieri || []).find((c)=>c.id === selectedCantiereId) || (commessa?.cantieri || [])[0] || null;
+        id('journalSiteName').value = defaultCantiere?.name || commessa?.impianto || commessa?.nome || '';
+        id('journalLocation').value = defaultCantiere ? [defaultCantiere.address, defaultCantiere.city].filter(Boolean).join(', ') : '';
         id('journalLeader').value = id('caposquadra').value || '';
         ['journalOperators','journalStartTime','journalEndTime','journalAbsences','journalSubcontractors','journalWeatherNotes','journalActivities','journalArea','journalVehiclesUsed','journalVehicleHours','journalVehicleIssues','journalMaterialsUsed','journalMaterialsQty','journalDeliveries','journalProblems','journalFinalNotes','journalSignature'].forEach((f)=>id(f).value = '');
         id('journalWeather').value = 'Sole';
@@ -3529,9 +3730,13 @@ out center tags;`;
       }
       function saveJournalEntry() {
         if (!selectedCommessaId) { showGiornaleMsg('Seleziona prima una commessa.', 'err'); return; }
+        const commessa = getCommesse().find((c)=>c.id === selectedCommessaId);
+        const cantiereSel = (commessa?.cantieri || []).find((c)=>c.id === selectedCantiereId) || null;
         const entry = {
           id: `entry-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
           commessa_id: selectedCommessaId,
+          cantiere_id: cantiereSel?.id || '',
+          cantiere_code: cantiereSel?.code || '',
           date: id('journalDate').value || nowDateISO(),
           site_name: id('journalSiteName').value.trim(),
           location: id('journalLocation').value.trim(),
@@ -3564,11 +3769,24 @@ out center tags;`;
         const commesse = getCommesse();
         const idx = commesse.findIndex((c)=>c.id === selectedCommessaId);
         if (idx >= 0) {
+          const cantieri = Array.isArray(commesse[idx].cantieri) ? [...commesse[idx].cantieri] : [];
+          const found = cantieri.find((c)=>c.id === selectedCantiereId) || cantieri.find((c)=>String(c.name || '').toLowerCase() === String(entry.site_name || '').toLowerCase());
+          if (found) {
+            const updated = normalizeCantiere({
+              ...found,
+              name: entry.site_name || found.name || '',
+              address: entry.location || found.address || '',
+              updated_at: new Date().toISOString()
+            });
+            commesse[idx].cantieri = cantieri.map((c)=>c.id === found.id ? updated : c);
+            selectedCantiereId = updated.id;
+          }
           commesse[idx] = { ...commesse[idx], impianto: entry.site_name || commesse[idx].impianto || '', updated_at: new Date().toISOString() };
           setCommesse(commesse);
         }
         closeJournalEntryForm();
         renderCommesseList();
+        renderCantieriForSelectedCommessa();
         renderJournalEntriesForCommessa();
         showGiornaleMsg('Voce giornale salvata.', 'ok');
       }
@@ -4958,6 +5176,7 @@ out center tags;`;
         id('closeDeleteDocPanelBtn').addEventListener('click', closeDeleteDocPanel);
         id('saveDocBtn').addEventListener('click', saveDocument);
         if (id('addCommessaBtn')) id('addCommessaBtn').addEventListener('click', promptAddCommessa);
+        if (id('addCantiereGpsBtn')) id('addCantiereGpsBtn').addEventListener('click', addCantiereFromGpsForSelectedCommessa);
         if (id('backToCommesseBtn')) id('backToCommesseBtn').addEventListener('click', backToCommesse);
         if (id('addJournalEntryBtn')) id('addJournalEntryBtn').addEventListener('click', openJournalEntryForm);
         if (id('cancelJournalEntryBtn')) id('cancelJournalEntryBtn').addEventListener('click', closeJournalEntryForm);
@@ -4970,6 +5189,7 @@ out center tags;`;
           promptAddCommessa();
           renderGlobalCommesseSelect();
         });
+        if (id('globalAddCantiereGpsBtn')) id('globalAddCantiereGpsBtn').addEventListener('click', addCantiereFromGpsForSelectedCommessa);
         if (id('globalCommessaSelect')) id('globalCommessaSelect').addEventListener('change', ()=>{
           if (id('clockInCantiere') && !id('clockInCantiere').value) id('clockInCantiere').value = id('globalCommessaSelect').value || '';
           if (id('cantiere') && !id('cantiere').value) id('cantiere').value = id('globalCommessaSelect').value || '';
