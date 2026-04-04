@@ -3728,6 +3728,7 @@ out center tags;`;
         showGiornaleMsg('Commessa aggiunta.', 'ok');
       }
       async function addCantiereFromGpsForSelectedCommessa(commessaIdOverride='', nameOverride='', notesOverride='') {
+      async function addCantiereFromGpsForSelectedCommessa(commessaIdOverride='') {
         const commesse = getCommesse();
         const selectedGlobalName = String(id('globalCommessaSelect')?.value || '').trim().toLowerCase();
         const fallbackFromGlobal = commesse.find((c)=>String(c.nome || '').trim().toLowerCase() === selectedGlobalName)?.id || '';
@@ -3742,6 +3743,8 @@ out center tags;`;
         const name = String(nameOverride || window.prompt('Nome cantiere:') || '').trim();
         if (!name) return;
         const notes = String(notesOverride || '').trim();
+        const name = (window.prompt('Nome cantiere:') || '').trim();
+        if (!name) return;
         showGiornaleMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
         showMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
         try {
