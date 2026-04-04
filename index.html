@@ -2364,7 +2364,10 @@ out center tags;`;
       async function renderDataHubCantieriMap(cantieri=[]) {
         const mapEl = id('dataHubCantieriMap');
         if (!mapEl) return;
-        if (!cantieri.length) {
+        const validCoords = (Array.isArray(cantieri) ? cantieri : [])
+          .filter((c)=>Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)))
+          .map((c)=>[Number(c.lat), Number(c.lon)]);
+        if (!cantieri.length || !validCoords.length) {
           mapEl.innerHTML = '<p class="small" style="padding:10px;">Nessuna posizione GPS disponibile per i cantieri.</p>';
           return;
         }
@@ -2372,7 +2375,7 @@ out center tags;`;
           await ensureLeafletLoaded();
           if (!dataHubCantieriMap) mapEl.innerHTML = '';
           if (!dataHubCantieriMap) {
-            dataHubCantieriMap = window.L.map(mapEl).setView([cantieri[0].lat, cantieri[0].lon], 11);
+            dataHubCantieriMap = window.L.map(mapEl).setView(validCoords[0], 11);
             window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
               maxZoom: 19,
               attribution: '&copy; OpenStreetMap contributors'
@@ -2382,15 +2385,13 @@ out center tags;`;
             dataHubCantieriLayer?.clearLayers();
             dataHubCantieriMap.invalidateSize();
           }
-          const coords = [];
           cantieri.forEach((c)=>{
             if (!Number.isFinite(Number(c.lat)) || !Number.isFinite(Number(c.lon))) return;
-            coords.push([Number(c.lat), Number(c.lon)]);
             const marker = window.L.marker([Number(c.lat), Number(c.lon)]);
             marker.bindPopup(`<strong>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</strong><br>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}`);
             dataHubCantieriLayer.addLayer(marker);
           });
-          if (coords.length) dataHubCantieriMap.fitBounds(coords, { padding:[18, 18], maxZoom:15 });
+          if (validCoords.length) dataHubCantieriMap.fitBounds(validCoords, { padding:[18, 18], maxZoom:15 });
         } catch (error) {
           console.warn('Impossibile renderizzare mappa cantieri:', error);
           mapEl.innerHTML = '<p class="small" style="padding:10px;">Mappa non disponibile al momento.</p>';
@@ -4331,11 +4332,12 @@ out center tags;`;
         const cantieri = Array.isArray(commesse[idx].cantieri) ? [...commesse[idx].cantieri] : [];
         const existingNames = new Set(cantieri.map((c)=>String(c.name || '').trim().toLowerCase()).filter(Boolean));
         let inserted = 0;
-        let skipped = 0;
+        let skippedDuplicate = 0;
+        let skippedEmpty = 0;
         rawRows.forEach((raw)=>{
           const name = String(raw.name || '').trim();
-          if (!name) { skipped += 1; return; }
-          if (existingNames.has(name.toLowerCase())) { skipped += 1; return; }
+          if (!name) { skippedEmpty += 1; return; }
+          if (existingNames.has(name.toLowerCase())) { skippedDuplicate += 1; return; }
           const normalized = normalizeCantiere({
             ...raw,
             id: `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
@@ -4359,7 +4361,7 @@ out center tags;`;
         setCommesse(commesse);
         renderCommesseList();
         renderDataHubCommessaDetail();
-        return { inserted, skipped };
+        return { inserted, skippedDuplicate, skippedEmpty, skipped: skippedDuplicate + skippedEmpty };
       }
       async function ensureXlsxLibReady() {
         if (window.XLSX?.utils) return window.XLSX;
@@ -4382,7 +4384,7 @@ out center tags;`;
           if (!rows.length) throw new Error('Nessun cantiere valido trovato nei dati incollati.');
           const result = importCantieriRowsIntoSelectedCommessa(rows);
           id('dataHubImportEsito').className = 'msg ok';
-          id('dataHubImportEsito').textContent = `Import completato: ${result.inserted} inseriti, ${result.skipped} saltati (duplicati/vuoti).`;
+          id('dataHubImportEsito').textContent = `Import completato: ${result.inserted} inseriti, ${result.skipped} saltati (duplicati: ${result.skippedDuplicate}, vuoti: ${result.skippedEmpty}).`;
           showCatalogMsg(`Import cantieri completato (${result.inserted} inseriti).`, 'ok');
         } catch (error) {
           id('dataHubImportEsito').className = 'msg err';
@@ -4414,7 +4416,7 @@ out center tags;`;
           if (!rows.length) throw new Error('Nessun cantiere valido trovato nel file.');
           const result = importCantieriRowsIntoSelectedCommessa(rows);
           id('dataHubImportEsito').className = 'msg ok';
-          id('dataHubImportEsito').textContent = `Import file completato: ${result.inserted} inseriti, ${result.skipped} saltati.`;
+          id('dataHubImportEsito').textContent = `Import file completato: ${result.inserted} inseriti, ${result.skipped} saltati (duplicati: ${result.skippedDuplicate}, vuoti: ${result.skippedEmpty}).`;
           id('importCantieriFileInput').value = '';
           showCatalogMsg(`Import da file completato (${result.inserted} cantieri).`, 'ok');
         } catch (error) {
