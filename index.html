@@ -282,6 +282,10 @@
             </div>
           </div>
           <div id="lavoroCommesseView" class="hidden">
+            <div class="setup-box">
+              <h3 style="margin:0 0 8px;">Mappa impianti commessa</h3>
+              <div id="lavoroCantieriMap" class="fuel-map" style="min-height:280px;"></div>
+            </div>
             <div class="grid">
               <label>Seleziona commessa
                 <select id="lavoroCommessaSelect"><option value="">Seleziona commessa</option></select>
@@ -290,13 +294,9 @@
                 <input type="text" id="lavoroClientePhone" placeholder="Es. 393331112233" />
               </label>
             </div>
-            <p class="small">Per ogni cantiere: <strong>Naviga</strong> apre Google Maps, <strong>Fatto</strong> salva data/ora/operatore, <strong>Whazzupa</strong> prepara il messaggio WhatsApp al cliente.</p>
+            <p class="small">Elenco impianti commessa.</p>
             <ul id="lavoroCantieriList" class="cantiere-list"></ul>
             <p id="lavoroCantieriEmpty" class="small">Nessun cantiere disponibile per questa commessa.</p>
-            <div class="setup-box">
-              <h3 style="margin:0 0 8px;">Mappa impianti commessa</h3>
-              <div id="lavoroCantieriMap" class="fuel-map" style="min-height:280px;"></div>
-            </div>
             <p id="lavoroEsito" class="msg"></p>
           </div>
         </div>
@@ -2090,7 +2090,7 @@ out center tags;`;
         const operatorName = String(cantiere?.done_by || getOperatorDisplayName()).trim();
         const dateText = doneAt.toLocaleDateString('it-IT');
         const timeText = doneAt.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
-        const msg = `✅ Intervento effettuato\nID SAP: ${cantiere?.code || '-'}\nNome impianto: ${cantiere?.name || '-'}\nData: ${dateText}\nOra: ${timeText}\nOperatore: ${operatorName}`;
+        const msg = `✅ Intervento effettuato\nID SAP: ${cantiere?.code || '-'}\nNome impianto: ${cantiere?.name || '-'}\nData: ${dateText}\nOra: ${timeText}\nOperatore: ${operatorName}\n📎 Allega foto intervento (graffetta WhatsApp)`;
         const url = phoneRaw
           ? `https://wa.me/${phoneRaw}?text=${encodeURIComponent(msg)}`
           : `https://wa.me/?text=${encodeURIComponent(msg)}`;
