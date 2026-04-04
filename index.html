@@ -183,6 +183,11 @@
       .cantiere-item.active { border-color:#1d4ed8; box-shadow:0 0 0 2px #bfdbfe inset; }
       .cantiere-item h5 { margin:0 0 4px; font-size:13px; color:#0f172a; }
       .cantiere-item p { margin:0; font-size:12px; color:#475569; }
+      .cantiere-item.ordinary { border-color:#16a34a; background:#f0fdf4; }
+      .cantiere-item.extraordinary { border-color:#f59e0b; background:#fffbeb; }
+      .work-badge { display:inline-block; margin:0 0 6px; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+      .work-badge.ordinary { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+      .work-badge.extraordinary { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
       @media (max-width: 768px) {
@@ -1001,6 +1006,8 @@
       const DEVICE_ID_KEY = 'timbrature.local.device.id';
       const BIOMETRIC_CREDENTIAL_KEY = 'timbrature.local.auth.biometric.credential';
       const ACCESS_CONTROL_KEY = 'timbrature.local.access.control';
+      const SHARED_APP_SYNC_META_KEY = 'timbrature.shared.app.sync.meta';
+      const SHARED_APP_DATA_PATH = 'shared/global_app_data_v1';
       const DEFAULT_FIREBASE_WEB_CONFIG = {
         apiKey: 'AIzaSyDFF7gaDLCGmb-abDRutX_y0vf_MzM449E',
         authDomain: 'timbrature-varga.firebaseapp.com',
@@ -1042,6 +1049,18 @@
         OPERATORE: ['timbratureCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'carburanteCard', 'userBox'],
         BACKOFFICE: ['storicoCard', 'calendarioCard', 'documentiCard', 'prezzarioCard', 'createPreventivoCard', 'dataHubCard', 'backupCard', 'userBox']
       };
+      const SHARED_APP_KEYS = [
+        RECORDS_KEY,
+        PROGRAMS_KEY,
+        TEAM_KEY,
+        TEAM_PROGRAMS_KEY,
+        TEAM_DIRECTORY_KEY,
+        COMMESSE_KEY,
+        GIORNALE_ENTRIES_KEY,
+        MASTER_DATA_KEY,
+        PREVENTIVI_KEY,
+        PREZZARIO_CONFIG_KEY
+      ];
       const menuPanelIds = MENU_PERMISSION_ITEMS.map((item)=>item.panel);
       const DATA_HUB_CATEGORIES = [
         { key:'vehicles', label:'Mezzi', hint:'Gestisci i mezzi (da Firestore) con carburante, targa, stato e note.' },
@@ -1217,12 +1236,17 @@
       let mezziRealtimeError = '';
       let deferredPwaInstallPrompt = null;
       let xlsxLoaderPromise = null;
+      let sharedAppDbRef = null;
+      let sharedAppUnsubscribe = null;
+      let sharedAppPushTimer = null;
+      let applyingSharedAppPayload = false;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
       function writeJSON(k, v) {
         localStorage.setItem(k, JSON.stringify(v));
         scheduleFirebaseAutoPush(`writeJSON:${k}`);
+        if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) scheduleSharedAppPush(`writeJSON:${k}`);
       }
       const nowDateISO = () => new Date().toISOString().slice(0, 10);
       const tomorrowDateISO = () => {
@@ -2349,16 +2373,21 @@ out center tags;`;
           return;
         }
         empty.classList.add('hidden');
-        list.innerHTML = cantieri.map((c)=>`<li class="cantiere-item">
+        list.innerHTML = cantieri.map((c)=>{
+          const workClass = classifyCantiereWork(c);
+          return `<li class="cantiere-item ${workClass.key}">
+          <span class="work-badge ${workClass.key}">${workClass.label}</span>
           <h5>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</h5>
           <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}</p>
           <p>Coordinate: ${Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)) ? `${Number(c.lat).toFixed(5)}, ${Number(c.lon).toFixed(5)}` : '-'}</p>
+          <p>Codici prezzo: ${escapeHtml(c.price_codes || c.price_code || '-')}</p>
           <p>${escapeHtml(c.notes || '-')}</p>
           <div class="inline-actions" style="margin-top:6px;">
             <button type="button" class="secondary btn-small" onclick="editCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Modifica</button>
             <button type="button" class="secondary btn-small" onclick="deleteCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Elimina</button>
           </div>
-        </li>`).join('');
+        </li>`;
+        }).join('');
         renderDataHubCantieriMap(cantieri);
       }
       async function renderDataHubCantieriMap(cantieri=[]) {
@@ -2387,8 +2416,16 @@ out center tags;`;
           }
           cantieri.forEach((c)=>{
             if (!Number.isFinite(Number(c.lat)) || !Number.isFinite(Number(c.lon))) return;
-            const marker = window.L.marker([Number(c.lat), Number(c.lon)]);
-            marker.bindPopup(`<strong>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</strong><br>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}`);
+            const workClass = classifyCantiereWork(c);
+            const markerColor = workClass.key === 'ordinary' ? '#16a34a' : '#f59e0b';
+            const markerIcon = window.L.divIcon({
+              className: 'cantiere-work-marker',
+              html: `<span style="display:inline-block;width:14px;height:14px;border-radius:999px;background:${markerColor};border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);"></span>`,
+              iconSize: [14, 14],
+              iconAnchor: [7, 7]
+            });
+            const marker = window.L.marker([Number(c.lat), Number(c.lon)], { icon: markerIcon });
+            marker.bindPopup(`<strong>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</strong><br>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}<br><strong>${escapeHtml(workClass.label)}</strong><br>Codici prezzo: ${escapeHtml(c.price_codes || c.price_code || '-')}`);
             dataHubCantieriLayer.addLayer(marker);
           });
           if (validCoords.length) dataHubCantieriMap.fitBounds(validCoords, { padding:[18, 18], maxZoom:15 });
@@ -4196,6 +4233,8 @@ out center tags;`;
           name: String(row.name || row.nome || '').trim(),
           address: String(row.address || row.indirizzo || '').trim(),
           notes: String(row.notes || row.note || '').trim(),
+          price_code: String(row.price_code || row.priceCode || '').trim().toUpperCase(),
+          price_codes: String(row.price_codes || row.priceCodes || row.price_code || row.priceCode || '').trim().toUpperCase(),
           city: String(row.city || row.comune || '').trim(),
           province: String(row.province || row.provincia || '').trim(),
           postcode: String(row.postcode || row.cap || '').trim(),
@@ -4205,6 +4244,23 @@ out center tags;`;
           created_at: row.created_at || new Date().toISOString(),
           updated_at: row.updated_at || new Date().toISOString()
         };
+      }
+      function mergePriceCodes(existingRaw = '', nextCode = '') {
+        const values = String(existingRaw || '').split(/[|,;]+/).map((item)=>String(item || '').trim().toUpperCase()).filter(Boolean);
+        const next = String(nextCode || '').trim().toUpperCase();
+        if (next && !values.includes(next)) values.push(next);
+        return values.join('|');
+      }
+      function classifyCantiereWork(cantiere = {}) {
+        const codes = String(cantiere.price_codes || cantiere.price_code || '')
+          .split(/[|,;]+/)
+          .map((item)=>String(item || '').trim().toUpperCase())
+          .filter(Boolean);
+        if (!codes.length) return { key:'extraordinary', label:'STRAORDINARIO' };
+        const hasOrdinary = codes.some((code)=>code === 'A11' || code === 'A12');
+        const hasExtra = codes.some((code)=>code !== 'A11' && code !== 'A12');
+        if (hasOrdinary && !hasExtra) return { key:'ordinary', label:'ORDINARIO (A11/A12)' };
+        return { key:'extraordinary', label: hasOrdinary && hasExtra ? 'MISTO (ORD + STRAORD)' : 'STRAORDINARIO' };
       }
       function normalizeCommessa(row={}) {
         const cantieri = Array.isArray(row.cantieri) ? row.cantieri.map((c)=>normalizeCantiere(c)).filter((c)=>c.name) : [];
@@ -4361,8 +4417,9 @@ out center tags;`;
           if (duplicateIdx >= 0) {
             const current = cantieri[duplicateIdx];
             const mergedNotes = mergeVariantInNotes(current.notes || '', raw.priceCode || '', raw.interventionType || '');
-            if (mergedNotes !== (current.notes || '')) {
-              cantieri[duplicateIdx] = { ...current, notes: mergedNotes, updated_at: new Date().toISOString() };
+            const mergedCodes = mergePriceCodes(current.price_codes || current.price_code || '', raw.priceCode || '');
+            if (mergedNotes !== (current.notes || '') || mergedCodes !== (current.price_codes || current.price_code || '')) {
+              cantieri[duplicateIdx] = { ...current, notes: mergedNotes, price_codes: mergedCodes, updated_at: new Date().toISOString() };
               updatedVariants += 1;
             } else {
               skippedDuplicate += 1;
@@ -4375,6 +4432,8 @@ out center tags;`;
             code: code || generateCantiereCode(cantieri),
             name,
             notes: mergeVariantInNotes(raw.notes || '', raw.priceCode || '', raw.interventionType || ''),
+            price_code: String(raw.priceCode || '').trim().toUpperCase(),
+            price_codes: mergePriceCodes('', raw.priceCode || ''),
             lat: Number.isFinite(Number(raw.lat)) ? Number(raw.lat) : NaN,
             lon: Number.isFinite(Number(raw.lon)) ? Number(raw.lon) : NaN,
             created_at: new Date().toISOString(),
@@ -4484,13 +4543,18 @@ out center tags;`;
           return;
         }
         empty.classList.add('hidden');
-        wrap.innerHTML = cantieri.map((c)=>`
-          <li class="cantiere-item ${c.id === selectedCantiereId ? 'active' : ''}" data-cantiere-id="${escapeHtml(c.id)}">
+        wrap.innerHTML = cantieri.map((c)=>{
+          const workClass = classifyCantiereWork(c);
+          return `
+          <li class="cantiere-item ${workClass.key} ${c.id === selectedCantiereId ? 'active' : ''}" data-cantiere-id="${escapeHtml(c.id)}">
+            <span class="work-badge ${workClass.key}">${workClass.label}</span>
             <h5>${escapeHtml(c.code || 'C')} • ${escapeHtml(c.name || 'Cantiere')}</h5>
             <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || c.country || '-')}</p>
+            <p>Codici prezzo: ${escapeHtml(c.price_codes || c.price_code || '-')}</p>
             <p>${Number.isFinite(c.lat) && Number.isFinite(c.lon) ? `${Number(c.lat).toFixed(5)}, ${Number(c.lon).toFixed(5)}` : 'Coordinate non disponibili'}</p>
           </li>
-        `).join('');
+        `;
+        }).join('');
         wrap.querySelectorAll('[data-cantiere-id]').forEach((el)=>el.addEventListener('click', ()=>{
           selectedCantiereId = el.dataset.cantiereId || '';
           const target = cantieri.find((c)=>c.id === selectedCantiereId);
@@ -6022,6 +6086,82 @@ out center tags;`;
         const enabled = activeMenuPanel === 'timbratureCard';
         document.body.classList.toggle('punch-focus', enabled);
       }
+      function buildSharedAppPayload() {
+        const payload = {};
+        SHARED_APP_KEYS.forEach((key)=>{ payload[key] = readJSON(key, null); });
+        return payload;
+      }
+      function applySharedAppPayload(payload = {}) {
+        applyingSharedAppPayload = true;
+        try {
+          SHARED_APP_KEYS.forEach((key)=>{
+            if (!Object.prototype.hasOwnProperty.call(payload, key)) return;
+            localStorage.setItem(key, JSON.stringify(payload[key]));
+          });
+          writeJSON(SHARED_APP_SYNC_META_KEY, { last_pull_at: new Date().toISOString() });
+          try { loadProfileUI(); } catch (_) {}
+          try { renderTeamUI(); } catch (_) {}
+          try { renderCatalogDataUI(); } catch (_) {}
+          try { renderCommesseList(); renderDataHubCommessaDetail(); renderGlobalCommesseSelect(); } catch (_) {}
+          try { renderDocuments(); } catch (_) {}
+          try { renderPreventiviList(); } catch (_) {}
+          try { loadMyMonth(); } catch (_) {}
+        } finally {
+          applyingSharedAppPayload = false;
+        }
+      }
+      async function ensureSharedAppDbRef() {
+        const auth = await ensureMainAuthReady();
+        if (!window.firebase?.database) throw new Error('Realtime Database non disponibile.');
+        if (!sharedAppDbRef) {
+          const db = window.firebase.database(auth.app);
+          sharedAppDbRef = db.ref(SHARED_APP_DATA_PATH);
+        }
+        return sharedAppDbRef;
+      }
+      function stopSharedAppSync() {
+        if (sharedAppUnsubscribe) {
+          try { sharedAppUnsubscribe(); } catch (_) {}
+          sharedAppUnsubscribe = null;
+        }
+      }
+      async function pushSharedAppPayload(reason = 'manual') {
+        if (!currentAuthUser) return;
+        try {
+          const ref = await ensureSharedAppDbRef();
+          await ref.set({
+            updated_at: new Date().toISOString(),
+            updated_by: currentAuthUser.email || currentAuthUser.uid || '',
+            reason,
+            payload: buildSharedAppPayload()
+          });
+        } catch (error) {
+          console.warn('Sync condivisa push fallita:', error);
+        }
+      }
+      function scheduleSharedAppPush(reason = 'auto') {
+        if (!currentAuthUser || applyingSharedAppPayload) return;
+        if (sharedAppPushTimer) clearTimeout(sharedAppPushTimer);
+        sharedAppPushTimer = setTimeout(()=>{ pushSharedAppPayload(reason); }, 1000);
+      }
+      async function startSharedAppSync() {
+        if (!currentAuthUser) return;
+        try {
+          const ref = await ensureSharedAppDbRef();
+          stopSharedAppSync();
+          const handler = (snapshot) => {
+            const data = snapshot?.val?.() || null;
+            const payload = data?.payload;
+            if (!payload || typeof payload !== 'object') return;
+            applySharedAppPayload(payload);
+          };
+          ref.on('value', handler);
+          sharedAppUnsubscribe = ()=>ref.off('value', handler);
+          scheduleSharedAppPush('auth-connect');
+        } catch (error) {
+          console.warn('Sync condivisa non disponibile:', error);
+        }
+      }
       async function ensureMainAuthReady() {
         if (appAuth) return appAuth;
         if (!window.firebase?.initializeApp) throw new Error('Firebase Auth non disponibile.');
@@ -6031,7 +6171,8 @@ out center tags;`;
           apiKey: DEFAULT_FIREBASE_WEB_CONFIG.apiKey,
           authDomain: DEFAULT_FIREBASE_WEB_CONFIG.authDomain,
           projectId: DEFAULT_FIREBASE_WEB_CONFIG.projectId,
-          appId: DEFAULT_FIREBASE_WEB_CONFIG.appId
+          appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
+          databaseURL: DEFAULT_FIREBASE_WEB_CONFIG.databaseURL
         }, appName);
         appAuth = window.firebase.auth(app);
         return appAuth;
@@ -6061,6 +6202,7 @@ out center tags;`;
           currentAuthUser = user || null;
           if (!user) {
             currentUserRole = 'OPERATORE';
+            stopSharedAppSync();
             updateAuthUiState();
             setAppLocked(true, 'Effettua login o registrazione per accedere.');
             return;
@@ -6068,6 +6210,7 @@ out center tags;`;
           ensureRoleForCurrentUser();
           updateAuthUiState();
           applyRolePermissions();
+          startSharedAppSync().catch(()=>{});
           const hasBiometric = !!getBiometricCredentialId(user.uid || '');
           if (hasBiometric) {
             setAppLocked(true, 'Utente riconosciuto. Sblocca con impronta/Face ID oppure rifai login.');
