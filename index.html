@@ -164,6 +164,9 @@
       .fuel-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
       .fuel-item h4 { margin:0 0 4px; font-size:14px; color:#0f172a; }
       .fuel-item p { margin:0; font-size:12px; color:#475569; }
+      .fuel-prices { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+      .fuel-price-chip { display:inline-flex; align-items:center; gap:4px; border:1px solid #bfdbfe; border-radius:999px; padding:2px 8px; background:#eff6ff; font-size:12px; color:#1e3a8a; font-weight:700; }
+      .fuel-services { display:flex; gap:8px; margin-top:8px; font-size:18px; }
       .catalog-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
       .catalog-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
       .catalog-item p { margin:0; font-size:13px; color:#0f172a; }
@@ -1515,6 +1518,13 @@ out center tags;`;
               lat: stLat,
               lon: stLon,
               tags,
+              prices: {
+                diesel: parseFuelPrice(tags, 'diesel'),
+                octane_95: parseFuelPrice(tags, 'octane_95'),
+                lpg: parseFuelPrice(tags, 'lpg'),
+                cng: parseFuelPrice(tags, 'cng')
+              },
+              services: stationServiceIcons(tags),
               distanceKm: haversineKm(lat, lon, stLat, stLon)
             };
           })
@@ -1526,6 +1536,35 @@ out center tags;`;
       function openGoogleMapsNavigation(lat, lon) {
         const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}&travelmode=driving`;
         window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      function parseFuelPrice(tags={}, fuelType='diesel') {
+        const candidatesByType = {
+          diesel: ['fuel:diesel:price', 'fuel:diesel;price'],
+          octane_95: ['fuel:octane_95:price', 'fuel:e10:price', 'fuel:unleaded:price'],
+          lpg: ['fuel:lpg:price'],
+          cng: ['fuel:cng:price']
+        };
+        const candidates = candidatesByType[fuelType] || [];
+        for (const key of candidates) {
+          const raw = String(tags[key] || '').trim();
+          if (!raw) continue;
+          const normalized = raw.replace(',', '.').replace(/[^0-9.]/g, '');
+          const value = Number(normalized);
+          if (Number.isFinite(value) && value > 0) return value.toFixed(3);
+        }
+        return '';
+      }
+      function stationServiceIcons(tags={}) {
+        const all = JSON.stringify(tags || {}).toLowerCase();
+        const icons = [];
+        const isSelf = String(tags.automated || '').toLowerCase() === 'yes'
+          || String(tags['service:self'] || '').toLowerCase() === 'yes'
+          || String(tags['payment:cards'] || '').toLowerCase() === 'yes';
+        if (isSelf) icons.push({ icon:'🛢️', title:'Self service' });
+        if (tags.shop === 'convenience' || tags.shop === 'kiosk' || all.includes('tabac')) icons.push({ icon:'🚬', title:'Tabacchi' });
+        if (tags.amenity === 'cafe' || tags.cuisine || all.includes('bar')) icons.push({ icon:'☕', title:'Bar' });
+        if (String(tags.car_wash || '').toLowerCase() === 'yes' || all.includes('lav')) icons.push({ icon:'🧽', title:'Autolavaggio' });
+        return icons;
       }
       function renderFuelStationsMap(userLat, userLon, stations=[]) {
         if (!window.L?.map) return;
@@ -1570,6 +1609,15 @@ out center tags;`;
               <h4>${escapeHtml(st.name)} ${st.brand ? `(${escapeHtml(st.brand)})` : ''}</h4>
               <p>${escapeHtml(st.address || 'Indirizzo non disponibile')}</p>
               <p>Distanza: ${st.distanceKm.toFixed(2)} km</p>
+              <div class="fuel-prices">
+                ${st.prices?.diesel ? `<span class="fuel-price-chip" title="Diesel">🟢 ${escapeHtml(st.prices.diesel)} €/L</span>` : ''}
+                ${st.prices?.octane_95 ? `<span class="fuel-price-chip" title="Benzina 95">🟠 ${escapeHtml(st.prices.octane_95)} €/L</span>` : ''}
+                ${st.prices?.lpg ? `<span class="fuel-price-chip" title="GPL">🟣 ${escapeHtml(st.prices.lpg)} €/L</span>` : ''}
+                ${st.prices?.cng ? `<span class="fuel-price-chip" title="Metano">🔵 ${escapeHtml(st.prices.cng)} €/kg</span>` : ''}
+              </div>
+              <div class="fuel-services">
+                ${(st.services || []).map((svc)=>`<span title="${escapeHtml(svc.title)}" aria-label="${escapeHtml(svc.title)}">${svc.icon}</span>`).join('')}
+              </div>
             </div>
             <button type="button" class="btn-small" data-fuel-nav="${escapeHtml(st.id)}">Naviga</button>
           </li>
