@@ -1006,6 +1006,8 @@
       const DEVICE_ID_KEY = 'timbrature.local.device.id';
       const BIOMETRIC_CREDENTIAL_KEY = 'timbrature.local.auth.biometric.credential';
       const ACCESS_CONTROL_KEY = 'timbrature.local.access.control';
+      const SHARED_APP_SYNC_META_KEY = 'timbrature.shared.app.sync.meta';
+      const SHARED_APP_DATA_PATH = 'shared/global_app_data_v1';
       const DEFAULT_FIREBASE_WEB_CONFIG = {
         apiKey: 'AIzaSyDFF7gaDLCGmb-abDRutX_y0vf_MzM449E',
         authDomain: 'timbrature-varga.firebaseapp.com',
@@ -1047,6 +1049,18 @@
         OPERATORE: ['timbratureCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'carburanteCard', 'userBox'],
         BACKOFFICE: ['storicoCard', 'calendarioCard', 'documentiCard', 'prezzarioCard', 'createPreventivoCard', 'dataHubCard', 'backupCard', 'userBox']
       };
+      const SHARED_APP_KEYS = [
+        RECORDS_KEY,
+        PROGRAMS_KEY,
+        TEAM_KEY,
+        TEAM_PROGRAMS_KEY,
+        TEAM_DIRECTORY_KEY,
+        COMMESSE_KEY,
+        GIORNALE_ENTRIES_KEY,
+        MASTER_DATA_KEY,
+        PREVENTIVI_KEY,
+        PREZZARIO_CONFIG_KEY
+      ];
       const menuPanelIds = MENU_PERMISSION_ITEMS.map((item)=>item.panel);
       const DATA_HUB_CATEGORIES = [
         { key:'vehicles', label:'Mezzi', hint:'Gestisci i mezzi (da Firestore) con carburante, targa, stato e note.' },
@@ -1222,12 +1236,17 @@
       let mezziRealtimeError = '';
       let deferredPwaInstallPrompt = null;
       let xlsxLoaderPromise = null;
+      let sharedAppDbRef = null;
+      let sharedAppUnsubscribe = null;
+      let sharedAppPushTimer = null;
+      let applyingSharedAppPayload = false;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
       function writeJSON(k, v) {
         localStorage.setItem(k, JSON.stringify(v));
         scheduleFirebaseAutoPush(`writeJSON:${k}`);
+        if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) scheduleSharedAppPush(`writeJSON:${k}`);
       }
       const nowDateISO = () => new Date().toISOString().slice(0, 10);
       const tomorrowDateISO = () => {
@@ -6067,6 +6086,82 @@ out center tags;`;
         const enabled = activeMenuPanel === 'timbratureCard';
         document.body.classList.toggle('punch-focus', enabled);
       }
+      function buildSharedAppPayload() {
+        const payload = {};
+        SHARED_APP_KEYS.forEach((key)=>{ payload[key] = readJSON(key, null); });
+        return payload;
+      }
+      function applySharedAppPayload(payload = {}) {
+        applyingSharedAppPayload = true;
+        try {
+          SHARED_APP_KEYS.forEach((key)=>{
+            if (!Object.prototype.hasOwnProperty.call(payload, key)) return;
+            localStorage.setItem(key, JSON.stringify(payload[key]));
+          });
+          writeJSON(SHARED_APP_SYNC_META_KEY, { last_pull_at: new Date().toISOString() });
+          try { loadProfileUI(); } catch (_) {}
+          try { renderTeamUI(); } catch (_) {}
+          try { renderCatalogDataUI(); } catch (_) {}
+          try { renderCommesseList(); renderDataHubCommessaDetail(); renderGlobalCommesseSelect(); } catch (_) {}
+          try { renderDocuments(); } catch (_) {}
+          try { renderPreventiviList(); } catch (_) {}
+          try { loadMyMonth(); } catch (_) {}
+        } finally {
+          applyingSharedAppPayload = false;
+        }
+      }
+      async function ensureSharedAppDbRef() {
+        const auth = await ensureMainAuthReady();
+        if (!window.firebase?.database) throw new Error('Realtime Database non disponibile.');
+        if (!sharedAppDbRef) {
+          const db = window.firebase.database(auth.app);
+          sharedAppDbRef = db.ref(SHARED_APP_DATA_PATH);
+        }
+        return sharedAppDbRef;
+      }
+      function stopSharedAppSync() {
+        if (sharedAppUnsubscribe) {
+          try { sharedAppUnsubscribe(); } catch (_) {}
+          sharedAppUnsubscribe = null;
+        }
+      }
+      async function pushSharedAppPayload(reason = 'manual') {
+        if (!currentAuthUser) return;
+        try {
+          const ref = await ensureSharedAppDbRef();
+          await ref.set({
+            updated_at: new Date().toISOString(),
+            updated_by: currentAuthUser.email || currentAuthUser.uid || '',
+            reason,
+            payload: buildSharedAppPayload()
+          });
+        } catch (error) {
+          console.warn('Sync condivisa push fallita:', error);
+        }
+      }
+      function scheduleSharedAppPush(reason = 'auto') {
+        if (!currentAuthUser || applyingSharedAppPayload) return;
+        if (sharedAppPushTimer) clearTimeout(sharedAppPushTimer);
+        sharedAppPushTimer = setTimeout(()=>{ pushSharedAppPayload(reason); }, 1000);
+      }
+      async function startSharedAppSync() {
+        if (!currentAuthUser) return;
+        try {
+          const ref = await ensureSharedAppDbRef();
+          stopSharedAppSync();
+          const handler = (snapshot) => {
+            const data = snapshot?.val?.() || null;
+            const payload = data?.payload;
+            if (!payload || typeof payload !== 'object') return;
+            applySharedAppPayload(payload);
+          };
+          ref.on('value', handler);
+          sharedAppUnsubscribe = ()=>ref.off('value', handler);
+          scheduleSharedAppPush('auth-connect');
+        } catch (error) {
+          console.warn('Sync condivisa non disponibile:', error);
+        }
+      }
       async function ensureMainAuthReady() {
         if (appAuth) return appAuth;
         if (!window.firebase?.initializeApp) throw new Error('Firebase Auth non disponibile.');
@@ -6076,7 +6171,8 @@ out center tags;`;
           apiKey: DEFAULT_FIREBASE_WEB_CONFIG.apiKey,
           authDomain: DEFAULT_FIREBASE_WEB_CONFIG.authDomain,
           projectId: DEFAULT_FIREBASE_WEB_CONFIG.projectId,
-          appId: DEFAULT_FIREBASE_WEB_CONFIG.appId
+          appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
+          databaseURL: DEFAULT_FIREBASE_WEB_CONFIG.databaseURL
         }, appName);
         appAuth = window.firebase.auth(app);
         return appAuth;
@@ -6106,6 +6202,7 @@ out center tags;`;
           currentAuthUser = user || null;
           if (!user) {
             currentUserRole = 'OPERATORE';
+            stopSharedAppSync();
             updateAuthUiState();
             setAppLocked(true, 'Effettua login o registrazione per accedere.');
             return;
@@ -6113,6 +6210,7 @@ out center tags;`;
           ensureRoleForCurrentUser();
           updateAuthUiState();
           applyRolePermissions();
+          startSharedAppSync().catch(()=>{});
           const hasBiometric = !!getBiometricCredentialId(user.uid || '');
           if (hasBiometric) {
             setAppLocked(true, 'Utente riconosciuto. Sblocca con impronta/Face ID oppure rifai login.');
