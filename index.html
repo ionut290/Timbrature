@@ -885,6 +885,7 @@
               <label>Firebase Auth Domain<input type="text" id="fbAuthDomainInput" placeholder="progetto.firebaseapp.com" /></label>
               <label>Firebase Project ID<input type="text" id="fbProjectIdInput" placeholder="id-progetto" /></label>
               <label>Firebase App ID<input type="text" id="fbAppIdInput" placeholder="1:...:web:..." /></label>
+              <label><span>Abilita App Check</span><input type="checkbox" id="fbAppCheckEnabledInput" /></label>
               <label>App Check Site Key<input type="text" id="fbAppCheckSiteKeyInput" placeholder="reCAPTCHA site key" /></label>
               <label>Provider App Check
                 <select id="fbAppCheckProviderInput">
@@ -1088,6 +1089,7 @@
         messagingSenderId: '68842798266',
         appId: '1:68842798266:web:bb0df9bbdfe2d5980f9683',
         measurementId: 'G-8N09DJ0P95',
+        appCheckEnabled: false,
         appCheckSiteKey: '',
         appCheckProvider: 'recaptcha_v3',
         appCheckDebugToken: false,
@@ -4654,13 +4656,51 @@ out center tags;`;
           updated_at: row.updated_at || new Date().toISOString()
         };
       }
+      function mergeCommesseWithMasterRows(commesseRows = []) {
+        const normalized = (Array.isArray(commesseRows) ? commesseRows : []).map((row)=>normalizeCommessa(row));
+        const byName = new Map(normalized.map((row)=>[String(row.nome || '').trim().toLowerCase(), row]));
+        (getMasterData().commesse || []).forEach((entry)=>{
+          const name = String(entry?.name || entry?.nome || '').trim();
+          if (!name) return;
+          const key = name.toLowerCase();
+          if (byName.has(key)) return;
+          const now = new Date().toISOString();
+          const legacy = normalizeCommessa({
+            id: String(entry?.id || `commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`),
+            nome: name,
+            impianto: String(entry?.impianto || '').trim(),
+            cantieri: [],
+            created_at: String(entry?.created_at || now),
+            updated_at: String(entry?.updated_at || now)
+          });
+          byName.set(key, legacy);
+        });
+        return Array.from(byName.values());
+      }
+      function syncMasterCommesseFromRows(commesseRows = []) {
+        const md = getMasterData();
+        const current = (md.commesse || []).map((entry)=>String(entry?.name || '').trim()).filter(Boolean).sort();
+        const next = (Array.isArray(commesseRows) ? commesseRows : [])
+          .map((row)=>String(row?.nome || '').trim())
+          .filter(Boolean)
+          .filter((name, idx, arr)=>arr.findIndex((v)=>v.toLowerCase() === name.toLowerCase()) === idx)
+          .sort((a,b)=>a.localeCompare(b));
+        if (current.length === next.length && current.every((name, idx)=>name === next[idx])) return;
+        setMasterData({
+          ...md,
+          commesse: next.map((name)=>({ name }))
+        });
+      }
       function getCommesse() {
         const raw = readJSON(COMMESSE_KEY, []);
-        return (Array.isArray(raw) ? raw : []).map((row)=>normalizeCommessa(row));
+        return mergeCommesseWithMasterRows(raw);
       }
       function setCommesse(rows=[]) {
-        writeJSON(COMMESSE_KEY, (Array.isArray(rows) ? rows : []).map((row)=>normalizeCommessa(row)));
+        const normalized = mergeCommesseWithMasterRows(rows);
+        writeJSON(COMMESSE_KEY, normalized);
+        syncMasterCommesseFromRows(normalized);
         triggerImmediateSharedBroadcast('commesse-update');
+        try { renderLavoroCommesseUI(); } catch (_) {}
       }
       function getGiornaleEntries() { return readJSON(GIORNALE_ENTRIES_KEY, []); }
       function setGiornaleEntries(rows=[]) { writeJSON(GIORNALE_ENTRIES_KEY, rows); }
@@ -5595,6 +5635,7 @@ out center tags;`;
           storageBucket: DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
           messagingSenderId: DEFAULT_FIREBASE_WEB_CONFIG.messagingSenderId,
           measurementId: DEFAULT_FIREBASE_WEB_CONFIG.measurementId,
+          appCheckEnabled: DEFAULT_FIREBASE_WEB_CONFIG.appCheckEnabled,
           appCheckSiteKey: DEFAULT_FIREBASE_WEB_CONFIG.appCheckSiteKey,
           appCheckProvider: DEFAULT_FIREBASE_WEB_CONFIG.appCheckProvider,
           appCheckDebugToken: DEFAULT_FIREBASE_WEB_CONFIG.appCheckDebugToken
@@ -5645,6 +5686,7 @@ out center tags;`;
           messagingSenderId: String(input.messagingSenderId || '').trim(),
           appId: String(input.appId || '').trim(),
           measurementId: String(input.measurementId || '').trim(),
+          appCheckEnabled: Boolean(input.appCheckEnabled),
           appCheckSiteKey: String(input.appCheckSiteKey || '').trim(),
           appCheckProvider: String(input.appCheckProvider || 'recaptcha_v3').trim().toLowerCase() === 'recaptcha_enterprise' ? 'recaptcha_enterprise' : 'recaptcha_v3',
           appCheckDebugToken: Boolean(input.appCheckDebugToken),
@@ -5665,6 +5707,7 @@ out center tags;`;
           projectId: readField('fbProjectIdInput', current.projectId || DEFAULT_FIREBASE_WEB_CONFIG.projectId),
           databaseURL: current.databaseURL || DEFAULT_FIREBASE_WEB_CONFIG.databaseURL,
           appId: readField('fbAppIdInput', current.appId || DEFAULT_FIREBASE_WEB_CONFIG.appId),
+          appCheckEnabled: Boolean(id('fbAppCheckEnabledInput')?.checked || false),
           appCheckSiteKey: readField('fbAppCheckSiteKeyInput', current.appCheckSiteKey || ''),
           appCheckProvider: readField('fbAppCheckProviderInput', current.appCheckProvider || 'recaptcha_v3'),
           appCheckDebugToken: Boolean(id('fbAppCheckDebugInput')?.checked || false),
@@ -5680,6 +5723,7 @@ out center tags;`;
         if (id('fbAuthDomainInput')) id('fbAuthDomainInput').value = cfg.authDomain;
         if (id('fbProjectIdInput')) id('fbProjectIdInput').value = cfg.projectId;
         if (id('fbAppIdInput')) id('fbAppIdInput').value = cfg.appId;
+        if (id('fbAppCheckEnabledInput')) id('fbAppCheckEnabledInput').checked = Boolean(cfg.appCheckEnabled);
         if (id('fbAppCheckSiteKeyInput')) id('fbAppCheckSiteKeyInput').value = cfg.appCheckSiteKey || '';
         if (id('fbAppCheckProviderInput')) id('fbAppCheckProviderInput').value = cfg.appCheckProvider || 'recaptcha_v3';
         if (id('fbAppCheckDebugInput')) id('fbAppCheckDebugInput').checked = Boolean(cfg.appCheckDebugToken);
@@ -5697,7 +5741,11 @@ out center tags;`;
         return left.apiKey === right.apiKey
           && left.authDomain === right.authDomain
           && left.projectId === right.projectId
-          && left.appId === right.appId;
+          && left.appId === right.appId
+          && left.appCheckEnabled === right.appCheckEnabled
+          && left.appCheckSiteKey === right.appCheckSiteKey
+          && left.appCheckProvider === right.appCheckProvider
+          && left.appCheckDebugToken === right.appCheckDebugToken;
       }
       function updateFirebaseSyncStatusUI() {
         const state = getFirebaseSyncState();
@@ -6657,7 +6705,12 @@ out center tags;`;
           try { loadProfileUI(); } catch (_) {}
           try { renderTeamUI(); } catch (_) {}
           try { renderCatalogDataUI(); } catch (_) {}
-          try { renderCommesseList(); renderDataHubCommessaDetail(); renderGlobalCommesseSelect(); } catch (_) {}
+          try {
+            renderCommesseList();
+            renderDataHubCommessaDetail();
+            renderGlobalCommesseSelect();
+            renderLavoroCommesseUI();
+          } catch (_) {}
           try { renderDocuments(); } catch (_) {}
           try { renderPreventiviList(); } catch (_) {}
           try { loadMyMonth(); } catch (_) {}
@@ -6790,15 +6843,19 @@ out center tags;`;
         if (window.firebase?.appCheck) {
           try {
             if (cfg.appCheckDebugToken) window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+            const appCheckEnabled = Boolean(cfg.appCheckEnabled);
             const siteKey = String(cfg.appCheckSiteKey || '').trim();
-            if (siteKey) {
+            if (appCheckEnabled && siteKey) {
               firebaseMainAppCheck = window.firebase.appCheck(app);
               firebaseMainAppCheck.activate(siteKey, true);
               firebaseMainAppCheck.getToken(true).catch((error)=>{
                 console.warn('[Firebase][AppCheck] Token iniziale non valido:', error?.code || error?.message || error);
               });
+            } else if (appCheckEnabled && !siteKey) {
+              console.warn('[Firebase][AppCheck] App Check abilitato ma site key assente: disattivo App Check finché non configuri la chiave.');
             } else {
-              console.warn('[Firebase][AppCheck] Site key assente: login/registrazione possono fallire se App Check è obbligatorio in Console.');
+              firebaseMainAppCheck = null;
+              console.info('[Firebase][AppCheck] Disattivato da impostazioni app.');
             }
           } catch (error) {
             console.error('[Firebase][AppCheck] Inizializzazione fallita:', error);
@@ -6842,7 +6899,7 @@ out center tags;`;
       function friendlyAuthErrorMessage(error) {
         const code = String(error?.code || error?.message || '').toLowerCase();
         if (code.includes('firebase-app-check-token-is-invalid')) {
-          return 'Token App Check non valido. In Firebase Console > App Check imposta Authentication su Monitoraggio (non Applicato), verifica provider/site key e ricarica la pagina.';
+          return 'Token App Check non valido. Disattiva temporaneamente "Abilita App Check" nelle impostazioni app oppure in Firebase Console imposta Authentication su Monitoraggio e verifica site key/provider.';
         }
         return error?.message || 'Operazione autenticazione non riuscita.';
       }
