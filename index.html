@@ -396,6 +396,15 @@
 
         <div class="card hidden" id="teamCard">
           <h2>Programmazione squadra (giorno successivo)</h2>
+          <div class="setup-box">
+            <h3 style="margin:0 0 8px;">Squadra attuale</h3>
+            <div class="inline-actions">
+              <input type="text" id="teamMemberInput" list="memberSuggestionsList" placeholder="Nome utente squadra" />
+              <button type="button" class="secondary" id="addTeamMemberBtn">Aggiungi utente</button>
+            </div>
+            <ul id="teamMembersLiveList" class="doc-list"></ul>
+            <p id="teamMembersEmpty" class="small">Nessun utente squadra inserito.</p>
+          </div>
           <div class="simple-shift" style="margin-top:12px;">
             <div class="grid">
               <label>Data richiesta
@@ -2148,6 +2157,7 @@ out center tags;`;
       }
       function renderTeamUI() {
         const draft = getTeamRequestDraft() || {};
+        renderTeamMembersLive();
         id('teamRequestDate').value = draft.date || selectedMonthDay || tomorrowDateISO();
         const commessePlan = normalizeTeamCommessePlan(draft.commesse_plan?.length ? draft.commesse_plan : [{ cantiere:draft.cantiere || '', personale:draft.personale || '', mezzi:draft.mezzi || '' }]);
         renderTeamCommessePlanUI(commessePlan);
@@ -2158,6 +2168,46 @@ out center tags;`;
         id('teamImportPreview').textContent = 'Nessun testo estratto da screenshot.';
         renderTeamDirectorySelects();
         renderTeamProgramsSelect();
+      }
+      function renderTeamMembersLive() {
+        const team = getTeamConfig();
+        const listEl = id('teamMembersLiveList');
+        const emptyEl = id('teamMembersEmpty');
+        if (!listEl || !emptyEl) return;
+        const members = Array.isArray(team.members) ? team.members : [];
+        if (!members.length) {
+          listEl.innerHTML = '';
+          emptyEl.classList.remove('hidden');
+          return;
+        }
+        emptyEl.classList.add('hidden');
+        listEl.innerHTML = members.map((name, idx)=>`
+          <li class="doc-row">
+            <div class="doc-thumb-file">USR</div>
+            <div style="flex:1;">
+              <strong>${escapeHtml(name || '-')}</strong>
+              <p class="small">Membro squadra attivo</p>
+            </div>
+            <button type="button" class="secondary btn-small" onclick="removeTeamMember(${idx})">Rimuovi</button>
+          </li>
+        `).join('');
+      }
+      function notifyTeamMemberAdded(memberName='') {
+        const cleanName = String(memberName || '').trim();
+        if (!cleanName) return;
+        if (window.Notification) {
+          if (Notification.permission === 'default') {
+            Notification.requestPermission().then((perm)=>{
+              if (perm === 'granted') {
+                try { new Notification('Nuovo utente squadra', { body: `${cleanName} è stato aggiunto alla squadra.` }); } catch (_) {}
+              }
+            }).catch(()=>{});
+            return;
+          }
+          if (Notification.permission === 'granted') {
+            try { new Notification('Nuovo utente squadra', { body: `${cleanName} è stato aggiunto alla squadra.` }); } catch (_) {}
+          }
+        }
       }
       function normalizeTeamCommessePlan(rows=[], keepEmpty=false) {
         const list = Array.isArray(rows) ? rows : [];
@@ -3058,11 +3108,17 @@ out center tags;`;
         const value = (forcedValue || id('teamMemberInput').value).trim();
         if (!value) { showTeamMsg('Inserisci un nome membro valido.', 'err'); return; }
         const team = getTeamConfig();
+        const before = new Set((team.members || []).map((v)=>String(v || '').trim().toLowerCase()));
         team.members = [...new Set([...(team.members || []), value])];
         setTeamConfig(team);
         id('teamMemberInput').value = '';
-        id('teamMemberSelect').value = '';
-        showTeamMsg('Membro aggiunto.', 'ok');
+        const wasNew = !before.has(value.toLowerCase());
+        if (wasNew) {
+          notifyTeamMemberAdded(value);
+          showTeamMsg(`Membro aggiunto e avviso inviato: ${value}.`, 'ok');
+        } else {
+          showTeamMsg('Membro già presente in squadra.', 'ok');
+        }
         renderTeamUI();
       }
       function addTeamVehicle(forcedValue='') {
@@ -6536,6 +6592,8 @@ out center tags;`;
         if (id('toggleFirebaseLiveSyncBtn')) id('toggleFirebaseLiveSyncBtn').addEventListener('click', toggleFirebaseLiveSync);
         if (id('installAppBtn')) id('installAppBtn').addEventListener('click', installPwaApp);
         if (id('addTeamCommessaRowBtn')) id('addTeamCommessaRowBtn').addEventListener('click', ()=>addTeamCommessaRow());
+        if (id('addTeamMemberBtn')) id('addTeamMemberBtn').addEventListener('click', ()=>addTeamMember());
+        if (id('teamMemberInput')) id('teamMemberInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); addTeamMember(); } });
         id('extractTeamScreenshotBtn').addEventListener('click', extractTeamFromScreenshot);
         id('prefillTeamRequestBtn').addEventListener('click', prefillTeamRequestFromSavedTeam);
         id('saveTeamProgramBtn').addEventListener('click', saveTeamProgram);
