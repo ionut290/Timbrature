@@ -860,6 +860,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
       const FESTIVE_BONUS_PERCENT_DEFAULT = 30;
@@ -891,6 +892,7 @@
         apiKey: 'AIzaSyDFF7gaDLCGmb-abDRutX_y0vf_MzM449E',
         authDomain: 'timbrature-varga.firebaseapp.com',
         projectId: 'timbrature-varga',
+        databaseURL: 'https://timbrature-varga-default-rtdb.europe-west1.firebasedatabase.app',
         storageBucket: 'timbrature-varga.firebasestorage.app',
         messagingSenderId: '68842798266',
         appId: '1:68842798266:web:bb0df9bbdfe2d5980f9683',
@@ -1055,6 +1057,7 @@
       let firebaseCloudApp = null;
       let firebaseCloudAuth = null;
       let firebaseCloudDb = null;
+      let firebaseCloudRtdb = null;
       let firebaseLiveUnsubscribe = null;
       let firebaseLivePushTimer = null;
       let firebaseAutoPushDebounceTimer = null;
@@ -3924,6 +3927,7 @@ out center tags;`;
           apiKey: DEFAULT_FIREBASE_WEB_CONFIG.apiKey,
           authDomain: DEFAULT_FIREBASE_WEB_CONFIG.authDomain,
           projectId: DEFAULT_FIREBASE_WEB_CONFIG.projectId,
+          databaseURL: DEFAULT_FIREBASE_WEB_CONFIG.databaseURL,
           appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
           storageBucket: DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
           messagingSenderId: DEFAULT_FIREBASE_WEB_CONFIG.messagingSenderId,
@@ -3970,6 +3974,7 @@ out center tags;`;
           apiKey: String(input.apiKey || '').trim(),
           authDomain: String(input.authDomain || '').trim(),
           projectId: String(input.projectId || '').trim(),
+          databaseURL: String(input.databaseURL || '').trim(),
           storageBucket: String(input.storageBucket || '').trim(),
           messagingSenderId: String(input.messagingSenderId || '').trim(),
           appId: String(input.appId || '').trim(),
@@ -3989,6 +3994,7 @@ out center tags;`;
           apiKey: readField('fbApiKeyInput', current.apiKey || DEFAULT_FIREBASE_WEB_CONFIG.apiKey),
           authDomain: readField('fbAuthDomainInput', current.authDomain || DEFAULT_FIREBASE_WEB_CONFIG.authDomain),
           projectId: readField('fbProjectIdInput', current.projectId || DEFAULT_FIREBASE_WEB_CONFIG.projectId),
+          databaseURL: current.databaseURL || DEFAULT_FIREBASE_WEB_CONFIG.databaseURL,
           appId: readField('fbAppIdInput', current.appId || DEFAULT_FIREBASE_WEB_CONFIG.appId),
           email: readField('fbEmailInput', current.email || ''),
           storageBucket: current.storageBucket || DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
@@ -4051,6 +4057,7 @@ out center tags;`;
             firebaseCloudApp = null;
             firebaseCloudAuth = null;
             firebaseCloudDb = null;
+            firebaseCloudRtdb = null;
             existingApp = null;
           }
         }
@@ -4059,6 +4066,7 @@ out center tags;`;
           apiKey: cfg.apiKey,
           authDomain: cfg.authDomain,
           projectId: cfg.projectId,
+          databaseURL: cfg.databaseURL || undefined,
           storageBucket: cfg.storageBucket || undefined,
           messagingSenderId: cfg.messagingSenderId || undefined,
           appId: cfg.appId,
@@ -4069,6 +4077,7 @@ out center tags;`;
         firebaseCloudApp = existingApp || window.firebase.initializeApp(firebaseConfig, appName);
         firebaseCloudAuth = window.firebase.auth(firebaseCloudApp);
         firebaseCloudDb = window.firebase.firestore(firebaseCloudApp);
+        firebaseCloudRtdb = window.firebase.database(firebaseCloudApp);
         setFirebaseConfigState(cfg);
         return { cfg, auth: firebaseCloudAuth, db: firebaseCloudDb };
       }
@@ -4076,15 +4085,15 @@ out center tags;`;
         if (firebaseApplyingRemoteSnapshot) return;
         const state = getFirebaseSyncState();
         if (!state.connected) return;
-        if (!firebaseCloudAuth?.currentUser || !firebaseCloudDb) return;
+        if (!firebaseCloudAuth?.currentUser || !firebaseCloudRtdb) return;
         if (firebaseAutoPushDebounceTimer) clearTimeout(firebaseAutoPushDebounceTimer);
         firebaseAutoPushDebounceTimer = window.setTimeout(()=>{
           pushFirebaseSnapshot().catch((error)=>console.warn('Auto push Firebase fallita:', reason, error?.message || error));
         }, 1200);
       }
       function getFirebaseSnapshotRef() {
-        if (!firebaseCloudDb || !firebaseCloudAuth?.currentUser?.uid) throw new Error('Cloud Firebase non connesso.');
-        return firebaseCloudDb.collection('timbrature_sync').doc(firebaseCloudAuth.currentUser.uid);
+        if (!firebaseCloudRtdb || !firebaseCloudAuth?.currentUser?.uid) throw new Error('Cloud Firebase non connesso.');
+        return firebaseCloudRtdb.ref(`timbrature_sync/${firebaseCloudAuth.currentUser.uid}`);
       }
       async function connectFirebaseCloud() {
         const cfg = saveFirebaseConfigFromUI(false);
@@ -4110,22 +4119,23 @@ out center tags;`;
       }
       async function pushFirebaseSnapshot() {
         const ref = getFirebaseSnapshotRef();
-        await ref.set({
+        await ref.update({
           payload: buildBackupPayload(),
           updatedAt: new Date().toISOString(),
           deviceId: getDeviceId()
-        }, { merge:true });
+        });
         setFirebaseSyncState({ connected:true, uid:firebaseCloudAuth.currentUser?.uid || '', email:firebaseCloudAuth.currentUser?.email || '', lastPushAt:new Date().toISOString() });
         updateFirebaseSyncStatusUI();
       }
       async function pullFirebaseSnapshot(confirmPrompt=true) {
         const ref = getFirebaseSnapshotRef();
         const snap = await ref.get();
-        if (!snap.exists || !snap.data()?.payload) throw new Error('Nessun snapshot cloud disponibile.');
+        const remote = snap?.val?.() || null;
+        if (!remote?.payload) throw new Error('Nessun snapshot cloud disponibile.');
         if (confirmPrompt && !window.confirm('Vuoi sovrascrivere i dati locali con quelli cloud?')) return false;
         firebaseApplyingRemoteSnapshot = true;
         try {
-          applyBackupPayload(snap.data().payload || {});
+          applyBackupPayload(remote.payload || {});
         } finally {
           firebaseApplyingRemoteSnapshot = false;
         }
@@ -4174,8 +4184,8 @@ out center tags;`;
       function startFirebaseLiveSync() {
         stopFirebaseLiveSync();
         const ref = getFirebaseSnapshotRef();
-        firebaseLiveUnsubscribe = ref.onSnapshot((snap)=>{
-          const data = snap.data();
+        const listener = ref.on('value', (snap)=>{
+          const data = snap?.val?.() || null;
           if (!data?.payload || data.deviceId === getDeviceId()) return;
           const state = getFirebaseSyncState();
           const remoteAt = String(data.updatedAt || '');
@@ -4190,6 +4200,7 @@ out center tags;`;
           refreshUIAfterDataRestore();
           showBackupMsg('Sincronizzazione live: aggiornati dati da altro dispositivo.', 'ok');
         });
+        firebaseLiveUnsubscribe = ()=>ref.off('value', listener);
         pushFirebaseSnapshot().catch(()=>{});
         firebaseLivePushTimer = window.setInterval(()=>pushFirebaseSnapshot().catch(()=>{}), 45000);
       }
