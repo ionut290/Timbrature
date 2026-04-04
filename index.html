@@ -6505,11 +6505,28 @@ out center tags;`;
         SHARED_APP_KEYS.forEach((key)=>{ payload[key] = readJSON(key, null); });
         return payload;
       }
+      function maxUpdatedAtFromCommesse(rows = []) {
+        const list = Array.isArray(rows) ? rows : [];
+        return list.reduce((best, commessa)=>{
+          const commessaAt = String(commessa?.updated_at || '');
+          const cantieri = Array.isArray(commessa?.cantieri) ? commessa.cantieri : [];
+          const cantiereAt = cantieri.reduce((innerBest, c)=>String(c?.updated_at || '') > innerBest ? String(c?.updated_at || '') : innerBest, '');
+          const candidate = commessaAt > cantiereAt ? commessaAt : cantiereAt;
+          return candidate > best ? candidate : best;
+        }, '');
+      }
       function applySharedAppPayload(payload = {}) {
         applyingSharedAppPayload = true;
         try {
           SHARED_APP_KEYS.forEach((key)=>{
             if (!Object.prototype.hasOwnProperty.call(payload, key)) return;
+            if (key === COMMESSE_KEY) {
+              const localCommesse = readJSON(COMMESSE_KEY, []);
+              const incomingCommesse = payload[key];
+              const localAt = maxUpdatedAtFromCommesse(localCommesse);
+              const incomingAt = maxUpdatedAtFromCommesse(incomingCommesse);
+              if (localAt && incomingAt && localAt > incomingAt) return;
+            }
             localStorage.setItem(key, JSON.stringify(payload[key]));
           });
           writeJSON(SHARED_APP_SYNC_META_KEY, { last_pull_at: new Date().toISOString() });
