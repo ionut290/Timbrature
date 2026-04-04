@@ -1498,7 +1498,7 @@ out body tags;`;
           throw new Error('Servizio mappa distributori non disponibile ora. Riprova tra poco.');
         }
         const elements = Array.isArray(payload?.elements) ? payload.elements : [];
-        return elements
+        const rows = elements
           .map((el)=>{
             const stLat = Number(el.lat ?? el.center?.lat);
             const stLon = Number(el.lon ?? el.center?.lon);
@@ -1523,9 +1523,10 @@ out body tags;`;
             };
           })
           .filter(Boolean)
-          .filter((row)=>isPreferredFuelBrand(row.tags) && stationProvidesFuel(row.tags, fuelType))
-          .sort((a,b)=>a.distanceKm - b.distanceKm)
-          .slice(0, 25);
+          .filter((row)=>stationProvidesFuel(row.tags, fuelType))
+          .sort((a,b)=>a.distanceKm - b.distanceKm);
+        const preferred = rows.filter((row)=>isPreferredFuelBrand(row.tags));
+        return (preferred.length ? preferred : rows).slice(0, 25);
       }
       function openGoogleMapsNavigation(lat, lon) {
         const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}&travelmode=driving`;
@@ -1594,7 +1595,7 @@ out body tags;`;
         const list = id('fuelStationsList');
         if (!list) return;
         if (!stations.length) {
-          list.innerHTML = '<li class="small">Nessun distributore Q8/ENI compatibile trovato nel raggio indicato.</li>';
+          list.innerHTML = '<li class="small">Nessun distributore compatibile trovato nel raggio indicato.</li>';
           return;
         }
         list.innerHTML = stations.map((st)=>`
@@ -1636,7 +1637,7 @@ out body tags;`;
           const stations = await fetchNearbyFuelStations(lat, lon, radiusKm, fuelType);
           renderFuelStationsMap(lat, lon, stations);
           renderFuelStationsList(stations);
-          showFuelMsg(`Trovati ${stations.length} distributori Q8/ENI compatibili. Tocca un punto per avviare Google Maps.`, stations.length ? 'ok' : 'err');
+          showFuelMsg(`Trovati ${stations.length} distributori compatibili. Tocca un punto per avviare Google Maps.`, stations.length ? 'ok' : 'err');
         } catch (error) {
           const geoCode = Number(error?.code);
           if (geoCode === 1) showFuelMsg('Permesso posizione negato. Consenti la geolocalizzazione e riprova.', 'err');
