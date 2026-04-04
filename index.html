@@ -6505,15 +6505,64 @@ out center tags;`;
         SHARED_APP_KEYS.forEach((key)=>{ payload[key] = readJSON(key, null); });
         return payload;
       }
-      function maxUpdatedAtFromCommesse(rows = []) {
-        const list = Array.isArray(rows) ? rows : [];
-        return list.reduce((best, commessa)=>{
-          const commessaAt = String(commessa?.updated_at || '');
-          const cantieri = Array.isArray(commessa?.cantieri) ? commessa.cantieri : [];
-          const cantiereAt = cantieri.reduce((innerBest, c)=>String(c?.updated_at || '') > innerBest ? String(c?.updated_at || '') : innerBest, '');
-          const candidate = commessaAt > cantiereAt ? commessaAt : cantiereAt;
-          return candidate > best ? candidate : best;
-        }, '');
+      function compareUpdatedAt(a = '', b = '') {
+        const left = String(a || '');
+        const right = String(b || '');
+        if (!left && !right) return 0;
+        if (!left) return -1;
+        if (!right) return 1;
+        if (left === right) return 0;
+        return left > right ? 1 : -1;
+      }
+      function mergeCantieriByUpdatedAt(localRows = [], incomingRows = []) {
+        const mergedMap = new Map();
+        const toKey = (row={})=>String(row?.id || row?.code || row?.name || '').trim().toLowerCase();
+        (Array.isArray(localRows) ? localRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          mergedMap.set(key, normalizeCantiere(row));
+        });
+        (Array.isArray(incomingRows) ? incomingRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          const incoming = normalizeCantiere(row);
+          const current = mergedMap.get(key);
+          if (!current) {
+            mergedMap.set(key, incoming);
+            return;
+          }
+          mergedMap.set(key, compareUpdatedAt(incoming.updated_at, current.updated_at) >= 0 ? incoming : current);
+        });
+        return Array.from(mergedMap.values());
+      }
+      function mergeCommesseByUpdatedAt(localRows = [], incomingRows = []) {
+        const mergedMap = new Map();
+        const toKey = (row={})=>String(row?.id || row?.nome || row?.name || '').trim().toLowerCase();
+        (Array.isArray(localRows) ? localRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          mergedMap.set(key, normalizeCommessa(row));
+        });
+        (Array.isArray(incomingRows) ? incomingRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          const incoming = normalizeCommessa(row);
+          const current = mergedMap.get(key);
+          if (!current) {
+            mergedMap.set(key, incoming);
+            return;
+          }
+          const newer = compareUpdatedAt(incoming.updated_at, current.updated_at) >= 0 ? incoming : current;
+          const older = newer === incoming ? current : incoming;
+          const mergedCantieri = mergeCantieriByUpdatedAt(current.cantieri || [], incoming.cantieri || []);
+          mergedMap.set(key, normalizeCommessa({
+            ...older,
+            ...newer,
+            cantieri: mergedCantieri,
+            updated_at: compareUpdatedAt(incoming.updated_at, current.updated_at) >= 0 ? incoming.updated_at : current.updated_at
+          }));
+        });
+        return Array.from(mergedMap.values());
       }
       function applySharedAppPayload(payload = {}) {
         applyingSharedAppPayload = true;
@@ -6523,9 +6572,8 @@ out center tags;`;
             if (key === COMMESSE_KEY) {
               const localCommesse = readJSON(COMMESSE_KEY, []);
               const incomingCommesse = payload[key];
-              const localAt = maxUpdatedAtFromCommesse(localCommesse);
-              const incomingAt = maxUpdatedAtFromCommesse(incomingCommesse);
-              if (localAt && incomingAt && localAt > incomingAt) return;
+              localStorage.setItem(key, JSON.stringify(mergeCommesseByUpdatedAt(localCommesse, incomingCommesse)));
+              return;
             }
             localStorage.setItem(key, JSON.stringify(payload[key]));
           });
