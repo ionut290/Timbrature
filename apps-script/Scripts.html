@@ -79,9 +79,71 @@
     setPunchButtons(hasClockInForToday);
   }
 
-  function showMsg(message, type = 'ok') {
-    id('esito').className = `msg ${type}`;
-    id('esito').textContent = message;
+  function showMsg(message, type = 'ok', hint = '') {
+    const allowedTypes = ['ok', 'err', 'warn', 'info'];
+    const level = allowedTypes.includes(type) ? type : 'info';
+    const esito = id('esito');
+    esito.className = `msg msg-${level}`;
+    esito.textContent = '';
+
+    const main = document.createElement('div');
+    main.className = 'msg-main';
+    main.textContent = message;
+    esito.appendChild(main);
+
+    if (hint) {
+      const sub = document.createElement('div');
+      sub.className = 'msg-hint';
+      sub.textContent = hint;
+      esito.appendChild(sub);
+    }
+  }
+
+  function mapCommonError(errorLike) {
+    const raw = (errorLike && errorLike.message) || String(errorLike || '');
+    const message = String(raw).trim();
+    const normalized = message.toLowerCase();
+
+    const authError = ['utente non riconosciuto', 'non autorizzato', 'session', 'auth', 'login', '403']
+      .some((token) => normalized.includes(token));
+    if (authError) {
+      return {
+        type: 'err',
+        message: 'Sessione non valida o scaduta.',
+        hint: 'Ricarica la pagina e accedi di nuovo con il tuo account aziendale.'
+      };
+    }
+
+    const networkError = ['network', 'rete', 'timeout', 'failed to fetch', 'temporaneamente non disponibile']
+      .some((token) => normalized.includes(token));
+    if (networkError) {
+      return {
+        type: 'warn',
+        message: 'Problema di rete o timeout durante la richiesta.',
+        hint: 'Verifica la connessione e riprova tra pochi secondi.'
+      };
+    }
+
+    const validationError = ['valid', 'campo', 'obblig', 'formato', 'entrata', 'uscita', 'pausa', 'causale', 'data']
+      .some((token) => normalized.includes(token));
+    if (validationError) {
+      const fieldMatch = message.match(/(?:campo|field)\s*[:\-]?\s*([a-zA-ZÀ-ÿ0-9 _-]+)/i);
+      const field = fieldMatch && fieldMatch[1] ? fieldMatch[1].trim() : '';
+      return {
+        type: 'warn',
+        message: field
+          ? `Controlla il campo "${field}".`
+          : 'Controlla i campi inseriti.',
+        hint: 'Correggi il valore non valido e riprova.'
+      };
+    }
+
+    return { type: 'err', message: message || 'Errore inatteso.', hint: '' };
+  }
+
+  function showMappedError(errorLike) {
+    const mapped = mapCommonError(errorLike);
+    showMsg(mapped.message, mapped.type, mapped.hint);
   }
   function readWeeklyContract() {
     try {
@@ -193,7 +255,7 @@
           if (!id('managerBox').hidden) loadPending();
         });
       })
-      .withFailureHandler((e) => showMsg(e.message || String(e), 'err'))
+      .withFailureHandler((e) => showMappedError(e))
       .getDashboard();
   }
 
@@ -225,7 +287,7 @@
       })
       .withFailureHandler((e) => {
         setBusy(false);
-        showMsg(e.message || String(e), 'err');
+        showMappedError(e);
       })
       .createOrUpdateDay(collectPayload(stato));
   }
@@ -256,7 +318,7 @@
       })
       .withFailureHandler((e) => {
         setBusy(false);
-        showMsg(e.message || String(e), 'err');
+        showMappedError(e);
       })
       .getMyMonthData(month);
   }
@@ -337,7 +399,7 @@
       })
       .withFailureHandler((e) => {
         setBusy(false);
-        showMsg(e.message || String(e), 'err');
+        showMappedError(e);
       })
       .getPendingForManager(month);
   }
@@ -360,7 +422,7 @@
       })
       .withFailureHandler((e) => {
         setBusy(false);
-        showMsg(e.message || String(e), 'err');
+        showMappedError(e);
       })
       .approveRecord(idRecord, approved, motivo);
   }
