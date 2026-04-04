@@ -166,9 +166,19 @@
       .catalog-cat-btn { background:#e2e8f0; color:#0f172a; border:1px solid #cbd5e1; }
       .catalog-cat-btn.active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
       .catalog-subtitle { margin:8px 0 0; font-size:13px; color:#475569; }
+      .fuel-map { min-height:320px; margin-top:10px; border:1px solid #bfdbfe; border-radius:12px; overflow:hidden; background:#f8fbff; }
+      .fuel-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
+      .fuel-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
+      .fuel-item h4 { margin:0 0 4px; font-size:14px; color:#0f172a; }
+      .fuel-item p { margin:0; font-size:12px; color:#475569; }
       .team-commessa-box { border:1px solid #bfdbfe; border-radius:10px; background:#f8fbff; padding:10px; margin-top:10px; }
       .team-commessa-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
       .team-commessa-head h4 { margin:0; font-size:14px; color:#1e3a8a; }
+      .cantiere-list { list-style:none; margin:8px 0 0; padding:0; display:grid; gap:8px; }
+      .cantiere-item { border:1px solid #dbeafe; border-radius:10px; background:#fff; padding:8px; cursor:pointer; }
+      .cantiere-item.active { border-color:#1d4ed8; box-shadow:0 0 0 2px #bfdbfe inset; }
+      .cantiere-item h5 { margin:0 0 4px; font-size:13px; color:#0f172a; }
+      .cantiere-item p { margin:0; font-size:12px; color:#475569; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
       @media (max-width: 768px) {
@@ -441,6 +451,7 @@
             </div>
             <div class="inline-actions">
               <button type="button" class="secondary btn-small" id="globalAddCommessaBtn">Aggiungi commessa</button>
+              <button type="button" class="secondary btn-small" id="globalAddCantiereGpsBtn">Aggiungi cantiere GPS</button>
             </div>
             <div class="actions">
               <button type="button" class="secondary" id="cancelClockInSetupBtn">Annulla</button>
@@ -582,6 +593,13 @@
             </div>
             <h3 id="selectedCommessaTitle">Commessa</h3>
             <p id="selectedCommessaMeta" class="small"></p>
+            <div class="setup-box">
+              <div class="inline-actions">
+                <button type="button" id="addCantiereGpsBtn">Aggiungi cantiere (GPS)</button>
+              </div>
+              <ul id="commessaCantieriList" class="cantiere-list"></ul>
+              <p id="commessaCantieriEmpty" class="small">Nessun cantiere registrato per questa commessa.</p>
+            </div>
             <div id="journalEntryForm" class="setup-box hidden">
               <div class="grid">
                 <label>Data<input type="date" id="journalDate" /></label>
@@ -811,11 +829,45 @@
               </select>
             </label>
           </div>
+          <div class="grid force-hidden" id="vehicleExtraFields">
+            <label>Targa
+              <input type="text" id="catalogVehiclePlate" placeholder="Es. AB123CD" />
+            </label>
+            <label>Stato
+              <input type="text" id="catalogVehicleStatus" placeholder="Es. OK / Manutenzione" />
+            </label>
+            <label>Note
+              <input type="text" id="catalogVehicleNotes" placeholder="Note mezzo" />
+            </label>
+          </div>
           <div class="inline-actions">
             <button type="button" id="saveCatalogEntryBtn">Salva dato</button>
+            <button type="button" class="secondary" id="exportAllDataExcelBtn">Esporta tutti i dati (Excel)</button>
           </div>
           <p id="catalogEsito" class="msg"></p>
           <ul id="catalogVehiclesList" class="catalog-list"></ul>
+          <div id="dataHubCommessaDetail" class="setup-box hidden" style="margin-top:12px;">
+            <div class="inline-actions">
+              <button type="button" class="secondary btn-small" id="closeDataHubCommessaDetailBtn">← Torna alle commesse</button>
+              <button type="button" class="secondary btn-small" id="exportCantieriExcelBtn">Esporta cantieri (Excel)</button>
+            </div>
+            <h3 id="dataHubCommessaTitle" style="margin:8px 0 4px;">Commessa</h3>
+            <p id="dataHubCommessaSubtitle" class="small"></p>
+            <div class="grid">
+              <label>Nome cantiere
+                <input type="text" id="dataHubCantiereName" placeholder="Es. Cantiere Nord" />
+              </label>
+              <label>Note cantiere
+                <textarea id="dataHubCantiereNotes" rows="2" placeholder="Note operative"></textarea>
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button type="button" id="saveDataHubCantiereBtn">Aggiungi cantiere con GPS</button>
+            </div>
+            <div id="dataHubCantieriMap" class="fuel-map" style="min-height:260px;"></div>
+            <ul id="dataHubCantieriList" class="cantiere-list"></ul>
+            <p id="dataHubCantieriEmpty" class="small">Nessun cantiere salvato in questa commessa.</p>
+          </div>
         </div>
 
         <div class="card hidden" id="carburanteCard">
@@ -899,7 +951,7 @@
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
       const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'prezzarioCard', 'createPreventivoCard', 'carburanteCard', 'dataHubCard', 'backupCard', 'userBox'];
       const DATA_HUB_CATEGORIES = [
-        { key:'vehicles', label:'Auto / Mezzi', hint:'Inserisci i mezzi con carburante.' },
+        { key:'vehicles', label:'Mezzi', hint:'Gestisci i mezzi (da Firestore) con carburante, targa, stato e note.' },
         { key:'equipment', label:'Attrezzature', hint:'Inserisci attrezzature o macchine usate nei lavori.' },
         { key:'colleagues', label:'Colleghi', hint:'Inserisci persone della squadra per suggerimenti rapidi.' },
         { key:'commesse', label:'Commesse', hint:'Inserisci le commesse/cantieri per compilare i campi cantiere.' }
@@ -1044,11 +1096,15 @@
       let selectedAgendaDate = '';
       let googleTokenClient = null;
       let selectedCommessaId = '';
+      let selectedCantiereId = '';
+      let selectedDataHubCommessaId = '';
       let selectedDataHubCategory = 'vehicles';
       let journalPendingPhotos = [];
       let preventivoDraftRows = [];
       let fuelMap = null;
       let fuelMarkersLayer = null;
+      let dataHubCantieriMap = null;
+      let dataHubCantieriLayer = null;
       let firebaseCloudApp = null;
       let firebaseCloudAuth = null;
       let firebaseCloudDb = null;
@@ -1057,6 +1113,10 @@
       let firebaseLivePushTimer = null;
       let firebaseAutoPushDebounceTimer = null;
       let firebaseApplyingRemoteSnapshot = false;
+      let mezziRealtimeUnsubscribe = null;
+      let mezziRealtimeRows = [];
+      let mezziRealtimeLoading = false;
+      let mezziRealtimeError = '';
       let deferredPwaInstallPrompt = null;
 
       const id = (x) => document.getElementById(x);
@@ -1343,6 +1403,27 @@
       function setTeamPrograms(v) { writeJSON(TEAM_PROGRAMS_KEY, v); }
       function getMasterData() { return readJSON(MASTER_DATA_KEY, { vehicles:[], equipment:[], colleagues:[], commesse:[] }); }
       function setMasterData(v) { writeJSON(MASTER_DATA_KEY, v); }
+      function normalizeMezzoFirestoreRow(row={}) {
+        return {
+          id: String(row.id || ''),
+          name: String(row.nome || row.name || '').trim(),
+          fuel_type: String(row.carburante || row.fuel_type || '').trim().toLowerCase(),
+          targa: String(row.targa || '').trim(),
+          stato: String(row.stato || '').trim(),
+          note: String(row.note || '').trim()
+        };
+      }
+      function getVehiclesSourceRows() {
+        if (Array.isArray(mezziRealtimeRows) && mezziRealtimeRows.length) return mezziRealtimeRows;
+        return (getMasterData().vehicles || []).map((row)=>({
+          id: String(row.id || ''),
+          name: String(row.name || '').trim(),
+          fuel_type: String(row.fuel_type || '').trim().toLowerCase(),
+          targa: String(row.targa || '').trim(),
+          stato: String(row.stato || '').trim(),
+          note: String(row.note || '').trim()
+        })).filter((row)=>row.name);
+      }
       function getAutoPunchState() { return readJSON(AUTO_PUNCH_STATE_KEY, {}); }
       function setAutoPunchState(v) { writeJSON(AUTO_PUNCH_STATE_KEY, v); }
       function getMonthlyEmailSentMap() { return readJSON(MONTHLY_EMAIL_SENT_KEY, {}); }
@@ -1467,8 +1548,12 @@
       function applyFuelTypeByVehicleName(vehicleName='') {
         const name = String(vehicleName || '').trim().toLowerCase();
         if (!name) return;
-        const vehicle = getCatalogRowsByCategory('vehicles')
-          .find((row)=>String(row?.name || '').trim().toLowerCase() === name);
+        const vehicle = getVehiclesSourceRows()
+          .find((row)=>{
+            const rowName = String(row?.name || '').trim().toLowerCase();
+            const rowWithPlate = `${rowName} (${String(row?.targa || '').trim().toLowerCase()})`;
+            return rowName === name || rowWithPlate === name;
+          });
         if (vehicle?.fuel_type && id('fuelType')) id('fuelType').value = vehicle.fuel_type;
       }
       async function fetchNearbyFuelStations(lat, lon, radiusKm=8, fuelType='diesel') {
@@ -1486,32 +1571,37 @@ out center tags;`;
           'https://overpass.kumi.systems/api/interpreter',
           'https://overpass.openstreetmap.fr/api/interpreter'
         ];
+        const fetchWithTimeout = async (url, options={}, timeoutMs=7500)=>{
+          const controller = new AbortController();
+          const timer = setTimeout(()=>controller.abort(), timeoutMs);
+          try {
+            const res = await fetch(url, { ...options, signal: controller.signal });
+            return res;
+          } finally {
+            clearTimeout(timer);
+          }
+        };
+        const fetchEndpointPayload = async (endpoint='')=>{
+          const directRes = await fetchWithTimeout(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: query
+          });
+          if (directRes.ok) return directRes.json();
+          const formRes = await fetchWithTimeout(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body: `data=${encodeURIComponent(query)}`
+          });
+          if (formRes.ok) return formRes.json();
+          throw new Error(`Endpoint Overpass non disponibile (${endpoint})`);
+        };
         let payload = null;
         let lastError = null;
-        for (const endpoint of endpoints) {
-          try {
-            const directRes = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-              body: query
-            });
-            if (directRes.ok) {
-              payload = await directRes.json();
-              break;
-            }
-            const formRes = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-              body: `data=${encodeURIComponent(query)}`
-            });
-            if (formRes.ok) {
-              payload = await formRes.json();
-              break;
-            }
-            lastError = new Error(`Endpoint Overpass non disponibile (${endpoint})`);
-          } catch (error) {
-            lastError = error;
-          }
+        try {
+          payload = await Promise.any(endpoints.map((endpoint)=>fetchEndpointPayload(endpoint)));
+        } catch (error) {
+          lastError = error;
         }
         if (!payload) {
           console.warn('Overpass non disponibile:', lastError);
@@ -1560,16 +1650,22 @@ out center tags;`;
           fuelMap.setView([userLat, userLon], 13);
           fuelMarkersLayer?.clearLayers();
         }
-        const truckIcon = window.L.divIcon({
-          className: 'fuel-user-truck-icon',
-          html: '<div style="background:#1d4ed8;color:#fff;border-radius:999px;min-width:34px;min-height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);">P🚛</div>',
-          iconSize: [34, 34],
-          iconAnchor: [17, 17]
+        const userIcon = window.L.divIcon({
+          className: 'fuel-user-worker-icon',
+          html: '<div style="background:#0f766e;color:#fff;border-radius:999px;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);">👷</div>',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
         });
-        const userMarker = window.L.marker([userLat, userLon], { icon: truckIcon }).bindPopup('La tua posizione (P in camion)');
+        const stationIcon = window.L.divIcon({
+          className: 'fuel-station-icon',
+          html: '<div style="background:#1d4ed8;color:#fff;border-radius:999px;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);">⛽</div>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+        const userMarker = window.L.marker([userLat, userLon], { icon: userIcon }).bindPopup('La tua posizione (operatore)');
         fuelMarkersLayer.addLayer(userMarker);
         stations.forEach((st)=>{
-          const marker = window.L.marker([st.lat, st.lon]);
+          const marker = window.L.marker([st.lat, st.lon], { icon: stationIcon });
           marker.bindPopup(`<strong>${escapeHtml(st.name)}</strong><br>${escapeHtml(st.brand || '')}<br><button type="button" onclick="window.openGoogleMapsNavigation(${st.lat},${st.lon})">Naviga con Google Maps</button>`);
           marker.on('click', ()=>openGoogleMapsNavigation(st.lat, st.lon));
           fuelMarkersLayer.addLayer(marker);
@@ -1831,8 +1927,10 @@ out center tags;`;
         const catalogMembers = (masterData.colleagues || []).map((entry)=>entry.name).filter(Boolean);
         const allMembers = [...new Set([...(directory.members || []), ...catalogMembers])];
         const memberOptions = allMembers.map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
-        const catalogVehicles = (masterData.vehicles || []).map((entry)=>entry.name).filter(Boolean);
-        const allVehicles = [...new Set([...(directory.vehicles || []), ...catalogVehicles])];
+        const allVehicles = [...new Set(getVehiclesSourceRows().map((entry)=>{
+          const plate = String(entry.targa || '').trim();
+          return plate ? `${entry.name} (${plate})` : entry.name;
+        }).filter(Boolean))];
         const vehicleOptions = allVehicles.map((name)=>`<option value="${String(name).replaceAll('"', '&quot;')}"></option>`).join('');
         const equipmentOptions = (masterData.equipment || []).map((entry)=>`<option value="${String(entry.name || '').replaceAll('"', '&quot;')}"></option>`).join('');
         const commesseMaster = (masterData.commesse || []).map((entry)=>entry.name).filter(Boolean);
@@ -1885,7 +1983,7 @@ out center tags;`;
       }
       function getCatalogRowsByCategory(category='vehicles') {
         const md = getMasterData();
-        if (category === 'vehicles') return normalizeVehicleCatalogRows(md.vehicles || []);
+        if (category === 'vehicles') return getVehiclesSourceRows();
         return normalizeSimpleCatalogRows(md[category] || []);
       }
       function setCatalogRowsByCategory(category='vehicles', rows=[]) {
@@ -1895,17 +1993,327 @@ out center tags;`;
       }
       function openDataHubCategory(category='vehicles') {
         selectedDataHubCategory = DATA_HUB_CATEGORIES.some((cat)=>cat.key === category) ? category : 'vehicles';
-        renderCatalogDataUI();
+        if (selectedDataHubCategory !== 'commesse') selectedDataHubCommessaId = '';
+        if (selectedDataHubCategory === 'vehicles') ensureMezziRealtimeSubscription().catch(()=>{});
+        try {
+          renderCatalogDataUI();
+        } catch (error) {
+          console.error('Errore apertura DataHub categoria:', error);
+          showCatalogMsg('Errore apertura categoria. Ricarica la pagina.', 'err');
+        }
       }
-      function saveCatalogEntry() {
+      function toggleDataHubCommessaCantieri(commessaId='') {
+        selectedDataHubCommessaId = selectedDataHubCommessaId === commessaId ? '' : commessaId;
+        try {
+          renderCatalogDataUI();
+        } catch (error) {
+          console.error('Errore toggle cantieri commessa:', error);
+          showCatalogMsg('Errore apertura cantieri commessa.', 'err');
+        }
+      }
+      async function addCantiereFromDataHub(commessaId='') {
+        await addCantiereFromGpsForSelectedCommessa(commessaId);
+        selectedDataHubCommessaId = commessaId || selectedDataHubCommessaId;
+        try { renderCatalogDataUI(); } catch (_) {}
+        renderDataHubCommessaDetail();
+      }
+      function openDataHubCommessaDetail(commessaId='') {
+        selectedDataHubCommessaId = commessaId || '';
+        const detail = id('dataHubCommessaDetail');
+        if (detail) detail.classList.toggle('hidden', !selectedDataHubCommessaId);
+        renderDataHubCommessaDetail();
+      }
+      function closeDataHubCommessaDetail() {
+        selectedDataHubCommessaId = '';
+        if (id('dataHubCommessaDetail')) id('dataHubCommessaDetail').classList.add('hidden');
+        if (id('dataHubCantiereName')) id('dataHubCantiereName').value = '';
+        if (id('dataHubCantiereNotes')) id('dataHubCantiereNotes').value = '';
+      }
+      function renderDataHubCommessaDetail() {
+        const detail = id('dataHubCommessaDetail');
+        const title = id('dataHubCommessaTitle');
+        const subtitle = id('dataHubCommessaSubtitle');
+        const list = id('dataHubCantieriList');
+        const empty = id('dataHubCantieriEmpty');
+        if (!detail || !title || !subtitle || !list || !empty) return;
+        const commessa = getCommesse().find((c)=>c.id === selectedDataHubCommessaId);
+        if (!commessa) {
+          detail.classList.add('hidden');
+          return;
+        }
+        detail.classList.remove('hidden');
+        title.textContent = `Commessa: ${commessa.nome || '-'}`;
+        const cantieri = Array.isArray(commessa.cantieri) ? commessa.cantieri : [];
+        subtitle.textContent = `Cantieri registrati: ${cantieri.length}`;
+        if (!cantieri.length) {
+          list.innerHTML = '';
+          empty.classList.remove('hidden');
+          renderDataHubCantieriMap([]);
+          return;
+        }
+        empty.classList.add('hidden');
+        list.innerHTML = cantieri.map((c)=>`<li class="cantiere-item">
+          <h5>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</h5>
+          <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}</p>
+          <p>Coordinate: ${Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)) ? `${Number(c.lat).toFixed(5)}, ${Number(c.lon).toFixed(5)}` : '-'}</p>
+          <p>${escapeHtml(c.notes || '-')}</p>
+          <div class="inline-actions" style="margin-top:6px;">
+            <button type="button" class="secondary btn-small" onclick="editCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Modifica</button>
+            <button type="button" class="secondary btn-small" onclick="deleteCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Elimina</button>
+          </div>
+        </li>`).join('');
+        renderDataHubCantieriMap(cantieri);
+      }
+      async function renderDataHubCantieriMap(cantieri=[]) {
+        const mapEl = id('dataHubCantieriMap');
+        if (!mapEl) return;
+        if (!cantieri.length) {
+          mapEl.innerHTML = '<p class="small" style="padding:10px;">Nessuna posizione GPS disponibile per i cantieri.</p>';
+          return;
+        }
+        try {
+          await ensureLeafletLoaded();
+          if (!dataHubCantieriMap) mapEl.innerHTML = '';
+          if (!dataHubCantieriMap) {
+            dataHubCantieriMap = window.L.map(mapEl).setView([cantieri[0].lat, cantieri[0].lon], 11);
+            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              maxZoom: 19,
+              attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(dataHubCantieriMap);
+            dataHubCantieriLayer = window.L.layerGroup().addTo(dataHubCantieriMap);
+          } else {
+            dataHubCantieriLayer?.clearLayers();
+            dataHubCantieriMap.invalidateSize();
+          }
+          const coords = [];
+          cantieri.forEach((c)=>{
+            if (!Number.isFinite(Number(c.lat)) || !Number.isFinite(Number(c.lon))) return;
+            coords.push([Number(c.lat), Number(c.lon)]);
+            const marker = window.L.marker([Number(c.lat), Number(c.lon)]);
+            marker.bindPopup(`<strong>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</strong><br>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}`);
+            dataHubCantieriLayer.addLayer(marker);
+          });
+          if (coords.length) dataHubCantieriMap.fitBounds(coords, { padding:[18, 18], maxZoom:15 });
+        } catch (error) {
+          console.warn('Impossibile renderizzare mappa cantieri:', error);
+          mapEl.innerHTML = '<p class="small" style="padding:10px;">Mappa non disponibile al momento.</p>';
+        }
+      }
+      function editCantiereFromDataHub(commessaId='', cantiereId='') {
+        const commesse = getCommesse();
+        const idx = commesse.findIndex((c)=>c.id === commessaId);
+        if (idx < 0) return;
+        const cantieri = Array.isArray(commesse[idx].cantieri) ? [...commesse[idx].cantieri] : [];
+        const cIdx = cantieri.findIndex((c)=>c.id === cantiereId);
+        if (cIdx < 0) return;
+        const current = cantieri[cIdx];
+        const nextName = (window.prompt('Nuovo nome cantiere:', current.name || '') || '').trim();
+        if (!nextName) return;
+        const nextNotes = (window.prompt('Nuove note cantiere:', current.notes || '') || '').trim();
+        cantieri[cIdx] = normalizeCantiere({ ...current, name: nextName, notes: nextNotes, updated_at: new Date().toISOString() });
+        commesse[idx] = { ...commesse[idx], cantieri, updated_at:new Date().toISOString() };
+        setCommesse(commesse);
+        renderCatalogDataUI();
+        renderDataHubCommessaDetail();
+        showCatalogMsg('Cantiere aggiornato.', 'ok');
+      }
+      function deleteCantiereFromDataHub(commessaId='', cantiereId='') {
+        const commesse = getCommesse();
+        const idx = commesse.findIndex((c)=>c.id === commessaId);
+        if (idx < 0) return;
+        const cantieri = Array.isArray(commesse[idx].cantieri) ? commesse[idx].cantieri : [];
+        const target = cantieri.find((c)=>c.id === cantiereId);
+        if (!target) return;
+        if (!window.confirm(`Eliminare cantiere ${target.code || ''} ${target.name || ''}?`)) return;
+        commesse[idx] = {
+          ...commesse[idx],
+          cantieri: cantieri.filter((c)=>c.id !== cantiereId),
+          updated_at: new Date().toISOString()
+        };
+        setCommesse(commesse);
+        renderCatalogDataUI();
+        renderDataHubCommessaDetail();
+        showCatalogMsg('Cantiere eliminato.', 'ok');
+      }
+      function exportCantieriDataHubExcel() {
+        const commessa = getCommesse().find((c)=>c.id === selectedDataHubCommessaId);
+        if (!commessa) { showCatalogMsg('Apri prima una commessa.', 'err'); return; }
+        const cantieri = Array.isArray(commessa.cantieri) ? commessa.cantieri : [];
+        if (!cantieri.length) { showCatalogMsg('Nessun cantiere da esportare.', 'err'); return; }
+        const header = ['Codice', 'Nome cantiere', 'Note', 'Indirizzo', 'Comune', 'Provincia', 'CAP', 'Paese', 'Latitudine', 'Longitudine'];
+        const rows = cantieri.map((c)=>[
+          c.code || '',
+          c.name || '',
+          c.notes || '',
+          c.address || '',
+          c.city || '',
+          c.province || '',
+          c.postcode || '',
+          c.country || '',
+          Number.isFinite(Number(c.lat)) ? Number(c.lat).toFixed(5) : '',
+          Number.isFinite(Number(c.lon)) ? Number(c.lon).toFixed(5) : ''
+        ]);
+        const csv = [header, ...rows].map((row)=>row.map((cell)=>`"${String(cell || '').replaceAll('"', '""')}"`).join(';')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `cantieri_${(commessa.nome || 'commessa').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        showCatalogMsg('Export Excel completato (CSV compatibile).', 'ok');
+      }
+      function exportAllAppDataExcel() {
+        const master = getMasterData();
+        const commesse = getCommesse();
+        const rows = [];
+        const pushRow = (section='', data={})=>rows.push({
+          section,
+          name: data.name || '',
+          fuel_type: data.fuel_type || '',
+          commessa: data.commessa || '',
+          cantiere_code: data.cantiere_code || '',
+          cantiere_name: data.cantiere_name || '',
+          notes: data.notes || '',
+          address: data.address || '',
+          city: data.city || '',
+          lat: Number.isFinite(Number(data.lat)) ? Number(data.lat).toFixed(5) : '',
+          lon: Number.isFinite(Number(data.lon)) ? Number(data.lon).toFixed(5) : '',
+          updated_at: data.updated_at || ''
+        });
+        getVehiclesSourceRows().forEach((v)=>pushRow('mezzi', {
+          name: v.name || '',
+          fuel_type: v.fuel_type || '',
+          notes: v.note || '',
+          address: '',
+          city: '',
+          lat: '',
+          lon: '',
+          updated_at: v.updated_at || ''
+        }));
+        (Array.isArray(master.equipment) ? master.equipment : []).forEach((v)=>pushRow('attrezzature', {
+          name: v.name || '',
+          updated_at: v.updated_at || ''
+        }));
+        (Array.isArray(master.colleagues) ? master.colleagues : []).forEach((v)=>pushRow('colleghi', {
+          name: v.name || '',
+          updated_at: v.updated_at || ''
+        }));
+        commesse.forEach((cm)=>{
+          pushRow('commesse', { commessa: cm.nome || '', notes: cm.impianto || '', updated_at: cm.updated_at || '' });
+          (Array.isArray(cm.cantieri) ? cm.cantieri : []).forEach((c)=>pushRow('cantieri', {
+            commessa: cm.nome || '',
+            cantiere_code: c.code || '',
+            cantiere_name: c.name || '',
+            notes: c.notes || '',
+            address: c.address || '',
+            city: c.city || '',
+            lat: c.lat,
+            lon: c.lon,
+            updated_at: c.updated_at || cm.updated_at || ''
+          }));
+        });
+        if (!rows.length) { showCatalogMsg('Nessun dato da esportare.', 'err'); return; }
+        const header = ['Sezione', 'Nome', 'Carburante', 'Commessa', 'Codice Cantiere', 'Nome Cantiere', 'Note', 'Indirizzo', 'Comune', 'Latitudine', 'Longitudine', 'Aggiornato il'];
+        const csvRows = rows.map((r)=>[
+          r.section,
+          r.name,
+          r.fuel_type,
+          r.commessa,
+          r.cantiere_code,
+          r.cantiere_name,
+          r.notes,
+          r.address,
+          r.city,
+          r.lat,
+          r.lon,
+          r.updated_at
+        ]);
+        const csv = [header, ...csvRows].map((line)=>line.map((cell)=>`"${String(cell || '').replaceAll('"', '""')}"`).join(';')).join('\n');
+        const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `export_dati_app_${nowDateISO()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        showCatalogMsg('Export completo creato (CSV compatibile Excel).', 'ok');
+      }
+      async function saveCantiereFromDataHubForm() {
+        const commessa = getCommesse().find((c)=>c.id === selectedDataHubCommessaId);
+        if (!commessa) { showCatalogMsg('Apri prima una commessa.', 'err'); return; }
+        const name = String(id('dataHubCantiereName')?.value || '').trim();
+        const notes = String(id('dataHubCantiereNotes')?.value || '').trim();
+        if (!name) { showCatalogMsg('Inserisci il nome cantiere.', 'err'); return; }
+        await addCantiereFromGpsForSelectedCommessa(commessa.id, name, notes);
+        id('dataHubCantiereName').value = '';
+        id('dataHubCantiereNotes').value = '';
+        renderDataHubCommessaDetail();
+      }
+      async function ensureMezziRealtimeSubscription() {
+        if (!firebaseCloudDb || !firebaseCloudAuth?.currentUser) return;
+        if (mezziRealtimeUnsubscribe) return;
+        mezziRealtimeLoading = true;
+        mezziRealtimeError = '';
+        const ref = firebaseCloudDb.collection('mezzi');
+        mezziRealtimeUnsubscribe = ref.onSnapshot((snap)=>{
+          mezziRealtimeRows = (snap?.docs || []).map((doc)=>normalizeMezzoFirestoreRow({ id: doc.id, ...(doc.data() || {}) })).filter((row)=>row.name);
+          mezziRealtimeLoading = false;
+          mezziRealtimeError = '';
+          renderTeamDirectorySelects();
+          if ((selectedDataHubCategory || 'vehicles') === 'vehicles') renderCatalogDataUI();
+        }, (error)=>{
+          mezziRealtimeLoading = false;
+          mezziRealtimeError = error?.message || 'Errore lettura mezzi Firestore.';
+          console.warn('Errore realtime mezzi:', error);
+          if ((selectedDataHubCategory || 'vehicles') === 'vehicles') renderCatalogDataUI();
+        });
+      }
+      function stopMezziRealtimeSubscription() {
+        if (mezziRealtimeUnsubscribe) {
+          try { mezziRealtimeUnsubscribe(); } catch (_) {}
+        }
+        mezziRealtimeUnsubscribe = null;
+      }
+      async function saveVehicleToFirestore(payload={}) {
+        if (!firebaseCloudDb || !firebaseCloudAuth?.currentUser) throw new Error('Connetti prima Firebase cloud per salvare i mezzi su Firestore.');
+        const row = normalizeMezzoFirestoreRow(payload);
+        if (!row.name) throw new Error('Nome mezzo obbligatorio.');
+        const existing = getVehiclesSourceRows().find((v)=>v.name.toLowerCase() === row.name.toLowerCase() && String(v.targa || '').toLowerCase() === String(row.targa || '').toLowerCase());
+        const ref = existing?.id ? firebaseCloudDb.collection('mezzi').doc(existing.id) : firebaseCloudDb.collection('mezzi').doc();
+        await ref.set({
+          nome: row.name,
+          carburante: row.fuel_type || '',
+          targa: row.targa || '',
+          stato: row.stato || '',
+          note: row.note || '',
+          updated_at: new Date().toISOString()
+        }, { merge:true });
+      }
+      async function deleteVehicleFromFirestoreById(vehicleId='') {
+        if (!vehicleId) throw new Error('ID mezzo non valido.');
+        if (!firebaseCloudDb || !firebaseCloudAuth?.currentUser) throw new Error('Connetti prima Firebase cloud.');
+        await firebaseCloudDb.collection('mezzi').doc(vehicleId).delete();
+      }
+      async function saveCatalogEntry() {
         const category = selectedDataHubCategory || 'vehicles';
         const name = id('catalogPrimaryInput').value.trim();
         if (!name) { showCatalogMsg('Inserisci almeno un nome.', 'err'); return; }
         const existing = getCatalogRowsByCategory(category);
         if (category === 'vehicles') {
           const fuelType = id('catalogVehicleFuelType').value || 'diesel';
-          setCatalogRowsByCategory('vehicles', [...existing.filter((row)=>row.name.toLowerCase() !== name.toLowerCase()), { name, fuel_type:fuelType }]);
-          showCatalogMsg('Mezzo salvato.', 'ok');
+          const targa = String(id('catalogVehiclePlate')?.value || '').trim();
+          const stato = String(id('catalogVehicleStatus')?.value || '').trim();
+          const note = String(id('catalogVehicleNotes')?.value || '').trim();
+          try {
+            await saveVehicleToFirestore({ name, fuel_type:fuelType, targa, stato, note });
+            showCatalogMsg('Mezzo salvato su Firestore.', 'ok');
+          } catch (error) {
+            showCatalogMsg(error.message || 'Salvataggio mezzo non riuscito.', 'err');
+            return;
+          }
         } else {
           setCatalogRowsByCategory(category, [...existing.filter((row)=>row.name.toLowerCase() !== name.toLowerCase()), { name }]);
           showCatalogMsg('Dato salvato.', 'ok');
@@ -1913,7 +2321,7 @@ out center tags;`;
         if (category === 'commesse') {
           const commesse = getCommesse();
           if (!commesse.some((row)=>String(row.nome || '').toLowerCase() === name.toLowerCase())) {
-            const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome:name, impianto:'', updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
+            const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome:name, impianto:'', cantieri:[], updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
             setCommesse([next, ...commesse]);
             renderCommesseList();
             renderGlobalCommesseSelect();
@@ -1921,11 +2329,24 @@ out center tags;`;
         }
         id('catalogPrimaryInput').value = '';
         id('catalogVehicleFuelType').value = 'diesel';
+        if (id('catalogVehiclePlate')) id('catalogVehiclePlate').value = '';
+        if (id('catalogVehicleStatus')) id('catalogVehicleStatus').value = '';
+        if (id('catalogVehicleNotes')) id('catalogVehicleNotes').value = '';
         renderCatalogDataUI();
         renderTeamDirectorySelects();
       }
-      function deleteCatalogEntry(category='vehicles', name='') {
-        setCatalogRowsByCategory(category, getCatalogRowsByCategory(category).filter((row)=>String(row?.name || '').toLowerCase() !== String(name || '').toLowerCase()));
+      async function deleteCatalogEntry(category='vehicles', name='', vehicleId='') {
+        if (category === 'vehicles') {
+          try {
+            await deleteVehicleFromFirestoreById(vehicleId || '');
+            showCatalogMsg('Mezzo eliminato da Firestore.', 'ok');
+          } catch (error) {
+            showCatalogMsg(error.message || 'Eliminazione mezzo non riuscita.', 'err');
+            return;
+          }
+        } else {
+          setCatalogRowsByCategory(category, getCatalogRowsByCategory(category).filter((row)=>String(row?.name || '').toLowerCase() !== String(name || '').toLowerCase()));
+        }
         if (category === 'commesse') {
           setCommesse(getCommesse().filter((row)=>String(row.nome || '').toLowerCase() !== String(name || '').toLowerCase()));
           renderCommesseList();
@@ -1934,16 +2355,7 @@ out center tags;`;
         renderCatalogDataUI();
         renderTeamDirectorySelects();
       }
-      function deleteCatalogEntry(category='vehicles', name='') {
-        setCatalogRowsByCategory(category, getCatalogRowsByCategory(category).filter((row)=>String(row?.name || '').toLowerCase() !== String(name || '').toLowerCase()));
-        if (category === 'commesse') {
-          setCommesse(getCommesse().filter((row)=>String(row.nome || '').toLowerCase() !== String(name || '').toLowerCase()));
-          renderCommesseList();
-          renderGlobalCommesseSelect();
-        }
-        renderCatalogDataUI();
-        renderTeamDirectorySelects();
-      }
+      
       function renderCatalogDataUI() {
         const category = selectedDataHubCategory || 'vehicles';
         const cfg = DATA_HUB_CATEGORIES.find((cat)=>cat.key === category) || DATA_HUB_CATEGORIES[0];
@@ -1953,9 +2365,61 @@ out center tags;`;
         id('catalogPrimaryLabel').firstChild.textContent = category === 'vehicles' ? 'Nome mezzo' : (category === 'commesse' ? 'Nome commessa/cantiere' : 'Nome');
         id('catalogPrimaryInput').placeholder = category === 'vehicles' ? 'Es. Daily AB123CD / Escavatore Volvo' : (category === 'equipment' ? 'Es. Motosega Stihl' : (category === 'colleagues' ? 'Es. Mario Rossi' : 'Es. Commessa Bologna Nord'));
         id('catalogSecondaryWrap').classList.toggle('force-hidden', category !== 'vehicles');
+        if (id('vehicleExtraFields')) id('vehicleExtraFields').classList.toggle('force-hidden', category !== 'vehicles');
+        if (category !== 'commesse' && id('dataHubCommessaDetail')) id('dataHubCommessaDetail').classList.add('hidden');
         const rows = getCatalogRowsByCategory(category);
-        if (category === 'vehicles' && rows.length !== (getMasterData().vehicles || []).length) setMasterData({ ...getMasterData(), vehicles: rows });
+        if (category === 'vehicles' && !mezziRealtimeRows.length && rows.length !== (getMasterData().vehicles || []).length) setMasterData({ ...getMasterData(), vehicles: rows });
         const labels = { diesel:'Diesel', octane_95:'Benzina (95)', lpg:'GPL', cng:'Metano (CNG)' };
+        if (category === 'vehicles') {
+          if (mezziRealtimeLoading) {
+            id('catalogVehiclesList').innerHTML = `<li class="catalog-item"><p>Caricamento mezzi Firestore...</p></li>`;
+            return;
+          }
+          if (mezziRealtimeError) {
+            id('catalogVehiclesList').innerHTML = `<li class="catalog-item"><p>Errore Firestore mezzi: ${escapeHtml(mezziRealtimeError)}</p></li>`;
+            return;
+          }
+          id('catalogVehiclesList').innerHTML = rows.length
+            ? `<li class="catalog-item" style="display:block;">
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>Nome</th><th>Carburante</th><th>Targa</th><th>Stato</th><th>Note</th><th></th></tr></thead>
+                    <tbody>
+                      ${rows.map((row)=>`<tr><td>${escapeHtml(row.name || '-')}</td><td>${escapeHtml(labels[row.fuel_type] || row.fuel_type || '-')}</td><td>${escapeHtml(row.targa || '-')}</td><td>${escapeHtml(row.stato || '-')}</td><td>${escapeHtml(row.note || '-')}</td><td><button type="button" class="secondary btn-small" onclick="deleteCatalogEntry('vehicles','${String(row.name || '').replaceAll("'", "\\'")}','${escapeHtml(row.id || '')}')">Elimina</button></td></tr>`).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </li>`
+            : `<li class="catalog-item"><p>Nessun mezzo presente in Firestore.</p></li>`;
+          return;
+        }
+        if (category === 'commesse') {
+          const commesseRows = getCommesse().slice().sort((a,b)=>String(a.nome || '').localeCompare(String(b.nome || '')));
+          id('catalogVehiclesList').innerHTML = commesseRows.length
+            ? commesseRows.map((row)=>{
+              const isOpen = selectedDataHubCommessaId === row.id;
+              const cantieri = Array.isArray(row.cantieri) ? row.cantieri : [];
+              const safeDeleteName = String(row.nome || '').replaceAll("'", "\\'");
+              return `<li class="catalog-item" style="display:block;">
+                <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+                  <p><strong>${escapeHtml(row.nome || '-')}</strong> • ${cantieri.length} cantieri</p>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button type="button" class="secondary btn-small" onclick="openDataHubCommessaDetail('${escapeHtml(row.id)}')">Apri pagina</button>
+                    <button type="button" class="secondary btn-small" onclick="toggleDataHubCommessaCantieri('${escapeHtml(row.id)}')">${isOpen ? 'Nascondi cantieri' : 'Apri cantieri'}</button>
+                    <button type="button" class="btn-small" onclick="addCantiereFromDataHub('${escapeHtml(row.id)}')">+ Cantiere GPS</button>
+                    <button type="button" class="secondary btn-small" onclick="deleteCatalogEntry('commesse','${safeDeleteName}')">Elimina</button>
+                  </div>
+                </div>
+                ${isOpen ? `<ul class="cantiere-list" style="margin-top:8px;">
+                  ${cantieri.length
+                    ? cantieri.map((c)=>`<li class="cantiere-item"><h5>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</h5><p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}</p></li>`).join('')
+                    : '<li class="cantiere-item"><p>Nessun cantiere per questa commessa.</p></li>'}
+                </ul>` : ''}
+              </li>`;
+            }).join('')
+            : `<li class="catalog-item"><p>Nessun dato salvato per ${escapeHtml(cfg.label.toLowerCase())}.</p></li>`;
+          return;
+        }
         id('catalogVehiclesList').innerHTML = rows.length
           ? rows.map((row)=>`<li class="catalog-item"><p><strong>${escapeHtml(row.name)}</strong>${category === 'vehicles' ? ` • ${labels[row.fuel_type] || row.fuel_type}` : ''}</p><button type="button" class="secondary btn-small" onclick="deleteCatalogEntry('${category}','${String(row.name).replaceAll("'", "\\'")}')">Elimina</button></li>`).join('')
           : `<li class="catalog-item"><p>Nessun dato salvato per ${escapeHtml(cfg.label.toLowerCase())}.</p></li>`;
@@ -3423,10 +3887,95 @@ out center tags;`;
         closeDeleteDocPanel();
         setMenuSection('documentiCard');
       }
-      function getCommesse() { return readJSON(COMMESSE_KEY, []); }
-      function setCommesse(rows=[]) { writeJSON(COMMESSE_KEY, rows); }
+      function normalizeCantiere(row={}) {
+        return {
+          id: String(row.id || `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`),
+          code: String(row.code || '').trim(),
+          name: String(row.name || row.nome || '').trim(),
+          address: String(row.address || row.indirizzo || '').trim(),
+          notes: String(row.notes || row.note || '').trim(),
+          city: String(row.city || row.comune || '').trim(),
+          province: String(row.province || row.provincia || '').trim(),
+          postcode: String(row.postcode || row.cap || '').trim(),
+          country: String(row.country || row.paese || '').trim(),
+          lat: Number(row.lat),
+          lon: Number(row.lon),
+          created_at: row.created_at || new Date().toISOString(),
+          updated_at: row.updated_at || new Date().toISOString()
+        };
+      }
+      function normalizeCommessa(row={}) {
+        const cantieri = Array.isArray(row.cantieri) ? row.cantieri.map((c)=>normalizeCantiere(c)).filter((c)=>c.name) : [];
+        return {
+          ...row,
+          id: String(row.id || `commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`),
+          nome: String(row.nome || row.name || '').trim(),
+          impianto: String(row.impianto || '').trim(),
+          cantieri,
+          created_at: row.created_at || new Date().toISOString(),
+          updated_at: row.updated_at || new Date().toISOString()
+        };
+      }
+      function getCommesse() {
+        const raw = readJSON(COMMESSE_KEY, []);
+        return (Array.isArray(raw) ? raw : []).map((row)=>normalizeCommessa(row));
+      }
+      function setCommesse(rows=[]) { writeJSON(COMMESSE_KEY, (Array.isArray(rows) ? rows : []).map((row)=>normalizeCommessa(row))); }
       function getGiornaleEntries() { return readJSON(GIORNALE_ENTRIES_KEY, []); }
       function setGiornaleEntries(rows=[]) { writeJSON(GIORNALE_ENTRIES_KEY, rows); }
+      function generateCantiereCode(cantieri=[]) {
+        const used = new Set((Array.isArray(cantieri) ? cantieri : []).map((c)=>String(c.code || '').trim().toUpperCase()).filter((v)=>/^C\d+$/.test(v)));
+        for (let i=1; i<=9999; i+=1) {
+          const code = `C${String(i).padStart(3, '0')}`;
+          if (!used.has(code)) return code;
+        }
+        return `C${Date.now().toString().slice(-4)}`;
+      }
+      async function reverseGeocodeFromCoords(lat, lon) {
+        const endpoint = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&addressdetails=1`;
+        const res = await fetch(endpoint, { headers: { Accept:'application/json' } });
+        if (!res.ok) throw new Error('Geocodifica non disponibile.');
+        const payload = await res.json();
+        const address = payload?.address || {};
+        return {
+          displayName: String(payload?.display_name || '').trim(),
+          road: String(address.road || address.pedestrian || address.footway || '').trim(),
+          houseNumber: String(address.house_number || '').trim(),
+          city: String(address.city || address.town || address.village || address.municipality || '').trim(),
+          province: String(address.county || address.state_district || '').trim(),
+          postcode: String(address.postcode || '').trim(),
+          country: String(address.country || '').trim()
+        };
+      }
+      function renderCantieriForSelectedCommessa() {
+        const wrap = id('commessaCantieriList');
+        const empty = id('commessaCantieriEmpty');
+        if (!wrap || !empty || !selectedCommessaId) return;
+        const commessa = getCommesse().find((c)=>c.id === selectedCommessaId);
+        const cantieri = Array.isArray(commessa?.cantieri) ? commessa.cantieri : [];
+        if (!cantieri.length) {
+          wrap.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+        wrap.innerHTML = cantieri.map((c)=>`
+          <li class="cantiere-item ${c.id === selectedCantiereId ? 'active' : ''}" data-cantiere-id="${escapeHtml(c.id)}">
+            <h5>${escapeHtml(c.code || 'C')} • ${escapeHtml(c.name || 'Cantiere')}</h5>
+            <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || c.country || '-')}</p>
+            <p>${Number.isFinite(c.lat) && Number.isFinite(c.lon) ? `${Number(c.lat).toFixed(5)}, ${Number(c.lon).toFixed(5)}` : 'Coordinate non disponibili'}</p>
+          </li>
+        `).join('');
+        wrap.querySelectorAll('[data-cantiere-id]').forEach((el)=>el.addEventListener('click', ()=>{
+          selectedCantiereId = el.dataset.cantiereId || '';
+          const target = cantieri.find((c)=>c.id === selectedCantiereId);
+          if (target) {
+            id('journalSiteName').value = target.name || '';
+            id('journalLocation').value = [target.address, target.city].filter(Boolean).join(', ');
+          }
+          renderCantieriForSelectedCommessa();
+        }));
+      }
       function formatDateIT(iso='') {
         if (!iso) return '-';
         const d = new Date(`${iso}T00:00:00`);
@@ -3448,6 +3997,7 @@ out center tags;`;
           <li class="commessa-item" data-commessa-id="${escapeHtml(c.id)}">
             <h4>${escapeHtml(c.nome || 'Commessa')}</h4>
             <p>${escapeHtml(c.impianto || c.cantiere || '-')}</p>
+            <p>Cantieri registrati: ${Number(Array.isArray(c.cantieri) ? c.cantieri.length : 0)}</p>
             <p>Ultimo aggiornamento: ${escapeHtml(c.updated_at ? new Date(c.updated_at).toLocaleString('it-IT') : '-')}</p>
           </li>
         `).join('');
@@ -3468,25 +4018,112 @@ out center tags;`;
         if (!nome) return;
         const impianto = (window.prompt('Impianto / cantiere (opzionale):') || '').trim();
         const rows = getCommesse();
-        const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome, impianto, updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
+        const next = { id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`, nome, impianto, cantieri:[], updated_at:new Date().toISOString(), created_at:new Date().toISOString() };
         rows.push(next);
         setCommesse(rows);
         renderCommesseList();
         showGiornaleMsg('Commessa aggiunta.', 'ok');
+      }
+      async function addCantiereFromGpsForSelectedCommessa(commessaIdOverride='', nameOverride='', notesOverride='') {
+        const commesse = getCommesse();
+        const selectedGlobalName = String(id('globalCommessaSelect')?.value || '').trim().toLowerCase();
+        const fallbackFromGlobal = commesse.find((c)=>String(c.nome || '').trim().toLowerCase() === selectedGlobalName)?.id || '';
+        const commessaId = String(commessaIdOverride || selectedCommessaId || fallbackFromGlobal).trim();
+        if (!commessaId) {
+          showMsg('Seleziona prima una commessa dal menu o dal campo "Commessa globale".', 'err');
+          showGiornaleMsg('Seleziona prima una commessa.', 'err');
+          return;
+        }
+        const idx = commesse.findIndex((c)=>c.id === commessaId);
+        if (idx < 0) { showGiornaleMsg('Commessa non trovata.', 'err'); return; }
+        const name = String(nameOverride || window.prompt('Nome cantiere:') || '').trim();
+        if (!name) return;
+        const notes = String(notesOverride || '').trim();
+        showGiornaleMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
+        showMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
+        try {
+          const pos = await getCurrentPositionSafe();
+          const { lat, lon } = extractLatLon(pos);
+          const geo = await reverseGeocodeFromCoords(lat, lon).catch(()=>({}));
+          const road = [geo.road, geo.houseNumber].filter(Boolean).join(' ').trim();
+          const cantieri = Array.isArray(commesse[idx].cantieri) ? [...commesse[idx].cantieri] : [];
+          const existing = cantieri.find((c)=>String(c.name || '').toLowerCase() === name.toLowerCase());
+          if (existing) {
+            showGiornaleMsg(`Cantiere già presente in questa commessa (${existing.code || existing.id}).`, 'err');
+            showMsg(`Cantiere già presente in questa commessa (${existing.code || existing.id}).`, 'err');
+            return;
+          }
+          const nearbyThresholdM = 250;
+          const nearbyDuplicate = commesse
+            .flatMap((cm)=>Array.isArray(cm.cantieri) ? cm.cantieri.map((c)=>({ ...c, commessaNome: cm.nome || 'Commessa' })) : [])
+            .filter((c)=>Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)))
+            .map((c)=>({ ...c, distanceM: haversineDistanceMeters(lat, lon, Number(c.lat), Number(c.lon)) }))
+            .sort((a,b)=>a.distanceM - b.distanceM)
+            .find((c)=>c.distanceM <= nearbyThresholdM || String(c.name || '').toLowerCase() === name.toLowerCase());
+          if (nearbyDuplicate) {
+            const km = (nearbyDuplicate.distanceM / 1000).toFixed(3);
+            const proceed = window.confirm(`Attenzione: cantiere vicino/esistente trovato (${nearbyDuplicate.code || '-'} • ${nearbyDuplicate.name || '-'} • ${km} km). Vuoi salvarlo comunque?`);
+            if (!proceed) {
+              showGiornaleMsg(`Salvataggio annullato: trovato cantiere a ${km} km.`, 'err');
+              showMsg(`Salvataggio annullato: trovato cantiere a ${km} km.`, 'err');
+              return;
+            }
+          }
+          const next = normalizeCantiere({
+            id: `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+            code: generateCantiereCode(cantieri),
+            name,
+            notes,
+            address: road || '',
+            city: geo.city || '',
+            province: geo.province || '',
+            postcode: geo.postcode || '',
+            country: geo.country || '',
+            lat,
+            lon,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          const nextCantieri = [next, ...cantieri];
+          commesse[idx] = { ...commesse[idx], impianto: next.name || commesse[idx].impianto || '', cantieri: nextCantieri, updated_at:new Date().toISOString() };
+          setCommesse(commesse);
+          selectedCommessaId = commessaId;
+          selectedCantiereId = next.id;
+          renderCommesseList();
+          renderCantieriForSelectedCommessa();
+          id('journalSiteName').value = next.name || '';
+          id('journalLocation').value = [next.address, next.city].filter(Boolean).join(', ');
+          showGiornaleMsg(`Cantiere ${next.code} salvato con coordinate automatiche.`, 'ok');
+          showMsg(`Cantiere ${next.code} salvato (${next.name}).`, 'ok');
+        } catch (error) {
+          const geoCode = Number(error?.code);
+          const msg = geoCode === 1
+            ? 'Permesso posizione negato. Consenti GPS e riprova.'
+            : (geoCode === 2
+              ? 'Posizione non disponibile al momento.'
+              : (geoCode === 3
+                ? 'Timeout geolocalizzazione. Riprova.'
+                : (error.message || 'Aggiunta cantiere da GPS non riuscita.')));
+          showGiornaleMsg(msg, 'err');
+          showMsg(msg, 'err');
+        }
       }
       function openCommessaDetail(commessaId='') {
         const commessa = getCommesse().find((c)=>c.id === commessaId);
         if (!commessa) return;
         if (!id('giornaleListView') || !id('giornaleDetailView')) return;
         selectedCommessaId = commessaId;
+        selectedCantiereId = '';
         id('giornaleListView').classList.add('hidden');
         id('giornaleDetailView').classList.remove('hidden');
         id('selectedCommessaTitle').textContent = commessa.nome || 'Commessa';
-        id('selectedCommessaMeta').textContent = `${commessa.impianto || '-'} • aggiornamento ${commessa.updated_at ? new Date(commessa.updated_at).toLocaleString('it-IT') : '-'}`;
+        id('selectedCommessaMeta').textContent = `${commessa.impianto || '-'} • ${Array.isArray(commessa.cantieri) ? commessa.cantieri.length : 0} cantieri • aggiornamento ${commessa.updated_at ? new Date(commessa.updated_at).toLocaleString('it-IT') : '-'}`;
+        renderCantieriForSelectedCommessa();
         renderJournalEntriesForCommessa();
       }
       function backToCommesse() {
         selectedCommessaId = '';
+        selectedCantiereId = '';
         if (!id('giornaleDetailView') || !id('giornaleListView')) return;
         id('giornaleDetailView').classList.add('hidden');
         id('giornaleListView').classList.remove('hidden');
@@ -3502,8 +4139,9 @@ out center tags;`;
         renderJournalPhotoPreview();
         id('journalDate').value = nowDateISO();
         const commessa = getCommesse().find((c)=>c.id === selectedCommessaId);
-        id('journalSiteName').value = commessa?.impianto || commessa?.nome || '';
-        id('journalLocation').value = '';
+        const defaultCantiere = (commessa?.cantieri || []).find((c)=>c.id === selectedCantiereId) || (commessa?.cantieri || [])[0] || null;
+        id('journalSiteName').value = defaultCantiere?.name || commessa?.impianto || commessa?.nome || '';
+        id('journalLocation').value = defaultCantiere ? [defaultCantiere.address, defaultCantiere.city].filter(Boolean).join(', ') : '';
         id('journalLeader').value = id('caposquadra').value || '';
         ['journalOperators','journalStartTime','journalEndTime','journalAbsences','journalSubcontractors','journalWeatherNotes','journalActivities','journalArea','journalVehiclesUsed','journalVehicleHours','journalVehicleIssues','journalMaterialsUsed','journalMaterialsQty','journalDeliveries','journalProblems','journalFinalNotes','journalSignature'].forEach((f)=>id(f).value = '');
         id('journalWeather').value = 'Sole';
@@ -3529,9 +4167,13 @@ out center tags;`;
       }
       function saveJournalEntry() {
         if (!selectedCommessaId) { showGiornaleMsg('Seleziona prima una commessa.', 'err'); return; }
+        const commessa = getCommesse().find((c)=>c.id === selectedCommessaId);
+        const cantiereSel = (commessa?.cantieri || []).find((c)=>c.id === selectedCantiereId) || null;
         const entry = {
           id: `entry-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
           commessa_id: selectedCommessaId,
+          cantiere_id: cantiereSel?.id || '',
+          cantiere_code: cantiereSel?.code || '',
           date: id('journalDate').value || nowDateISO(),
           site_name: id('journalSiteName').value.trim(),
           location: id('journalLocation').value.trim(),
@@ -3564,11 +4206,24 @@ out center tags;`;
         const commesse = getCommesse();
         const idx = commesse.findIndex((c)=>c.id === selectedCommessaId);
         if (idx >= 0) {
+          const cantieri = Array.isArray(commesse[idx].cantieri) ? [...commesse[idx].cantieri] : [];
+          const found = cantieri.find((c)=>c.id === selectedCantiereId) || cantieri.find((c)=>String(c.name || '').toLowerCase() === String(entry.site_name || '').toLowerCase());
+          if (found) {
+            const updated = normalizeCantiere({
+              ...found,
+              name: entry.site_name || found.name || '',
+              address: entry.location || found.address || '',
+              updated_at: new Date().toISOString()
+            });
+            commesse[idx].cantieri = cantieri.map((c)=>c.id === found.id ? updated : c);
+            selectedCantiereId = updated.id;
+          }
           commesse[idx] = { ...commesse[idx], impianto: entry.site_name || commesse[idx].impianto || '', updated_at: new Date().toISOString() };
           setCommesse(commesse);
         }
         closeJournalEntryForm();
         renderCommesseList();
+        renderCantieriForSelectedCommessa();
         renderJournalEntriesForCommessa();
         showGiornaleMsg('Voce giornale salvata.', 'ok');
       }
@@ -4087,6 +4742,7 @@ out center tags;`;
           const existingCfg = sanitizeFirebaseConfig(existingApp.options || {});
           const shouldReinitialize = forceRefresh || !firebaseConfigEquals(existingCfg, cfg);
           if (shouldReinitialize) {
+            stopMezziRealtimeSubscription();
             try { await existingApp.delete(); } catch (_) {}
             firebaseCloudApp = null;
             firebaseCloudAuth = null;
@@ -4147,6 +4803,7 @@ out center tags;`;
         }
         const user = auth.currentUser;
         setFirebaseSyncState({ connected:true, uid:user?.uid || '', email:user?.email || email, liveSync:true });
+        await ensureMezziRealtimeSubscription();
         try { startFirebaseLiveSync(); } catch (_) {}
         updateFirebaseSyncStatusUI();
         showBackupMsg('Cloud Firebase connesso con successo.', 'ok');
@@ -4195,6 +4852,7 @@ out center tags;`;
         }
       }
       function stopFirebaseLiveSync() {
+        stopMezziRealtimeSubscription();
         if (firebaseLiveUnsubscribe) { try { firebaseLiveUnsubscribe(); } catch (_) {} }
         firebaseLiveUnsubscribe = null;
         if (firebaseLivePushTimer) clearInterval(firebaseLivePushTimer);
@@ -4896,9 +5554,18 @@ out center tags;`;
         id('mese').value = currentMonthValueUTC();
         updateFocusMode();
         loadProfileUI();
-        renderDataHubCategoryButtons();
+        try {
+          renderDataHubCategoryButtons();
+        } catch (error) {
+          console.error('Errore renderDataHubCategoryButtons:', error);
+        }
         renderTeamUI();
-        renderCatalogDataUI();
+        try {
+          renderCatalogDataUI();
+        } catch (error) {
+          console.error('Errore renderCatalogDataUI:', error);
+          showMsg('Alcune funzioni Dati app non sono disponibili. Ricarica la pagina.', 'err');
+        }
         loadTeamDirectoryFromSheet(true);
         updateWelcomeMessage();
         loadTodayPunch();
@@ -4924,8 +5591,12 @@ out center tags;`;
           if (cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId) {
             ensureFirebaseCloudReady().then(()=>{
               firebaseCloudAuth.onAuthStateChanged((user)=>{
-              if (!user) return;
+              if (!user) {
+                stopMezziRealtimeSubscription();
+                return;
+              }
               setFirebaseSyncState({ connected:true, uid:user.uid || '', email:user.email || getFirebaseSyncState().email || '', liveSync:true });
+              ensureMezziRealtimeSubscription().catch(()=>{});
               try { startFirebaseLiveSync(); } catch (_) {}
               updateFirebaseSyncStatusUI();
             });
@@ -4958,6 +5629,7 @@ out center tags;`;
         id('closeDeleteDocPanelBtn').addEventListener('click', closeDeleteDocPanel);
         id('saveDocBtn').addEventListener('click', saveDocument);
         if (id('addCommessaBtn')) id('addCommessaBtn').addEventListener('click', promptAddCommessa);
+        if (id('addCantiereGpsBtn')) id('addCantiereGpsBtn').addEventListener('click', addCantiereFromGpsForSelectedCommessa);
         if (id('backToCommesseBtn')) id('backToCommesseBtn').addEventListener('click', backToCommesse);
         if (id('addJournalEntryBtn')) id('addJournalEntryBtn').addEventListener('click', openJournalEntryForm);
         if (id('cancelJournalEntryBtn')) id('cancelJournalEntryBtn').addEventListener('click', closeJournalEntryForm);
@@ -4970,6 +5642,7 @@ out center tags;`;
           promptAddCommessa();
           renderGlobalCommesseSelect();
         });
+        if (id('globalAddCantiereGpsBtn')) id('globalAddCantiereGpsBtn').addEventListener('click', addCantiereFromGpsForSelectedCommessa);
         if (id('globalCommessaSelect')) id('globalCommessaSelect').addEventListener('change', ()=>{
           if (id('clockInCantiere') && !id('clockInCantiere').value) id('clockInCantiere').value = id('globalCommessaSelect').value || '';
           if (id('cantiere') && !id('cantiere').value) id('cantiere').value = id('globalCommessaSelect').value || '';
@@ -4983,6 +5656,10 @@ out center tags;`;
         id('finalizePreventivoBtn').addEventListener('click', finalizePreventivo);
         if (id('findFuelStationsBtn')) id('findFuelStationsBtn').addEventListener('click', findNearbyFuelStations);
         if (id('saveCatalogEntryBtn')) id('saveCatalogEntryBtn').addEventListener('click', saveCatalogEntry);
+        if (id('exportAllDataExcelBtn')) id('exportAllDataExcelBtn').addEventListener('click', exportAllAppDataExcel);
+        if (id('saveDataHubCantiereBtn')) id('saveDataHubCantiereBtn').addEventListener('click', saveCantiereFromDataHubForm);
+        if (id('closeDataHubCommessaDetailBtn')) id('closeDataHubCommessaDetailBtn').addEventListener('click', closeDataHubCommessaDetail);
+        if (id('exportCantieriExcelBtn')) id('exportCantieriExcelBtn').addEventListener('click', exportCantieriDataHubExcel);
         if (id('catalogPrimaryInput')) id('catalogPrimaryInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveCatalogEntry(); } });
         if (id('fuelVehicle')) id('fuelVehicle').addEventListener('change', ()=>applyFuelTypeByVehicleName(id('fuelVehicle').value));
         id('saveGoogleClientIdBtn').addEventListener('click', saveGoogleClientIdFromUI);
