@@ -159,6 +159,10 @@
       .viewer-overlay { position:fixed; inset:0; z-index:9999; background:rgba(2,6,23,.92); display:flex; align-items:center; justify-content:center; padding:16px; }
       .viewer-overlay img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.45); }
       .viewer-close { position:fixed; top:12px; right:12px; min-height:40px; min-width:40px; border-radius:999px; font-size:18px; background:#ef4444; }
+      .auth-shell { max-width:560px; margin:14px auto; }
+      .auth-shell h2 { margin-top:0; }
+      .auth-actions { margin-top:10px; display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+      .auth-user-line { margin:0; font-size:13px; color:#334155; }
       .catalog-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
       .catalog-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
       .catalog-item p { margin:0; font-size:13px; color:#0f172a; }
@@ -179,6 +183,11 @@
       .cantiere-item.active { border-color:#1d4ed8; box-shadow:0 0 0 2px #bfdbfe inset; }
       .cantiere-item h5 { margin:0 0 4px; font-size:13px; color:#0f172a; }
       .cantiere-item p { margin:0; font-size:12px; color:#475569; }
+      .cantiere-item.ordinary { border-color:#16a34a; background:#f0fdf4; }
+      .cantiere-item.extraordinary { border-color:#f59e0b; background:#fffbeb; }
+      .work-badge { display:inline-block; margin:0 0 6px; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
+      .work-badge.ordinary { background:#dcfce7; color:#166534; border:1px solid #86efac; }
+      .work-badge.extraordinary { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
       @media (max-width: 768px) {
@@ -193,9 +202,31 @@
   <body>
     <div class="container">
       <h1>Timbrature Varga</h1>
-      <p class="pill">Salvataggio locale: tutti i dati restano sul dispositivo</p>
+      <p class="pill">Accesso protetto: registrazione/login obbligatori</p>
 
-      <div class="app-shell">
+      <div class="card auth-shell" id="authGateCard">
+        <h2>Accesso all'app</h2>
+        <p class="small">Per usare Timbrature devi registrarti oppure fare login con email e password. Dopo l'accesso puoi attivare impronta/Face ID su questo dispositivo.</p>
+        <div class="grid">
+          <label>Email
+            <input type="email" id="authEmailInput" placeholder="utente@email.com" />
+          </label>
+          <label>Password
+            <input type="password" id="authPasswordInput" placeholder="min 6 caratteri" />
+          </label>
+        </div>
+        <div class="auth-actions">
+          <button type="button" id="authLoginBtn">Login</button>
+          <button type="button" class="secondary" id="authRegisterBtn">Registrati</button>
+        </div>
+        <div class="inline-actions">
+          <button type="button" class="secondary hidden" id="authBiometricUnlockBtn">Sblocca con impronta / Face ID</button>
+        </div>
+        <p id="authStatusLine" class="status-line status-neutral">Non autenticato.</p>
+        <p id="authEsito" class="msg"></p>
+      </div>
+
+      <div class="app-shell hidden" id="appShell">
         <div class="top-menu" id="topMenuBar">
           <button type="button" class="kebab-btn" id="menuToggleBtn" aria-label="Apri menu" aria-expanded="false">⋮</button>
           <aside class="card left-menu hidden" id="leftMenu">
@@ -212,6 +243,7 @@
               <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
               <button type="button" class="menu-link" data-menu-target="dataHubCard">Dati app</button>
               <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
+              <button type="button" class="menu-link" data-menu-target="accessControlCard">Gestione accessi</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
           </aside>
@@ -232,7 +264,9 @@
           </div>
           <div class="inline-actions" style="margin-top: 12px;">
             <button class="secondary" id="saveProfile">Salva profilo locale</button>
-            <p class="small">Nessun login: i dati vengono salvati solo su questo browser/dispositivo.</p>
+            <button type="button" class="secondary" id="enableBiometricBtn">Attiva impronta / Face ID</button>
+            <button type="button" class="secondary" id="logoutBtn">Logout</button>
+            <p class="small auth-user-line" id="authUserLine">Non autenticato.</p>
           </div>
           <p id="profileEsito" class="msg"></p>
         </div>
@@ -810,6 +844,24 @@
           <p id="pwaInstallStatusLine" class="status-line status-neutral">Installazione app non disponibile su questo dispositivo/browser.</p>
         </div>
 
+        <div class="card hidden" id="accessControlCard">
+          <h2>Gestione accessi e gruppi utenti</h2>
+          <p class="small">Solo Admin: assegna un ruolo agli utenti e scegli quali sezioni possono vedere i gruppi.</p>
+          <div class="grid">
+            <label>Email utente
+              <input type="email" id="aclUserEmailInput" placeholder="utente@email.com" />
+            </label>
+            <label>Ruolo
+              <select id="aclUserRoleSelect"></select>
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="saveAclUserRoleBtn">Salva ruolo utente</button>
+          </div>
+          <div id="aclRolePermissionsWrap" class="setup-box"></div>
+          <p id="aclEsito" class="msg"></p>
+        </div>
+
         <div class="card hidden" id="dataHubCard">
           <h2>Dati app (anagrafiche)</h2>
           <p class="small">Scegli una categoria (mezzi, attrezzature, colleghi, commesse) e inserisci i dati. L'app usa questo elenco per compilare i campi nei vari moduli.</p>
@@ -863,6 +915,23 @@
             </div>
             <div class="inline-actions">
               <button type="button" id="saveDataHubCantiereBtn">Aggiungi cantiere con GPS</button>
+            </div>
+            <div class="setup-box">
+              <h4 style="margin:0 0 6px;">Importa cantieri nella commessa</h4>
+              <p class="small" style="margin:0 0 8px;">Puoi incollare righe (una per cantiere) oppure importare un file Excel/CSV. Supporta anche il tuo tracciato: <strong>ID SAP, Denominazione Impianto, Comune ubicazione Impianto, Via e civico di ubicazione Impianto, Coordinate GPS(Y), Coordinate GPS(X)</strong>.</p>
+              <label>Incolla dati (CSV/TSV o testo)
+                <textarea id="dataHubCantieriPasteInput" rows="4" placeholder="nome;indirizzo;comune;provincia;cap&#10;Cantiere Nord;Via Roma 1;Bologna;BO;40100"></textarea>
+              </label>
+              <div class="inline-actions">
+                <button type="button" class="secondary btn-small" id="importCantieriPasteBtn">Importa da copia/incolla</button>
+              </div>
+              <label>Oppure carica file Excel / CSV
+                <input type="file" id="importCantieriFileInput" accept=".xlsx,.xls,.csv,.txt" />
+              </label>
+              <div class="inline-actions">
+                <button type="button" class="secondary btn-small" id="importCantieriFileBtn">Importa da file</button>
+              </div>
+              <p id="dataHubImportEsito" class="msg"></p>
             </div>
             <div id="dataHubCantieriMap" class="fuel-map" style="min-height:260px;"></div>
             <ul id="dataHubCantieriList" class="cantiere-list"></ul>
@@ -935,6 +1004,10 @@
       const FIREBASE_CONFIG_KEY = 'timbrature.local.firebase.config';
       const FIREBASE_SYNC_STATE_KEY = 'timbrature.local.firebase.sync.state';
       const DEVICE_ID_KEY = 'timbrature.local.device.id';
+      const BIOMETRIC_CREDENTIAL_KEY = 'timbrature.local.auth.biometric.credential';
+      const ACCESS_CONTROL_KEY = 'timbrature.local.access.control';
+      const SHARED_APP_SYNC_META_KEY = 'timbrature.shared.app.sync.meta';
+      const SHARED_APP_DATA_PATH = 'shared/global_app_data_v1';
       const DEFAULT_FIREBASE_WEB_CONFIG = {
         apiKey: 'AIzaSyDFF7gaDLCGmb-abDRutX_y0vf_MzM449E',
         authDomain: 'timbrature-varga.firebaseapp.com',
@@ -949,7 +1022,46 @@
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'prezzarioCard', 'createPreventivoCard', 'carburanteCard', 'dataHubCard', 'backupCard', 'userBox'];
+      const ROLE_DEFS = [
+        { key:'ADMIN', label:'Admin' },
+        { key:'CAPOSQUADRA', label:'Caposquadra' },
+        { key:'OPERATORE', label:'Operatore' },
+        { key:'BACKOFFICE', label:'Backoffice' }
+      ];
+      const MENU_PERMISSION_ITEMS = [
+        { panel:'timbratureCard', label:'Nuova timbratura / giornata' },
+        { panel:'programCard', label:'Impostazioni contratto' },
+        { panel:'teamCard', label:'Caposquadra / squadra' },
+        { panel:'storicoCard', label:'Storico mese' },
+        { panel:'calendarioCard', label:'Calendario' },
+        { panel:'documentiCard', label:'Documenti' },
+        { panel:'prezzarioCard', label:'Prezzario' },
+        { panel:'createPreventivoCard', label:'Crea preventivo' },
+        { panel:'carburanteCard', label:'Carburante' },
+        { panel:'dataHubCard', label:'Dati app' },
+        { panel:'backupCard', label:'Backup Google Drive' },
+        { panel:'userBox', label:'Profilo' },
+        { panel:'accessControlCard', label:'Gestione accessi' }
+      ];
+      const DEFAULT_ROLE_PERMISSIONS = {
+        ADMIN: MENU_PERMISSION_ITEMS.map((item)=>item.panel),
+        CAPOSQUADRA: ['timbratureCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'carburanteCard', 'userBox'],
+        OPERATORE: ['timbratureCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'carburanteCard', 'userBox'],
+        BACKOFFICE: ['storicoCard', 'calendarioCard', 'documentiCard', 'prezzarioCard', 'createPreventivoCard', 'dataHubCard', 'backupCard', 'userBox']
+      };
+      const SHARED_APP_KEYS = [
+        RECORDS_KEY,
+        PROGRAMS_KEY,
+        TEAM_KEY,
+        TEAM_PROGRAMS_KEY,
+        TEAM_DIRECTORY_KEY,
+        COMMESSE_KEY,
+        GIORNALE_ENTRIES_KEY,
+        MASTER_DATA_KEY,
+        PREVENTIVI_KEY,
+        PREZZARIO_CONFIG_KEY
+      ];
+      const menuPanelIds = MENU_PERMISSION_ITEMS.map((item)=>item.panel);
       const DATA_HUB_CATEGORIES = [
         { key:'vehicles', label:'Mezzi', hint:'Gestisci i mezzi (da Firestore) con carburante, targa, stato e note.' },
         { key:'equipment', label:'Attrezzature', hint:'Inserisci attrezzature o macchine usate nei lavori.' },
@@ -1087,6 +1199,11 @@
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
       let liveClockTimer = null;
       let autoPunchTimer = null;
+      let appAuth = null;
+      let currentAuthUser = null;
+      let currentUserRole = 'OPERATORE';
+      let authReady = false;
+      let appUnlocked = false;
       let notificationTimer = null;
       let autoPunchInProgress = false;
       const AUTO_CLOCK_OUT_MIN_AFTER_ENTRY = 15;
@@ -1118,12 +1235,23 @@
       let mezziRealtimeLoading = false;
       let mezziRealtimeError = '';
       let deferredPwaInstallPrompt = null;
+      let xlsxLoaderPromise = null;
+      let sharedAppDbRef = null;
+      let sharedAppUnsubscribe = null;
+      let sharedAppPushTimer = null;
+      let applyingSharedAppPayload = false;
+      let sharedAppReady = false;
+      let sharedAppPendingPush = false;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
       function writeJSON(k, v) {
         localStorage.setItem(k, JSON.stringify(v));
         scheduleFirebaseAutoPush(`writeJSON:${k}`);
+        if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) {
+          if (!sharedAppReady) sharedAppPendingPush = true;
+          scheduleSharedAppPush(`writeJSON:${k}`);
+        }
       }
       const nowDateISO = () => new Date().toISOString().slice(0, 10);
       const tomorrowDateISO = () => {
@@ -1143,6 +1271,200 @@
       const showPreventiviListMsg = (m, t='ok') => { id('preventiviEsito').className = `msg ${t}`; id('preventiviEsito').textContent = m; };
       const showCatalogMsg = (m, t='ok') => { id('catalogEsito').className = `msg ${t}`; id('catalogEsito').textContent = m; };
       const showFuelMsg = (m, t='ok') => { id('fuelEsito').className = `msg ${t}`; id('fuelEsito').textContent = m; };
+      const showAuthMsg = (m, t='ok') => { id('authEsito').className = `msg ${t}`; id('authEsito').textContent = m; };
+      const showAclMsg = (m, t='ok') => { if (id('aclEsito')) { id('aclEsito').className = `msg ${t}`; id('aclEsito').textContent = m; } };
+      function bytesToBase64(bytes) {
+        let binary = '';
+        bytes.forEach((b)=>{ binary += String.fromCharCode(b); });
+        return btoa(binary);
+      }
+      function base64ToBytes(base64) {
+        const normalized = String(base64 || '').replace(/-/g, '+').replace(/_/g, '/');
+        const pad = '='.repeat((4 - (normalized.length % 4)) % 4);
+        const binary = atob(normalized + pad);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+      }
+      function randomBytes(length = 32) {
+        const out = new Uint8Array(length);
+        window.crypto.getRandomValues(out);
+        return out;
+      }
+      function getBiometricCredentialId(uid = '') {
+        if (!uid) return '';
+        return localStorage.getItem(`${BIOMETRIC_CREDENTIAL_KEY}.${uid}`) || '';
+      }
+      function setBiometricCredentialId(uid = '', credentialId = '') {
+        if (!uid) return;
+        const key = `${BIOMETRIC_CREDENTIAL_KEY}.${uid}`;
+        if (!credentialId) localStorage.removeItem(key);
+        else localStorage.setItem(key, credentialId);
+      }
+      function setAppLocked(locked, reason = '') {
+        appUnlocked = !locked;
+        id('authGateCard').classList.toggle('hidden', !locked);
+        id('appShell').classList.toggle('hidden', locked);
+        const statusEl = id('authStatusLine');
+        if (!statusEl) return;
+        if (locked) {
+          statusEl.className = 'status-line status-neutral';
+          statusEl.textContent = reason || 'Accesso richiesto.';
+        } else {
+          statusEl.className = 'status-line status-ok';
+          statusEl.textContent = `Accesso consentito${currentAuthUser?.email ? ` (${currentAuthUser.email})` : ''}.`;
+        }
+      }
+      function getAccessControlState() {
+        const saved = readJSON(ACCESS_CONTROL_KEY, {});
+        const rolePermissions = { ...DEFAULT_ROLE_PERMISSIONS, ...(saved.rolePermissions || {}) };
+        return {
+          userRolesByEmail: saved.userRolesByEmail || {},
+          rolePermissions
+        };
+      }
+      function setAccessControlState(nextState = {}) {
+        const prev = getAccessControlState();
+        writeJSON(ACCESS_CONTROL_KEY, {
+          userRolesByEmail: { ...(prev.userRolesByEmail || {}), ...(nextState.userRolesByEmail || {}) },
+          rolePermissions: { ...(prev.rolePermissions || {}), ...(nextState.rolePermissions || {}) }
+        });
+      }
+      function getRoleByEmail(email = '') {
+        const cleanEmail = String(email || '').trim().toLowerCase();
+        if (!cleanEmail) return 'OPERATORE';
+        const state = getAccessControlState();
+        return state.userRolesByEmail[cleanEmail] || '';
+      }
+      function ensureRoleForCurrentUser() {
+        if (!currentAuthUser) return 'OPERATORE';
+        const email = String(currentAuthUser.email || '').trim().toLowerCase();
+        const state = getAccessControlState();
+        let role = state.userRolesByEmail[email] || '';
+        if (!role) {
+          const usersCount = Object.keys(state.userRolesByEmail || {}).length;
+          role = usersCount === 0 ? 'ADMIN' : 'OPERATORE';
+          setAccessControlState({ userRolesByEmail: { [email]: role } });
+        }
+        currentUserRole = role;
+        return role;
+      }
+      function getAllowedPanelsForRole(role = 'OPERATORE') {
+        const state = getAccessControlState();
+        const allowed = state.rolePermissions?.[role] || DEFAULT_ROLE_PERMISSIONS[role] || [];
+        return allowed.filter((panelId)=>menuPanelIds.includes(panelId));
+      }
+      function applyRolePermissions() {
+        const allowedPanels = getAllowedPanelsForRole(currentUserRole);
+        document.querySelectorAll('[data-menu-target]').forEach((btn)=>{
+          const panelId = btn.dataset.menuTarget;
+          const visible = allowedPanels.includes(panelId);
+          btn.classList.toggle('force-hidden', !visible);
+        });
+        if (!allowedPanels.includes(activeMenuPanel)) {
+          const fallbackPanel = allowedPanels[0] || 'userBox';
+          setMenuSection(fallbackPanel);
+        }
+        if (id('accessControlCard')) id('accessControlCard').classList.toggle('force-hidden', currentUserRole !== 'ADMIN');
+      }
+      function renderAclRoleSelect() {
+        const select = id('aclUserRoleSelect');
+        if (!select) return;
+        select.innerHTML = ROLE_DEFS.map((role)=>`<option value="${role.key}">${role.label}</option>`).join('');
+      }
+      function renderAclPermissionsEditor() {
+        const wrap = id('aclRolePermissionsWrap');
+        if (!wrap) return;
+        const state = getAccessControlState();
+        wrap.innerHTML = ROLE_DEFS.map((role)=>{
+          const allowed = new Set(state.rolePermissions?.[role.key] || DEFAULT_ROLE_PERMISSIONS[role.key] || []);
+          const checks = MENU_PERMISSION_ITEMS.map((item)=>{
+            const checked = allowed.has(item.panel) ? 'checked' : '';
+            return `<label style="flex-direction:row;align-items:center;gap:6px;font-weight:500;"><input type="checkbox" data-acl-role="${role.key}" data-acl-panel="${item.panel}" ${checked}/> ${item.label}</label>`;
+          }).join('');
+          return `<div class="group-row"><h4 style="margin:0 0 8px;">${role.label}</h4><div class="day-selector">${checks}</div></div>`;
+        }).join('');
+      }
+      function saveAclUserRole() {
+        if (currentUserRole !== 'ADMIN') {
+          showAclMsg('Solo Admin può modificare i ruoli.', 'err');
+          return;
+        }
+        const email = String(id('aclUserEmailInput')?.value || '').trim().toLowerCase();
+        const role = String(id('aclUserRoleSelect')?.value || '').trim();
+        if (!email || !role) {
+          showAclMsg('Inserisci email e ruolo.', 'err');
+          return;
+        }
+        setAccessControlState({ userRolesByEmail: { [email]: role } });
+        if (currentAuthUser && String(currentAuthUser.email || '').trim().toLowerCase() === email) {
+          currentUserRole = role;
+          updateAuthUiState();
+          applyRolePermissions();
+        }
+        showAclMsg(`Ruolo ${role} salvato per ${email}.`, 'ok');
+      }
+      function saveAclRolePermissionsFromUi() {
+        if (currentUserRole !== 'ADMIN') return;
+        const nextPermissions = {};
+        ROLE_DEFS.forEach((role)=>{ nextPermissions[role.key] = []; });
+        document.querySelectorAll('[data-acl-role][data-acl-panel]').forEach((checkbox)=>{
+          if (!(checkbox instanceof HTMLInputElement) || !checkbox.checked) return;
+          const role = checkbox.dataset.aclRole || '';
+          const panel = checkbox.dataset.aclPanel || '';
+          if (!role || !panel || !nextPermissions[role]) return;
+          nextPermissions[role].push(panel);
+        });
+        setAccessControlState({ rolePermissions: nextPermissions });
+        applyRolePermissions();
+        showAclMsg('Permessi gruppi aggiornati.', 'ok');
+      }
+      function updateAuthUiState() {
+        const hasUser = !!currentAuthUser;
+        const biometricBtn = id('authBiometricUnlockBtn');
+        const hasBiometric = !!getBiometricCredentialId(currentAuthUser?.uid || '');
+        if (biometricBtn) biometricBtn.classList.toggle('hidden', !hasUser || !hasBiometric);
+        const userLine = id('authUserLine');
+        if (userLine) userLine.textContent = hasUser ? `Utente: ${currentAuthUser.email || currentAuthUser.uid} • Ruolo: ${currentUserRole}` : 'Non autenticato.';
+      }
+      async function unlockWithBiometrics() {
+        if (!window.PublicKeyCredential) throw new Error('Biometria non supportata su questo dispositivo/browser.');
+        if (!currentAuthUser) throw new Error('Prima effettua login con email e password.');
+        const storedId = getBiometricCredentialId(currentAuthUser.uid);
+        if (!storedId) throw new Error('Biometria non attivata per questo utente.');
+        const assertion = await navigator.credentials.get({
+          publicKey: {
+            challenge: randomBytes(32),
+            timeout: 60000,
+            userVerification: 'required',
+            allowCredentials: [{ id: base64ToBytes(storedId), type:'public-key' }]
+          }
+        });
+        if (!assertion) throw new Error('Verifica biometrica annullata.');
+        setAppLocked(false);
+      }
+      async function enableBiometricsForCurrentUser() {
+        if (!window.PublicKeyCredential) throw new Error('Biometria non supportata su questo dispositivo/browser.');
+        if (!currentAuthUser) throw new Error('Esegui prima il login.');
+        const credential = await navigator.credentials.create({
+          publicKey: {
+            challenge: randomBytes(32),
+            rp: { name: 'Timbrature Varga' },
+            user: {
+              id: randomBytes(32),
+              name: currentAuthUser.email || currentAuthUser.uid,
+              displayName: currentAuthUser.email || 'Utente Timbrature'
+            },
+            pubKeyCredParams: [{ type:'public-key', alg:-7 }, { type:'public-key', alg:-257 }],
+            authenticatorSelection: { userVerification:'required', residentKey:'preferred' },
+            timeout: 60000,
+            attestation: 'none'
+          }
+        });
+        if (!credential?.rawId) throw new Error('Registrazione biometrica non riuscita.');
+        setBiometricCredentialId(currentAuthUser.uid, bytesToBase64(new Uint8Array(credential.rawId)));
+        updateAuthUiState();
+      }
       function getNotificationSettings() {
         return readJSON(NOTIFICATION_SETTINGS_KEY, {
           entry_time: '07:55',
@@ -2028,6 +2350,9 @@ out center tags;`;
         if (id('dataHubCommessaDetail')) id('dataHubCommessaDetail').classList.add('hidden');
         if (id('dataHubCantiereName')) id('dataHubCantiereName').value = '';
         if (id('dataHubCantiereNotes')) id('dataHubCantiereNotes').value = '';
+        if (id('dataHubCantieriPasteInput')) id('dataHubCantieriPasteInput').value = '';
+        if (id('importCantieriFileInput')) id('importCantieriFileInput').value = '';
+        if (id('dataHubImportEsito')) id('dataHubImportEsito').textContent = '';
       }
       function renderDataHubCommessaDetail() {
         const detail = id('dataHubCommessaDetail');
@@ -2043,6 +2368,7 @@ out center tags;`;
         }
         detail.classList.remove('hidden');
         title.textContent = `Commessa: ${commessa.nome || '-'}`;
+        if (id('dataHubImportEsito')) id('dataHubImportEsito').textContent = '';
         const cantieri = Array.isArray(commessa.cantieri) ? commessa.cantieri : [];
         subtitle.textContent = `Cantieri registrati: ${cantieri.length}`;
         if (!cantieri.length) {
@@ -2052,22 +2378,30 @@ out center tags;`;
           return;
         }
         empty.classList.add('hidden');
-        list.innerHTML = cantieri.map((c)=>`<li class="cantiere-item">
+        list.innerHTML = cantieri.map((c)=>{
+          const workClass = classifyCantiereWork(c);
+          return `<li class="cantiere-item ${workClass.key}">
+          <span class="work-badge ${workClass.key}">${workClass.label}</span>
           <h5>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</h5>
           <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}</p>
           <p>Coordinate: ${Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)) ? `${Number(c.lat).toFixed(5)}, ${Number(c.lon).toFixed(5)}` : '-'}</p>
+          <p>Codici prezzo: ${escapeHtml(c.price_codes || c.price_code || '-')}</p>
           <p>${escapeHtml(c.notes || '-')}</p>
           <div class="inline-actions" style="margin-top:6px;">
             <button type="button" class="secondary btn-small" onclick="editCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Modifica</button>
             <button type="button" class="secondary btn-small" onclick="deleteCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Elimina</button>
           </div>
-        </li>`).join('');
+        </li>`;
+        }).join('');
         renderDataHubCantieriMap(cantieri);
       }
       async function renderDataHubCantieriMap(cantieri=[]) {
         const mapEl = id('dataHubCantieriMap');
         if (!mapEl) return;
-        if (!cantieri.length) {
+        const validCoords = (Array.isArray(cantieri) ? cantieri : [])
+          .filter((c)=>Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)))
+          .map((c)=>[Number(c.lat), Number(c.lon)]);
+        if (!cantieri.length || !validCoords.length) {
           mapEl.innerHTML = '<p class="small" style="padding:10px;">Nessuna posizione GPS disponibile per i cantieri.</p>';
           return;
         }
@@ -2075,7 +2409,7 @@ out center tags;`;
           await ensureLeafletLoaded();
           if (!dataHubCantieriMap) mapEl.innerHTML = '';
           if (!dataHubCantieriMap) {
-            dataHubCantieriMap = window.L.map(mapEl).setView([cantieri[0].lat, cantieri[0].lon], 11);
+            dataHubCantieriMap = window.L.map(mapEl).setView(validCoords[0], 11);
             window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
               maxZoom: 19,
               attribution: '&copy; OpenStreetMap contributors'
@@ -2085,15 +2419,21 @@ out center tags;`;
             dataHubCantieriLayer?.clearLayers();
             dataHubCantieriMap.invalidateSize();
           }
-          const coords = [];
           cantieri.forEach((c)=>{
             if (!Number.isFinite(Number(c.lat)) || !Number.isFinite(Number(c.lon))) return;
-            coords.push([Number(c.lat), Number(c.lon)]);
-            const marker = window.L.marker([Number(c.lat), Number(c.lon)]);
-            marker.bindPopup(`<strong>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</strong><br>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}`);
+            const workClass = classifyCantiereWork(c);
+            const markerColor = workClass.key === 'ordinary' ? '#16a34a' : '#f59e0b';
+            const markerIcon = window.L.divIcon({
+              className: 'cantiere-work-marker',
+              html: `<span style="display:inline-block;width:14px;height:14px;border-radius:999px;background:${markerColor};border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);"></span>`,
+              iconSize: [14, 14],
+              iconAnchor: [7, 7]
+            });
+            const marker = window.L.marker([Number(c.lat), Number(c.lon)], { icon: markerIcon });
+            marker.bindPopup(`<strong>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</strong><br>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}<br><strong>${escapeHtml(workClass.label)}</strong><br>Codici prezzo: ${escapeHtml(c.price_codes || c.price_code || '-')}`);
             dataHubCantieriLayer.addLayer(marker);
           });
-          if (coords.length) dataHubCantieriMap.fitBounds(coords, { padding:[18, 18], maxZoom:15 });
+          if (validCoords.length) dataHubCantieriMap.fitBounds(validCoords, { padding:[18, 18], maxZoom:15 });
         } catch (error) {
           console.warn('Impossibile renderizzare mappa cantieri:', error);
           mapEl.innerHTML = '<p class="small" style="padding:10px;">Mappa non disponibile al momento.</p>';
@@ -3888,21 +4228,44 @@ out center tags;`;
         setMenuSection('documentiCard');
       }
       function normalizeCantiere(row={}) {
+        const latRaw = row.lat;
+        const lonRaw = row.lon;
+        const lat = (latRaw === '' || latRaw === null || typeof latRaw === 'undefined') ? NaN : Number(latRaw);
+        const lon = (lonRaw === '' || lonRaw === null || typeof lonRaw === 'undefined') ? NaN : Number(lonRaw);
         return {
           id: String(row.id || `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`),
           code: String(row.code || '').trim(),
           name: String(row.name || row.nome || '').trim(),
           address: String(row.address || row.indirizzo || '').trim(),
           notes: String(row.notes || row.note || '').trim(),
+          price_code: String(row.price_code || row.priceCode || '').trim().toUpperCase(),
+          price_codes: String(row.price_codes || row.priceCodes || row.price_code || row.priceCode || '').trim().toUpperCase(),
           city: String(row.city || row.comune || '').trim(),
           province: String(row.province || row.provincia || '').trim(),
           postcode: String(row.postcode || row.cap || '').trim(),
           country: String(row.country || row.paese || '').trim(),
-          lat: Number(row.lat),
-          lon: Number(row.lon),
+          lat,
+          lon,
           created_at: row.created_at || new Date().toISOString(),
           updated_at: row.updated_at || new Date().toISOString()
         };
+      }
+      function mergePriceCodes(existingRaw = '', nextCode = '') {
+        const values = String(existingRaw || '').split(/[|,;]+/).map((item)=>String(item || '').trim().toUpperCase()).filter(Boolean);
+        const next = String(nextCode || '').trim().toUpperCase();
+        if (next && !values.includes(next)) values.push(next);
+        return values.join('|');
+      }
+      function classifyCantiereWork(cantiere = {}) {
+        const codes = String(cantiere.price_codes || cantiere.price_code || '')
+          .split(/[|,;]+/)
+          .map((item)=>String(item || '').trim().toUpperCase())
+          .filter(Boolean);
+        if (!codes.length) return { key:'extraordinary', label:'STRAORDINARIO' };
+        const hasOrdinary = codes.some((code)=>code === 'A11' || code === 'A12');
+        const hasExtra = codes.some((code)=>code !== 'A11' && code !== 'A12');
+        if (hasOrdinary && !hasExtra) return { key:'ordinary', label:'ORDINARIO (A11/A12)' };
+        return { key:'extraordinary', label: hasOrdinary && hasExtra ? 'MISTO (ORD + STRAORD)' : 'STRAORDINARIO' };
       }
       function normalizeCommessa(row={}) {
         const cantieri = Array.isArray(row.cantieri) ? row.cantieri.map((c)=>normalizeCantiere(c)).filter((c)=>c.name) : [];
@@ -3930,6 +4293,232 @@ out center tags;`;
           if (!used.has(code)) return code;
         }
         return `C${Date.now().toString().slice(-4)}`;
+      }
+      function parseDelimitedRows(text = '') {
+        const rows = String(text || '').split(/\r?\n/).map((line)=>line.trim()).filter(Boolean);
+        if (!rows.length) return [];
+        const sepCandidates = [';', '\t', ',', '|'];
+        const firstLine = rows[0] || '';
+        const delimiter = sepCandidates.reduce((best, current)=>(firstLine.split(current).length > firstLine.split(best).length ? current : best), ';');
+        return rows.map((line)=>line.split(delimiter).map((cell)=>cell.trim()));
+      }
+      function normalizeImportHeader(value = '') {
+        return String(value || '').trim().toLowerCase()
+          .replace(/[àá]/g, 'a')
+          .replace(/[èé]/g, 'e')
+          .replace(/[ìí]/g, 'i')
+          .replace(/[òó]/g, 'o')
+          .replace(/[ùú]/g, 'u')
+          .replace(/\s+/g, '')
+          .replace(/[^a-z0-9]/g, '');
+      }
+      function parseImportNumber(value) {
+        const raw = String(value ?? '').trim();
+        if (!raw) return NaN;
+        let normalized = raw;
+        if (raw.includes(',') && raw.includes('.')) normalized = raw.replace(/\./g, '').replace(',', '.');
+        else if (raw.includes(',')) normalized = raw.replace(',', '.');
+        const n = Number(normalized);
+        return Number.isFinite(n) ? n : NaN;
+      }
+      function parseCantieriRowsFromMatrix(matrix = []) {
+        if (!Array.isArray(matrix) || !matrix.length) return [];
+        const headerKeywords = new Set([
+          'distretto', 'idsap', 'denominazioneimpianto', 'comuneubicazioneimpianto',
+          'viaecivicodiubicazioneimpianto', 'vocediriferimentoelencoprezzi',
+          'tipologiadisfalciointervento', 'coordinategpsy', 'coordinategpsx',
+          'nome', 'name', 'indirizzo', 'comune', 'lat', 'lon'
+        ]);
+        const maxProbeRows = Math.min(matrix.length, 15);
+        let headerRowIndex = -1;
+        for (let i = 0; i < maxProbeRows; i += 1) {
+          const normalized = (matrix[i] || []).map((cell)=>normalizeImportHeader(cell)).filter(Boolean);
+          const hits = normalized.filter((value)=>headerKeywords.has(value));
+          const hasStrongKey = normalized.includes('denominazioneimpianto') || normalized.includes('idsap') || normalized.includes('coordinategpsy');
+          if (hits.length >= 2 && hasStrongKey) { headerRowIndex = i; break; }
+        }
+        const header = headerRowIndex >= 0 ? (matrix[headerRowIndex] || []).map((cell)=>normalizeImportHeader(cell)) : [];
+        const dataRows = headerRowIndex >= 0 ? matrix.slice(headerRowIndex + 1) : matrix;
+        const fieldIndex = (keys = [], fallback = -1) => {
+          if (!header.length) return fallback;
+          const idx = header.findIndex((entry)=>keys.includes(entry));
+          return idx >= 0 ? idx : fallback;
+        };
+        const idxNome = fieldIndex(['nome', 'name', 'cantiere', 'sitename', 'denominazioneimpianto'], 0);
+        const idxNote = fieldIndex(['note', 'notes'], -1);
+        const idxAddress = fieldIndex(['indirizzo', 'address', 'via', 'viaecivicodiubicazioneimpianto'], -1);
+        const idxCity = fieldIndex(['comune', 'city', 'comuneubicazioneimpianto'], -1);
+        const idxProvince = fieldIndex(['provincia', 'province', 'prov'], -1);
+        const idxCap = fieldIndex(['cap', 'postcode', 'zip'], -1);
+        const idxCountry = fieldIndex(['paese', 'country'], -1);
+        const idxLat = fieldIndex(['lat', 'latitude', 'coordinategpsy'], -1);
+        const idxLon = fieldIndex(['lon', 'lng', 'long', 'longitude', 'coordinategpsx'], -1);
+        const idxCode = fieldIndex(['codice', 'code', 'idsap'], -1);
+        const idxDistretto = fieldIndex(['distretto'], -1);
+        const idxVoce = fieldIndex(['vocediriferimentoelencoprezzi'], -1);
+        const idxTipologia = fieldIndex(['tipologiadisfalciointervento'], -1);
+        const ignoredNames = new Set(['distretto', 'idsap', 'denominazioneimpianto', 'comuneubicazioneimpianto', 'viaecivicodiubicazioneimpianto', 'pagina1di2', 'pagina2di2']);
+        return dataRows.map((cells)=>({
+          code: idxCode >= 0 ? String(cells[idxCode] || '').trim() : '',
+          name: idxNome >= 0 ? cells[idxNome] : '',
+          distretto: idxDistretto >= 0 ? String(cells[idxDistretto] || '').trim() : '',
+          priceCode: idxVoce >= 0 ? String(cells[idxVoce] || '').trim() : '',
+          interventionType: idxTipologia >= 0 ? String(cells[idxTipologia] || '').trim() : '',
+          notes: [
+            idxNote >= 0 ? cells[idxNote] : '',
+            idxDistretto >= 0 ? `Distretto: ${cells[idxDistretto] || ''}` : '',
+            idxVoce >= 0 ? `Voce prezzo: ${cells[idxVoce] || ''}` : '',
+            idxTipologia >= 0 ? `Intervento: ${cells[idxTipologia] || ''}` : ''
+          ].filter((item)=>String(item || '').trim()).join(' | '),
+          address: idxAddress >= 0 ? cells[idxAddress] : '',
+          city: idxCity >= 0 ? cells[idxCity] : '',
+          province: idxProvince >= 0 ? cells[idxProvince] : '',
+          postcode: idxCap >= 0 ? cells[idxCap] : '',
+          country: idxCountry >= 0 ? cells[idxCountry] : '',
+          lat: idxLat >= 0 ? parseImportNumber(cells[idxLat]) : NaN,
+          lon: idxLon >= 0 ? parseImportNumber(cells[idxLon]) : NaN
+        })).filter((row)=>{
+          const name = String(row.name || '').trim();
+          if (!name) return false;
+          const normalizedName = normalizeImportHeader(name);
+          if (!normalizedName) return false;
+          if (ignoredNames.has(normalizedName)) return false;
+          if (/^pagina\d+di\d+$/.test(normalizedName)) return false;
+          return true;
+        });
+      }
+      function mergeVariantInNotes(notes = '', priceCode = '', interventionType = '') {
+        const code = String(priceCode || '').trim();
+        const type = String(interventionType || '').trim();
+        if (!code || !type) return String(notes || '').trim();
+        const variantEntry = `${code} = ${type}`;
+        const current = String(notes || '').trim();
+        if (current.includes(variantEntry)) return current;
+        if (!current) return `Varianti: ${variantEntry}`;
+        if (current.includes('Varianti:')) return `${current} | ${variantEntry}`;
+        return `${current} | Varianti: ${variantEntry}`;
+      }
+      function importCantieriRowsIntoSelectedCommessa(rawRows = []) {
+        const commessa = getCommesse().find((c)=>c.id === selectedDataHubCommessaId);
+        if (!commessa) throw new Error('Apri prima una commessa nel dettaglio.');
+        const commesse = getCommesse();
+        const idx = commesse.findIndex((c)=>c.id === selectedDataHubCommessaId);
+        if (idx < 0) throw new Error('Commessa non trovata.');
+        const cantieri = Array.isArray(commesse[idx].cantieri) ? [...commesse[idx].cantieri] : [];
+        const existingNames = new Set(cantieri.map((c)=>String(c.name || '').trim().toLowerCase()).filter(Boolean));
+        let inserted = 0;
+        let updatedVariants = 0;
+        let skippedDuplicate = 0;
+        let skippedEmpty = 0;
+        rawRows.forEach((raw)=>{
+          const name = String(raw.name || '').trim();
+          const code = String(raw.code || '').trim();
+          if (!name) { skippedEmpty += 1; return; }
+          const duplicateIdx = cantieri.findIndex((c)=>{
+            const sameName = String(c.name || '').trim().toLowerCase() === name.toLowerCase();
+            const sameCode = code && String(c.code || '').trim().toLowerCase() === code.toLowerCase();
+            return sameName || sameCode;
+          });
+          if (duplicateIdx >= 0) {
+            const current = cantieri[duplicateIdx];
+            const mergedNotes = mergeVariantInNotes(current.notes || '', raw.priceCode || '', raw.interventionType || '');
+            const mergedCodes = mergePriceCodes(current.price_codes || current.price_code || '', raw.priceCode || '');
+            if (mergedNotes !== (current.notes || '') || mergedCodes !== (current.price_codes || current.price_code || '')) {
+              cantieri[duplicateIdx] = { ...current, notes: mergedNotes, price_codes: mergedCodes, updated_at: new Date().toISOString() };
+              updatedVariants += 1;
+            } else {
+              skippedDuplicate += 1;
+            }
+            return;
+          }
+          const normalized = normalizeCantiere({
+            ...raw,
+            id: `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+            code: code || generateCantiereCode(cantieri),
+            name,
+            notes: mergeVariantInNotes(raw.notes || '', raw.priceCode || '', raw.interventionType || ''),
+            price_code: String(raw.priceCode || '').trim().toUpperCase(),
+            price_codes: mergePriceCodes('', raw.priceCode || ''),
+            lat: Number.isFinite(Number(raw.lat)) ? Number(raw.lat) : NaN,
+            lon: Number.isFinite(Number(raw.lon)) ? Number(raw.lon) : NaN,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          cantieri.push(normalized);
+          existingNames.add(name.toLowerCase());
+          inserted += 1;
+        });
+        commesse[idx] = {
+          ...commesse[idx],
+          cantieri,
+          updated_at: new Date().toISOString(),
+          impianto: commesse[idx].impianto || cantieri[0]?.name || ''
+        };
+        setCommesse(commesse);
+        renderCommesseList();
+        renderDataHubCommessaDetail();
+        return { inserted, updatedVariants, skippedDuplicate, skippedEmpty, skipped: skippedDuplicate + skippedEmpty };
+      }
+      async function ensureXlsxLibReady() {
+        if (window.XLSX?.utils) return window.XLSX;
+        if (xlsxLoaderPromise) return xlsxLoaderPromise;
+        xlsxLoaderPromise = new Promise((resolve, reject)=>{
+          const script = document.createElement('script');
+          script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+          script.onload = ()=>resolve(window.XLSX);
+          script.onerror = ()=>reject(new Error('Impossibile caricare libreria Excel (XLSX).'));
+          document.head.appendChild(script);
+        });
+        return xlsxLoaderPromise;
+      }
+      function importCantieriFromPasteText() {
+        try {
+          const text = id('dataHubCantieriPasteInput')?.value || '';
+          if (!text.trim()) throw new Error('Incolla prima i dati da importare.');
+          const matrix = parseDelimitedRows(text);
+          const rows = parseCantieriRowsFromMatrix(matrix);
+          if (!rows.length) throw new Error('Nessun cantiere valido trovato nei dati incollati.');
+          const result = importCantieriRowsIntoSelectedCommessa(rows);
+          id('dataHubImportEsito').className = 'msg ok';
+          id('dataHubImportEsito').textContent = `Import completato: ${result.inserted} inseriti, ${result.updatedVariants} aggiornati (varianti prezzo/sfalcio), ${result.skipped} saltati (duplicati: ${result.skippedDuplicate}, vuoti: ${result.skippedEmpty}).`;
+          showCatalogMsg(`Import cantieri completato (${result.inserted} inseriti).`, 'ok');
+        } catch (error) {
+          id('dataHubImportEsito').className = 'msg err';
+          id('dataHubImportEsito').textContent = error.message || 'Import da copia/incolla non riuscito.';
+        }
+      }
+      async function importCantieriFromFile() {
+        const file = id('importCantieriFileInput')?.files?.[0];
+        if (!file) {
+          id('dataHubImportEsito').className = 'msg err';
+          id('dataHubImportEsito').textContent = 'Seleziona prima un file Excel/CSV.';
+          return;
+        }
+        try {
+          let matrix = [];
+          const lowerName = String(file.name || '').toLowerCase();
+          if (lowerName.endsWith('.csv') || lowerName.endsWith('.txt')) {
+            const text = await file.text();
+            matrix = parseDelimitedRows(text);
+          } else {
+            const XLSX = await ensureXlsxLibReady();
+            const buffer = await file.arrayBuffer();
+            const wb = XLSX.read(buffer, { type:'array' });
+            const firstSheetName = wb.SheetNames[0];
+            if (!firstSheetName) throw new Error('Il file Excel non contiene fogli.');
+            matrix = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], { header:1, defval:'' });
+          }
+          const rows = parseCantieriRowsFromMatrix(matrix);
+          if (!rows.length) throw new Error('Nessun cantiere valido trovato nel file.');
+          const result = importCantieriRowsIntoSelectedCommessa(rows);
+          id('dataHubImportEsito').className = 'msg ok';
+          id('dataHubImportEsito').textContent = `Import file completato: ${result.inserted} inseriti, ${result.updatedVariants} aggiornati (varianti prezzo/sfalcio), ${result.skipped} saltati (duplicati: ${result.skippedDuplicate}, vuoti: ${result.skippedEmpty}).`;
+          id('importCantieriFileInput').value = '';
+          showCatalogMsg(`Import da file completato (${result.inserted} cantieri).`, 'ok');
+        } catch (error) {
+          id('dataHubImportEsito').className = 'msg err';
+          id('dataHubImportEsito').textContent = error.message || 'Import da file non riuscito.';
+        }
       }
       async function reverseGeocodeFromCoords(lat, lon) {
         const endpoint = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&addressdetails=1`;
@@ -3959,13 +4548,18 @@ out center tags;`;
           return;
         }
         empty.classList.add('hidden');
-        wrap.innerHTML = cantieri.map((c)=>`
-          <li class="cantiere-item ${c.id === selectedCantiereId ? 'active' : ''}" data-cantiere-id="${escapeHtml(c.id)}">
+        wrap.innerHTML = cantieri.map((c)=>{
+          const workClass = classifyCantiereWork(c);
+          return `
+          <li class="cantiere-item ${workClass.key} ${c.id === selectedCantiereId ? 'active' : ''}" data-cantiere-id="${escapeHtml(c.id)}">
+            <span class="work-badge ${workClass.key}">${workClass.label}</span>
             <h5>${escapeHtml(c.code || 'C')} • ${escapeHtml(c.name || 'Cantiere')}</h5>
             <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || c.country || '-')}</p>
+            <p>Codici prezzo: ${escapeHtml(c.price_codes || c.price_code || '-')}</p>
             <p>${Number.isFinite(c.lat) && Number.isFinite(c.lon) ? `${Number(c.lat).toFixed(5)}, ${Number(c.lon).toFixed(5)}` : 'Coordinate non disponibili'}</p>
           </li>
-        `).join('');
+        `;
+        }).join('');
         wrap.querySelectorAll('[data-cantiere-id]').forEach((el)=>el.addEventListener('click', ()=>{
           selectedCantiereId = el.dataset.cantiereId || '';
           const target = cantieri.find((c)=>c.id === selectedCantiereId);
@@ -4840,6 +5434,17 @@ out center tags;`;
           await pushFirebaseSnapshot();
           showBackupMsg('Dati locali caricati su Firebase Cloud.', 'ok');
         } catch (error) {
+          const code = String(error?.code || error?.message || '').toLowerCase();
+          if (code.includes('permission_denied') || code.includes('permission denied')) {
+            try {
+              await pushSharedAppPayload('manual-fallback-shared');
+              showBackupMsg('Permesso negato su Cloud personale: dati caricati nello spazio condiviso globale.', 'ok');
+              return;
+            } catch (fallbackError) {
+              showBackupMsg(fallbackError.message || 'Permesso negato anche sullo spazio condiviso.', 'err');
+              return;
+            }
+          }
           showBackupMsg(error.message || 'Errore upload su Firebase Cloud.', 'err');
         }
       }
@@ -4848,6 +5453,22 @@ out center tags;`;
           const done = await pullFirebaseSnapshot(true);
           if (done) showBackupMsg('Dati cloud ripristinati sul dispositivo.', 'ok');
         } catch (error) {
+          const code = String(error?.code || error?.message || '').toLowerCase();
+          if (code.includes('permission_denied') || code.includes('permission denied')) {
+            try {
+              const ref = await ensureSharedAppDbRef();
+              const snap = await ref.get();
+              const remote = snap?.val?.() || null;
+              if (!remote?.payload) throw new Error('Nessun dato condiviso disponibile da scaricare.');
+              if (!window.confirm('Vuoi sovrascrivere i dati locali con quelli condivisi globali?')) return;
+              applySharedAppPayload(remote.payload || {});
+              showBackupMsg('Dati scaricati dallo spazio condiviso globale.', 'ok');
+              return;
+            } catch (fallbackError) {
+              showBackupMsg(fallbackError.message || 'Permesso negato anche sullo spazio condiviso.', 'err');
+              return;
+            }
+          }
           showBackupMsg(error.message || 'Errore download da Firebase Cloud.', 'err');
         }
       }
@@ -5475,6 +6096,8 @@ out center tags;`;
 
       function setMenuSection(panelId) {
         if (!menuPanelIds.includes(panelId)) return;
+        const allowedPanels = getAllowedPanelsForRole(currentUserRole);
+        if (allowedPanels.length && !allowedPanels.includes(panelId)) return;
         activeMenuPanel = panelId;
         menuPanelIds.forEach((name)=>{
           const panel = id(name);
@@ -5494,6 +6117,154 @@ out center tags;`;
       function updateFocusMode() {
         const enabled = activeMenuPanel === 'timbratureCard';
         document.body.classList.toggle('punch-focus', enabled);
+      }
+      function buildSharedAppPayload() {
+        const payload = {};
+        SHARED_APP_KEYS.forEach((key)=>{ payload[key] = readJSON(key, null); });
+        return payload;
+      }
+      function applySharedAppPayload(payload = {}) {
+        applyingSharedAppPayload = true;
+        try {
+          SHARED_APP_KEYS.forEach((key)=>{
+            if (!Object.prototype.hasOwnProperty.call(payload, key)) return;
+            localStorage.setItem(key, JSON.stringify(payload[key]));
+          });
+          writeJSON(SHARED_APP_SYNC_META_KEY, { last_pull_at: new Date().toISOString() });
+          try { loadProfileUI(); } catch (_) {}
+          try { renderTeamUI(); } catch (_) {}
+          try { renderCatalogDataUI(); } catch (_) {}
+          try { renderCommesseList(); renderDataHubCommessaDetail(); renderGlobalCommesseSelect(); } catch (_) {}
+          try { renderDocuments(); } catch (_) {}
+          try { renderPreventiviList(); } catch (_) {}
+          try { loadMyMonth(); } catch (_) {}
+        } finally {
+          applyingSharedAppPayload = false;
+        }
+      }
+      async function ensureSharedAppDbRef() {
+        const auth = await ensureMainAuthReady();
+        if (!window.firebase?.database) throw new Error('Realtime Database non disponibile.');
+        if (!sharedAppDbRef) {
+          const db = window.firebase.database(auth.app);
+          sharedAppDbRef = db.ref(SHARED_APP_DATA_PATH);
+        }
+        return sharedAppDbRef;
+      }
+      function stopSharedAppSync() {
+        sharedAppReady = false;
+        sharedAppPendingPush = false;
+        if (sharedAppUnsubscribe) {
+          try { sharedAppUnsubscribe(); } catch (_) {}
+          sharedAppUnsubscribe = null;
+        }
+      }
+      async function pushSharedAppPayload(reason = 'manual') {
+        if (!currentAuthUser) return;
+        try {
+          const ref = await ensureSharedAppDbRef();
+          await ref.set({
+            updated_at: new Date().toISOString(),
+            updated_by: currentAuthUser.email || currentAuthUser.uid || '',
+            reason,
+            payload: buildSharedAppPayload()
+          });
+          sharedAppPendingPush = false;
+        } catch (error) {
+          console.warn('Sync condivisa push fallita:', error);
+        }
+      }
+      function scheduleSharedAppPush(reason = 'auto') {
+        if (!currentAuthUser || applyingSharedAppPayload || !sharedAppReady) return;
+        if (sharedAppPushTimer) clearTimeout(sharedAppPushTimer);
+        sharedAppPushTimer = setTimeout(()=>{ pushSharedAppPayload(reason); }, 350);
+      }
+      async function startSharedAppSync() {
+        if (!currentAuthUser) return;
+        try {
+          const ref = await ensureSharedAppDbRef();
+          stopSharedAppSync();
+          sharedAppReady = false;
+          const handler = (snapshot) => {
+            const data = snapshot?.val?.() || null;
+            const payload = data?.payload;
+            if (!payload || typeof payload !== 'object') {
+              sharedAppReady = true;
+              scheduleSharedAppPush('bootstrap-empty');
+              return;
+            }
+            applySharedAppPayload(payload);
+            sharedAppReady = true;
+            if (sharedAppPendingPush) {
+              sharedAppPendingPush = false;
+              scheduleSharedAppPush('pending-local-changes');
+            }
+          };
+          ref.on('value', handler);
+          sharedAppUnsubscribe = ()=>ref.off('value', handler);
+        } catch (error) {
+          console.warn('Sync condivisa non disponibile:', error);
+        }
+      }
+      async function ensureMainAuthReady() {
+        if (appAuth) return appAuth;
+        if (!window.firebase?.initializeApp) throw new Error('Firebase Auth non disponibile.');
+        const appName = 'timbrature-auth-app';
+        const existing = window.firebase.apps?.find((entry)=>entry?.name === appName);
+        const app = existing || window.firebase.initializeApp({
+          apiKey: DEFAULT_FIREBASE_WEB_CONFIG.apiKey,
+          authDomain: DEFAULT_FIREBASE_WEB_CONFIG.authDomain,
+          projectId: DEFAULT_FIREBASE_WEB_CONFIG.projectId,
+          appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
+          databaseURL: DEFAULT_FIREBASE_WEB_CONFIG.databaseURL
+        }, appName);
+        appAuth = window.firebase.auth(app);
+        return appAuth;
+      }
+      async function loginWithEmailPassword() {
+        const email = (id('authEmailInput')?.value || '').trim();
+        const password = (id('authPasswordInput')?.value || '').trim();
+        if (!email || !password) throw new Error('Inserisci email e password.');
+        const auth = await ensureMainAuthReady();
+        await auth.signInWithEmailAndPassword(email, password);
+      }
+      async function registerWithEmailPassword() {
+        const email = (id('authEmailInput')?.value || '').trim();
+        const password = (id('authPasswordInput')?.value || '').trim();
+        if (!email || !password) throw new Error('Inserisci email e password.');
+        if (password.length < 6) throw new Error('La password deve avere almeno 6 caratteri.');
+        const auth = await ensureMainAuthReady();
+        await auth.createUserWithEmailAndPassword(email, password);
+      }
+      async function logoutCurrentUser() {
+        const auth = await ensureMainAuthReady();
+        await auth.signOut();
+      }
+      async function initRequiredAuthGate() {
+        const auth = await ensureMainAuthReady();
+        auth.onAuthStateChanged((user)=>{
+          currentAuthUser = user || null;
+          if (!user) {
+            currentUserRole = 'OPERATORE';
+            stopSharedAppSync();
+            updateAuthUiState();
+            setAppLocked(true, 'Effettua login o registrazione per accedere.');
+            return;
+          }
+          ensureRoleForCurrentUser();
+          updateAuthUiState();
+          applyRolePermissions();
+          startSharedAppSync().catch(()=>{});
+          const hasBiometric = !!getBiometricCredentialId(user.uid || '');
+          if (hasBiometric) {
+            setAppLocked(true, 'Utente riconosciuto. Sblocca con impronta/Face ID oppure rifai login.');
+            showAuthMsg('Utente autenticato. Completa lo sblocco biometrico su questo dispositivo.', 'ok');
+            return;
+          }
+          showAuthMsg('Login effettuato con successo.', 'ok');
+          setAppLocked(false);
+        });
+        authReady = true;
       }
 
       async function registerServiceWorker() {
@@ -5550,6 +6321,7 @@ out center tags;`;
         if (choice?.outcome === 'accepted') showBackupMsg('Installazione avviata.', 'ok');
       }
       function init() {
+        setAppLocked(true, 'Verifica autenticazione in corso...');
         id('data').value = nowDateISO();
         id('mese').value = currentMonthValueUTC();
         updateFocusMode();
@@ -5559,6 +6331,8 @@ out center tags;`;
         } catch (error) {
           console.error('Errore renderDataHubCategoryButtons:', error);
         }
+        renderAclRoleSelect();
+        renderAclPermissionsEditor();
         renderTeamUI();
         try {
           renderCatalogDataUI();
@@ -5586,6 +6360,11 @@ out center tags;`;
         loadFirebaseConfigUI();
         updateFirebaseSyncStatusUI();
         updatePwaInstallUI();
+        initRequiredAuthGate().catch((error)=>{
+          console.error('Errore inizializzazione autenticazione:', error);
+          showAuthMsg('Errore autenticazione. Verifica connessione internet e ricarica la pagina.', 'err');
+          setAppLocked(true, 'Autenticazione non disponibile.');
+        });
         try {
           const cfg = getFirebaseConfigState();
           if (cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId) {
@@ -5658,6 +6437,8 @@ out center tags;`;
         if (id('saveCatalogEntryBtn')) id('saveCatalogEntryBtn').addEventListener('click', saveCatalogEntry);
         if (id('exportAllDataExcelBtn')) id('exportAllDataExcelBtn').addEventListener('click', exportAllAppDataExcel);
         if (id('saveDataHubCantiereBtn')) id('saveDataHubCantiereBtn').addEventListener('click', saveCantiereFromDataHubForm);
+        if (id('importCantieriPasteBtn')) id('importCantieriPasteBtn').addEventListener('click', importCantieriFromPasteText);
+        if (id('importCantieriFileBtn')) id('importCantieriFileBtn').addEventListener('click', importCantieriFromFile);
         if (id('closeDataHubCommessaDetailBtn')) id('closeDataHubCommessaDetailBtn').addEventListener('click', closeDataHubCommessaDetail);
         if (id('exportCantieriExcelBtn')) id('exportCantieriExcelBtn').addEventListener('click', exportCantieriDataHubExcel);
         if (id('catalogPrimaryInput')) id('catalogPrimaryInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveCatalogEntry(); } });
@@ -5668,6 +6449,49 @@ out center tags;`;
         id('runDriveBackupBtn').addEventListener('click', runGoogleDriveBackup);
         id('restoreLatestDriveBackupBtn').addEventListener('click', restoreLatestGoogleDriveBackup);
         if (id('saveFirebaseConfigBtn')) id('saveFirebaseConfigBtn').addEventListener('click', saveFirebaseConfigFromUI);
+        if (id('saveAclUserRoleBtn')) id('saveAclUserRoleBtn').addEventListener('click', saveAclUserRole);
+        if (id('aclRolePermissionsWrap')) id('aclRolePermissionsWrap').addEventListener('change', saveAclRolePermissionsFromUi);
+        if (id('authLoginBtn')) id('authLoginBtn').addEventListener('click', async ()=>{
+          try {
+            await loginWithEmailPassword();
+            showAuthMsg('Login eseguito.', 'ok');
+          } catch (error) {
+            showAuthMsg(error.message || 'Login non riuscito.', 'err');
+          }
+        });
+        if (id('authRegisterBtn')) id('authRegisterBtn').addEventListener('click', async ()=>{
+          try {
+            await registerWithEmailPassword();
+            showAuthMsg('Registrazione completata. Ora sei autenticato.', 'ok');
+          } catch (error) {
+            showAuthMsg(error.message || 'Registrazione non riuscita.', 'err');
+          }
+        });
+        if (id('authBiometricUnlockBtn')) id('authBiometricUnlockBtn').addEventListener('click', async ()=>{
+          try {
+            await unlockWithBiometrics();
+            showAuthMsg('Sblocco biometrico completato.', 'ok');
+          } catch (error) {
+            showAuthMsg(error.message || 'Sblocco biometrico non riuscito.', 'err');
+          }
+        });
+        if (id('enableBiometricBtn')) id('enableBiometricBtn').addEventListener('click', async ()=>{
+          try {
+            await enableBiometricsForCurrentUser();
+            showProfileMsg('Impronta / Face ID attivati su questo dispositivo.', 'ok');
+            showAuthMsg('Biometria attiva. Al prossimo accesso sarà richiesta per sbloccare l’app.', 'ok');
+          } catch (error) {
+            showProfileMsg(error.message || 'Attivazione biometrica non riuscita.', 'err');
+          }
+        });
+        if (id('logoutBtn')) id('logoutBtn').addEventListener('click', async ()=>{
+          try {
+            await logoutCurrentUser();
+            showProfileMsg('Logout completato.', 'ok');
+          } catch (error) {
+            showProfileMsg(error.message || 'Logout non riuscito.', 'err');
+          }
+        });
         if (id('connectFirebaseBtn')) id('connectFirebaseBtn').addEventListener('click', async ()=>{
           try {
             await connectFirebaseCloud();
