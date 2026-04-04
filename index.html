@@ -193,6 +193,7 @@
       .lavoro-tab-btn.active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
       .operator-cantiere-item { border:1px solid #dbeafe; border-radius:10px; background:#fff; padding:10px; }
       .operator-cantiere-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+      .impianto-row-btn { width:100%; text-align:left; background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; font-weight:700; }
       .impianto-pill { border-radius:999px; font-size:18px; line-height:1; padding:6px 8px; background:#e2e8f0; }
       .impianto-pill.done { background:#dcfce7; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
@@ -215,6 +216,9 @@
         <h2>Accesso all'app</h2>
         <p class="small">Per usare Timbrature devi registrarti oppure fare login con email e password. Dopo l'accesso puoi attivare impronta/Face ID su questo dispositivo.</p>
         <div class="grid">
+          <label>Nome e cognome (obbligatorio in registrazione)
+            <input type="text" id="authFullNameInput" placeholder="Mario Rossi" />
+          </label>
           <label>Email
             <input type="email" id="authEmailInput" placeholder="utente@email.com" />
           </label>
@@ -1274,6 +1278,7 @@
       let selectedCommessaId = '';
       let selectedCantiereId = '';
       let selectedLavoroCommessaId = '';
+      let selectedLavoroCantiereExpandedId = '';
       let selectedDataHubCommessaId = '';
       let selectedDataHubCategory = 'vehicles';
       let journalPendingPhotos = [];
@@ -1284,6 +1289,7 @@
       let dataHubCantieriLayer = null;
       let lavoroCantieriMap = null;
       let lavoroCantieriLayer = null;
+      let lavoroOperatorCoords = null;
       let firebaseCloudApp = null;
       let firebaseCloudAuth = null;
       let firebaseCloudDb = null;
@@ -2049,32 +2055,42 @@ out center tags;`;
         if (id('lavoroCommesseView')) id('lavoroCommesseView').classList.toggle('hidden', !isCommesse);
         if (isCommesse) renderLavoroCommesseUI();
       }
-      function saveCantiereFatto(commessaId = '', cantiereId = '') {
+      function getOperatorDisplayName() {
+        const profileName = String(getProfile()?.nome || '').trim();
+        if (profileName) return profileName;
+        return currentAuthUser?.email || 'Operatore';
+      }
+      function saveCantiereFatto(commessaId = '', cantiereId = '', markDone = true) {
         const commesse = getCommesse();
         const cIdx = commesse.findIndex((row)=>row.id === commessaId);
         if (cIdx < 0) return null;
         const cantieri = Array.isArray(commesse[cIdx].cantieri) ? [...commesse[cIdx].cantieri] : [];
         const i = cantieri.findIndex((row)=>row.id === cantiereId);
         if (i < 0) return null;
-        const operatorName = String(getProfile()?.nome || '').trim() || currentAuthUser?.email || 'Operatore';
+        const operatorName = getOperatorDisplayName();
         const stamp = new Date().toISOString();
+        const current = cantieri[i];
+        if (!markDone && currentUserRole !== 'CAPOSQUADRA') {
+          showLavoroMsg('Solo il caposquadra può modificare uno stato già segnato come FATTO.', 'err');
+          return null;
+        }
         cantieri[i] = normalizeCantiere({
-          ...cantieri[i],
-          done_at: stamp,
-          done_by: operatorName,
+          ...current,
+          done_at: markDone ? stamp : '',
+          done_by: markDone ? operatorName : '',
           updated_at: stamp
         });
         commesse[cIdx] = { ...commesse[cIdx], cantieri, updated_at: stamp };
         setCommesse(commesse);
-        return { stamp, operatorName, cantiere: cantieri[i], commessa: commesse[cIdx] };
+        return { stamp, operatorName, cantiere: cantieri[i], commessa: commesse[cIdx], markDone };
       }
       function sendCantiereWhatsapp(commessa = {}, cantiere = {}) {
         const phoneRaw = String(id('lavoroClientePhone')?.value || '').replace(/\D+/g, '');
         const doneAt = cantiere?.done_at ? new Date(cantiere.done_at) : new Date();
-        const operatorName = String(cantiere?.done_by || getProfile()?.nome || '').trim() || currentAuthUser?.email || 'Operatore';
+        const operatorName = String(cantiere?.done_by || getOperatorDisplayName()).trim();
         const dateText = doneAt.toLocaleDateString('it-IT');
         const timeText = doneAt.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
-        const msg = `Cantiere effettuato.\nCommessa: ${commessa?.nome || '-'}\nImpianto/Cantiere: ${cantiere?.name || '-'}\nData: ${dateText}\nOra: ${timeText}\nOperatore: ${operatorName}`;
+        const msg = `✅ Intervento effettuato\nID SAP: ${cantiere?.code || '-'}\nNome impianto: ${cantiere?.name || '-'}\nData: ${dateText}\nOra: ${timeText}\nOperatore: ${operatorName}`;
         const url = phoneRaw
           ? `https://wa.me/${phoneRaw}?text=${encodeURIComponent(msg)}`
           : `https://wa.me/?text=${encodeURIComponent(msg)}`;
@@ -2121,7 +2137,18 @@ out center tags;`;
           mapEl.innerHTML = '<p class="small" style="padding:10px;">Mappa non disponibile al momento.</p>';
         }
       }
-      function renderLavoroCommesseUI() {
+      async function getLavoroOperatorCoords() {
+        if (lavoroOperatorCoords && Number.isFinite(Number(lavoroOperatorCoords.lat)) && Number.isFinite(Number(lavoroOperatorCoords.lon))) return lavoroOperatorCoords;
+        try {
+          const pos = await getCurrentPositionSafe();
+          const { lat, lon } = extractLatLon(pos);
+          lavoroOperatorCoords = { lat, lon };
+          return lavoroOperatorCoords;
+        } catch (_) {
+          return null;
+        }
+      }
+      async function renderLavoroCommesseUI() {
         const select = id('lavoroCommessaSelect');
         const wrap = id('lavoroCantieriList');
         const empty = id('lavoroCantieriEmpty');
@@ -2136,32 +2163,56 @@ out center tags;`;
           selectedLavoroCommessaId = '';
         }
         const commessa = commesse.find((c)=>c.id === selectedLavoroCommessaId);
-        const cantieri = Array.isArray(commessa?.cantieri) ? commessa.cantieri : [];
+        let cantieri = Array.isArray(commessa?.cantieri) ? [...commessa.cantieri] : [];
         if (!commessa || !cantieri.length) {
+          selectedLavoroCantiereExpandedId = '';
           wrap.innerHTML = '';
           empty.classList.remove('hidden');
           renderLavoroCantieriMap([]);
           return;
         }
+        const coords = await getLavoroOperatorCoords();
+        cantieri = cantieri
+          .map((c)=>({
+            ...c,
+            _distanceMeters: (coords && Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)))
+              ? haversineDistanceMeters(coords.lat, coords.lon, Number(c.lat), Number(c.lon))
+              : Number.POSITIVE_INFINITY
+          }))
+          .sort((a,b)=>a._distanceMeters - b._distanceMeters);
+        if (!cantieri.some((c)=>c.id === selectedLavoroCantiereExpandedId)) selectedLavoroCantiereExpandedId = '';
         empty.classList.add('hidden');
         wrap.innerHTML = cantieri.map((c)=>{
           const doneAt = c.done_at ? new Date(c.done_at) : null;
+          const isExpanded = selectedLavoroCantiereExpandedId === c.id;
+          const canEditDoneState = !c.done_at || currentUserRole === 'CAPOSQUADRA';
+          const distanceText = Number.isFinite(c._distanceMeters) ? `${(c._distanceMeters / 1000).toFixed(2)} km` : 'distanza non disponibile';
           return `<li class="operator-cantiere-item">
-            <div class="operator-cantiere-head">
-              <div>
-                <h5>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || 'Cantiere')}</h5>
-                <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || 'Indirizzo non disponibile')}</p>
-                <p>${doneAt ? `Ultimo FATTO: ${doneAt.toLocaleString('it-IT')} • ${escapeHtml(c.done_by || '-')}` : 'Non ancora segnato come fatto'}</p>
+            <button type="button" class="impianto-row-btn btn-small" data-lavoro-expand="${escapeHtml(c.id)}">Impianto ${escapeHtml(c.name || c.code || '-')}${c.done_at ? ' ✅' : ' 🟡'}</button>
+            ${isExpanded ? `
+              <div class="operator-cantiere-head" style="margin-top:8px;">
+                <div>
+                  <h5>ID SAP: ${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || 'Impianto')}</h5>
+                  <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || 'Indirizzo non disponibile')}</p>
+                  <p>Distanza operatore: ${escapeHtml(distanceText)}</p>
+                  <p>${doneAt ? `Ultimo FATTO: ${doneAt.toLocaleString('it-IT')} • ${escapeHtml(c.done_by || '-')}` : 'Non ancora segnato come fatto'}</p>
+                </div>
+                <span class="impianto-pill ${c.done_at ? 'done' : ''}" title="Stato impianto">${c.done_at ? '✅' : '🟡'}</span>
               </div>
-              <span class="impianto-pill ${c.done_at ? 'done' : ''}" title="Stato impianto">${c.done_at ? '✅' : '🟡'}</span>
-            </div>
-            <div class="inline-actions" style="margin-top:8px;">
-              <button type="button" class="secondary btn-small" data-lavoro-nav="${escapeHtml(c.id)}">Naviga</button>
-              <button type="button" class="btn-small" data-lavoro-fatto="${escapeHtml(c.id)}">Fatto</button>
-              <button type="button" class="secondary btn-small" data-lavoro-wa="${escapeHtml(c.id)}">Whazzupa</button>
-            </div>
+              <div class="inline-actions" style="margin-top:8px;">
+                <button type="button" class="secondary btn-small" data-lavoro-nav="${escapeHtml(c.id)}">Naviga</button>
+                <button type="button" class="btn-small" data-lavoro-fatto="${escapeHtml(c.id)}" ${canEditDoneState ? '' : 'disabled'}>${c.done_at ? 'Annulla fatto' : 'Fatto'}</button>
+                <button type="button" class="secondary btn-small" data-lavoro-wa="${escapeHtml(c.id)}">Whazzupa</button>
+              </div>
+              ${(!canEditDoneState) ? '<p class="small">Stato bloccato: solo il caposquadra può modificarlo dopo il FATTO.</p>' : ''}
+            ` : ''}
           </li>`;
         }).join('');
+        wrap.querySelectorAll('[data-lavoro-expand]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const itemId = btn.dataset.lavoroExpand || '';
+          selectedLavoroCantiereExpandedId = selectedLavoroCantiereExpandedId === itemId ? '' : itemId;
+          renderLavoroCommesseUI();
+        }));
         wrap.querySelectorAll('[data-lavoro-nav]').forEach((btn)=>btn.addEventListener('click', ()=>{
           const cantiere = cantieri.find((c)=>c.id === btn.dataset.lavoroNav);
           if (!cantiere) return;
@@ -2172,9 +2223,12 @@ out center tags;`;
           openGoogleMapsNavigation(Number(cantiere.lat), Number(cantiere.lon));
         }));
         wrap.querySelectorAll('[data-lavoro-fatto]').forEach((btn)=>btn.addEventListener('click', ()=>{
-          const saved = saveCantiereFatto(commessa.id, btn.dataset.lavoroFatto || '');
+          const cantiere = cantieri.find((c)=>c.id === (btn.dataset.lavoroFatto || ''));
+          if (!cantiere) return;
+          const saved = saveCantiereFatto(commessa.id, cantiere.id, !cantiere.done_at);
           if (!saved) return;
-          showLavoroMsg(`Fatto registrato: ${saved.cantiere.name || '-'} alle ${new Date(saved.stamp).toLocaleString('it-IT')} (${saved.operatorName}).`, 'ok');
+          if (saved.markDone) showLavoroMsg(`Fatto registrato: ${saved.cantiere.name || '-'} alle ${new Date(saved.stamp).toLocaleString('it-IT')} (${saved.operatorName}).`, 'ok');
+          else showLavoroMsg(`Stato FATTO annullato da ${saved.operatorName}.`, 'ok');
           renderLavoroCommesseUI();
         }));
         wrap.querySelectorAll('[data-lavoro-wa]').forEach((btn)=>btn.addEventListener('click', ()=>{
@@ -2372,6 +2426,7 @@ out center tags;`;
         id('nome').value = p.nome || '';
         id('azienda').value = p.azienda || '';
         id('email').value = p.email || '';
+        if (id('authFullNameInput')) id('authFullNameInput').value = p.nome || '';
       }
       function renderTeamUI() {
         const draft = getTeamRequestDraft() || {};
@@ -6538,12 +6593,24 @@ out center tags;`;
         await auth.signInWithEmailAndPassword(email, password);
       }
       async function registerWithEmailPassword() {
+        const fullName = (id('authFullNameInput')?.value || '').trim();
         const email = (id('authEmailInput')?.value || '').trim();
         const password = (id('authPasswordInput')?.value || '').trim();
+        if (!fullName) throw new Error('Inserisci nome e cognome prima di registrarti.');
         if (!email || !password) throw new Error('Inserisci email e password.');
         if (password.length < 6) throw new Error('La password deve avere almeno 6 caratteri.');
         const auth = await ensureMainAuthReady();
-        await auth.createUserWithEmailAndPassword(email, password);
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        const existing = getProfile();
+        setProfile({
+          ...existing,
+          nome: fullName,
+          email: email || existing.email || ''
+        });
+        loadProfileUI();
+        if (cred?.user?.updateProfile) {
+          try { await cred.user.updateProfile({ displayName: fullName }); } catch (_) {}
+        }
       }
       async function logoutCurrentUser() {
         const auth = await ensureMainAuthReady();
@@ -6740,6 +6807,7 @@ out center tags;`;
         if (id('lavoroCommesseTabBtn')) id('lavoroCommesseTabBtn').addEventListener('click', ()=>setLavoroTab('commesse'));
         if (id('lavoroCommessaSelect')) id('lavoroCommessaSelect').addEventListener('change', ()=>{
           selectedLavoroCommessaId = id('lavoroCommessaSelect').value || '';
+          selectedLavoroCantiereExpandedId = '';
           renderLavoroCommesseUI();
         });
         if (id('enableNotificationsBtn')) id('enableNotificationsBtn').addEventListener('click', requestNotificationPermission);
