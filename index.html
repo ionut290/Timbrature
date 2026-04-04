@@ -2089,6 +2089,7 @@ out center tags;`;
           done_at: markDone ? stamp : '',
           done_by: markDone ? operatorName : '',
           done_state_updated_at: stamp,
+          done_state_actor_role: currentUserRole,
           updated_at: stamp
         });
         commesse[cIdx] = { ...commesse[cIdx], cantieri, updated_at: stamp };
@@ -4604,6 +4605,7 @@ out center tags;`;
           done_at: row.done_at || '',
           done_by: String(row.done_by || '').trim(),
           done_state_updated_at: String(row.done_state_updated_at || row.done_at || '').trim(),
+          done_state_actor_role: String(row.done_state_actor_role || '').trim().toUpperCase(),
           created_at: row.created_at || new Date().toISOString(),
           updated_at: row.updated_at || new Date().toISOString()
         };
@@ -6522,25 +6524,37 @@ out center tags;`;
         const resolveDoneState = (left = {}, right = {})=>{
           const leftStamp = String(left?.done_state_updated_at || left?.done_at || '');
           const rightStamp = String(right?.done_state_updated_at || right?.done_at || '');
-          if (compareUpdatedAt(rightStamp, leftStamp) > 0) return {
-            done_at: right?.done_at || '',
-            done_by: right?.done_by || '',
-            done_state_updated_at: rightStamp
-          };
-          if (compareUpdatedAt(leftStamp, rightStamp) > 0) return {
-            done_at: left?.done_at || '',
-            done_by: left?.done_by || '',
-            done_state_updated_at: leftStamp
-          };
+          const leftRole = String(left?.done_state_actor_role || '').toUpperCase();
+          const rightRole = String(right?.done_state_actor_role || '').toUpperCase();
+          const winner = compareUpdatedAt(rightStamp, leftStamp) > 0 ? right : (compareUpdatedAt(leftStamp, rightStamp) > 0 ? left : null);
+          const loser = winner === right ? left : (winner === left ? right : null);
+          if (winner) {
+            const winnerRole = String(winner?.done_state_actor_role || '').toUpperCase();
+            if (!winner?.done_at && loser?.done_at && winnerRole !== 'CAPOSQUADRA') {
+              return {
+                done_at: loser?.done_at || '',
+                done_by: loser?.done_by || '',
+                done_state_updated_at: String(loser?.done_state_updated_at || loser?.done_at || ''),
+                done_state_actor_role: String(loser?.done_state_actor_role || '').toUpperCase()
+              };
+            }
+            return {
+              done_at: winner?.done_at || '',
+              done_by: winner?.done_by || '',
+              done_state_updated_at: String(winner === right ? rightStamp : leftStamp),
+              done_state_actor_role: winnerRole
+            };
+          }
           if (left?.done_at || right?.done_at) {
             const preferred = left?.done_at ? left : right;
             return {
               done_at: preferred?.done_at || '',
               done_by: preferred?.done_by || '',
-              done_state_updated_at: String(preferred?.done_state_updated_at || preferred?.done_at || '')
+              done_state_updated_at: String(preferred?.done_state_updated_at || preferred?.done_at || ''),
+              done_state_actor_role: String(preferred?.done_state_actor_role || '').toUpperCase()
             };
           }
-          return { done_at:'', done_by:'', done_state_updated_at:'' };
+          return { done_at:'', done_by:'', done_state_updated_at:'', done_state_actor_role: (rightRole || leftRole || '') };
         };
         (Array.isArray(localRows) ? localRows : []).forEach((row)=>{
           const key = toKey(row);
@@ -6564,7 +6578,8 @@ out center tags;`;
             ...newer,
             done_at: doneState.done_at,
             done_by: doneState.done_by,
-            done_state_updated_at: doneState.done_state_updated_at
+            done_state_updated_at: doneState.done_state_updated_at,
+            done_state_actor_role: doneState.done_state_actor_role
           }));
         });
         return Array.from(mergedMap.values());
