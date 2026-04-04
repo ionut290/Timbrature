@@ -831,6 +831,7 @@
           </div>
           <div class="inline-actions">
             <button type="button" id="saveCatalogEntryBtn">Salva dato</button>
+            <button type="button" class="secondary" id="exportAllDataExcelBtn">Esporta tutti i dati (Excel)</button>
           </div>
           <p id="catalogEsito" class="msg"></p>
           <ul id="catalogVehiclesList" class="catalog-list"></ul>
@@ -2119,6 +2120,78 @@ out center tags;`;
         document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
         showCatalogMsg('Export Excel completato (CSV compatibile).', 'ok');
+      }
+      function exportAllAppDataExcel() {
+        const master = getMasterData();
+        const commesse = getCommesse();
+        const rows = [];
+        const pushRow = (section='', data={})=>rows.push({
+          section,
+          name: data.name || '',
+          fuel_type: data.fuel_type || '',
+          commessa: data.commessa || '',
+          cantiere_code: data.cantiere_code || '',
+          cantiere_name: data.cantiere_name || '',
+          notes: data.notes || '',
+          address: data.address || '',
+          city: data.city || '',
+          lat: Number.isFinite(Number(data.lat)) ? Number(data.lat).toFixed(5) : '',
+          lon: Number.isFinite(Number(data.lon)) ? Number(data.lon).toFixed(5) : '',
+          updated_at: data.updated_at || ''
+        });
+        (Array.isArray(master.vehicles) ? master.vehicles : []).forEach((v)=>pushRow('mezzi', {
+          name: v.name || '',
+          fuel_type: v.fuel_type || '',
+          updated_at: v.updated_at || ''
+        }));
+        (Array.isArray(master.equipment) ? master.equipment : []).forEach((v)=>pushRow('attrezzature', {
+          name: v.name || '',
+          updated_at: v.updated_at || ''
+        }));
+        (Array.isArray(master.colleagues) ? master.colleagues : []).forEach((v)=>pushRow('colleghi', {
+          name: v.name || '',
+          updated_at: v.updated_at || ''
+        }));
+        commesse.forEach((cm)=>{
+          pushRow('commesse', { commessa: cm.nome || '', notes: cm.impianto || '', updated_at: cm.updated_at || '' });
+          (Array.isArray(cm.cantieri) ? cm.cantieri : []).forEach((c)=>pushRow('cantieri', {
+            commessa: cm.nome || '',
+            cantiere_code: c.code || '',
+            cantiere_name: c.name || '',
+            notes: c.notes || '',
+            address: c.address || '',
+            city: c.city || '',
+            lat: c.lat,
+            lon: c.lon,
+            updated_at: c.updated_at || cm.updated_at || ''
+          }));
+        });
+        if (!rows.length) { showCatalogMsg('Nessun dato da esportare.', 'err'); return; }
+        const header = ['Sezione', 'Nome', 'Carburante', 'Commessa', 'Codice Cantiere', 'Nome Cantiere', 'Note', 'Indirizzo', 'Comune', 'Latitudine', 'Longitudine', 'Aggiornato il'];
+        const csvRows = rows.map((r)=>[
+          r.section,
+          r.name,
+          r.fuel_type,
+          r.commessa,
+          r.cantiere_code,
+          r.cantiere_name,
+          r.notes,
+          r.address,
+          r.city,
+          r.lat,
+          r.lon,
+          r.updated_at
+        ]);
+        const csv = [header, ...csvRows].map((line)=>line.map((cell)=>`"${String(cell || '').replaceAll('"', '""')}"`).join(';')).join('\n');
+        const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `export_dati_app_${nowDateISO()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        showCatalogMsg('Export completo creato (CSV compatibile Excel).', 'ok');
       }
       async function saveCantiereFromDataHubForm() {
         const commessa = getCommesse().find((c)=>c.id === selectedDataHubCommessaId);
@@ -5447,6 +5520,7 @@ out center tags;`;
         id('finalizePreventivoBtn').addEventListener('click', finalizePreventivo);
         if (id('findFuelStationsBtn')) id('findFuelStationsBtn').addEventListener('click', findNearbyFuelStations);
         if (id('saveCatalogEntryBtn')) id('saveCatalogEntryBtn').addEventListener('click', saveCatalogEntry);
+        if (id('exportAllDataExcelBtn')) id('exportAllDataExcelBtn').addEventListener('click', exportAllAppDataExcel);
         if (id('saveDataHubCantiereBtn')) id('saveDataHubCantiereBtn').addEventListener('click', saveCantiereFromDataHubForm);
         if (id('closeDataHubCommessaDetailBtn')) id('closeDataHubCommessaDetailBtn').addEventListener('click', closeDataHubCommessaDetail);
         if (id('exportCantieriExcelBtn')) id('exportCantieriExcelBtn').addEventListener('click', exportCantieriDataHubExcel);
