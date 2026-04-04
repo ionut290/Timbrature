@@ -913,7 +913,7 @@
             </div>
             <div class="setup-box">
               <h4 style="margin:0 0 6px;">Importa cantieri nella commessa</h4>
-              <p class="small" style="margin:0 0 8px;">Puoi incollare righe (una per cantiere) oppure importare un file Excel/CSV. Colonne supportate: <strong>nome</strong>, note, indirizzo, comune, provincia, cap, paese, lat, lon.</p>
+              <p class="small" style="margin:0 0 8px;">Puoi incollare righe (una per cantiere) oppure importare un file Excel/CSV. Supporta anche il tuo tracciato: <strong>ID SAP, Denominazione Impianto, Comune ubicazione Impianto, Via e civico di ubicazione Impianto, Coordinate GPS(Y), Coordinate GPS(X)</strong>.</p>
               <label>Incolla dati (CSV/TSV o testo)
                 <textarea id="dataHubCantieriPasteInput" rows="4" placeholder="nome;indirizzo;comune;provincia;cap&#10;Cantiere Nord;Via Roma 1;Bologna;BO;40100"></textarea>
               </label>
@@ -4243,13 +4243,26 @@ out center tags;`;
           .replace(/[ìí]/g, 'i')
           .replace(/[òó]/g, 'o')
           .replace(/[ùú]/g, 'u')
-          .replace(/\s+/g, '');
+          .replace(/\s+/g, '')
+          .replace(/[^a-z0-9]/g, '');
+      }
+      function parseImportNumber(value) {
+        const raw = String(value ?? '').trim();
+        if (!raw) return NaN;
+        let normalized = raw;
+        if (raw.includes(',') && raw.includes('.')) normalized = raw.replace(/\./g, '').replace(',', '.');
+        else if (raw.includes(',')) normalized = raw.replace(',', '.');
+        const n = Number(normalized);
+        return Number.isFinite(n) ? n : NaN;
       }
       function parseCantieriRowsFromMatrix(matrix = []) {
         if (!Array.isArray(matrix) || !matrix.length) return [];
         const first = matrix[0] || [];
         const normalizedHeader = first.map((cell)=>normalizeImportHeader(cell));
-        const hasHeader = normalizedHeader.some((value)=>['nome', 'name', 'indirizzo', 'address', 'comune', 'lat', 'lon'].includes(value));
+        const hasHeader = normalizedHeader.some((value)=>[
+          'nome', 'name', 'denominazioneimpianto', 'indirizzo', 'address', 'comune',
+          'coordinategpsy', 'coordinategpsx', 'lat', 'lon'
+        ].includes(value));
         const header = hasHeader ? normalizedHeader : [];
         const dataRows = hasHeader ? matrix.slice(1) : matrix;
         const fieldIndex = (keys = [], fallback = -1) => {
@@ -4257,27 +4270,35 @@ out center tags;`;
           const idx = header.findIndex((entry)=>keys.includes(entry));
           return idx >= 0 ? idx : fallback;
         };
-        const idxNome = fieldIndex(['nome', 'name', 'cantiere', 'sitename'], 0);
+        const idxNome = fieldIndex(['nome', 'name', 'cantiere', 'sitename', 'denominazioneimpianto'], 0);
         const idxNote = fieldIndex(['note', 'notes'], -1);
-        const idxAddress = fieldIndex(['indirizzo', 'address', 'via'], -1);
-        const idxCity = fieldIndex(['comune', 'city'], -1);
+        const idxAddress = fieldIndex(['indirizzo', 'address', 'via', 'viaecivicodiubicazioneimpianto'], -1);
+        const idxCity = fieldIndex(['comune', 'city', 'comuneubicazioneimpianto'], -1);
         const idxProvince = fieldIndex(['provincia', 'province', 'prov'], -1);
         const idxCap = fieldIndex(['cap', 'postcode', 'zip'], -1);
         const idxCountry = fieldIndex(['paese', 'country'], -1);
-        const idxLat = fieldIndex(['lat', 'latitude'], -1);
-        const idxLon = fieldIndex(['lon', 'lng', 'long', 'longitude'], -1);
-        const idxCode = fieldIndex(['codice', 'code'], -1);
+        const idxLat = fieldIndex(['lat', 'latitude', 'coordinategpsy'], -1);
+        const idxLon = fieldIndex(['lon', 'lng', 'long', 'longitude', 'coordinategpsx'], -1);
+        const idxCode = fieldIndex(['codice', 'code', 'idsap'], -1);
+        const idxDistretto = fieldIndex(['distretto'], -1);
+        const idxVoce = fieldIndex(['vocediriferimentoelencoprezzi'], -1);
+        const idxTipologia = fieldIndex(['tipologiadisfalciointervento'], -1);
         return dataRows.map((cells)=>({
-          code: idxCode >= 0 ? cells[idxCode] : '',
+          code: idxCode >= 0 ? String(cells[idxCode] || '').trim() : '',
           name: idxNome >= 0 ? cells[idxNome] : '',
-          notes: idxNote >= 0 ? cells[idxNote] : '',
+          notes: [
+            idxNote >= 0 ? cells[idxNote] : '',
+            idxDistretto >= 0 ? `Distretto: ${cells[idxDistretto] || ''}` : '',
+            idxVoce >= 0 ? `Voce prezzo: ${cells[idxVoce] || ''}` : '',
+            idxTipologia >= 0 ? `Intervento: ${cells[idxTipologia] || ''}` : ''
+          ].filter((item)=>String(item || '').trim()).join(' | '),
           address: idxAddress >= 0 ? cells[idxAddress] : '',
           city: idxCity >= 0 ? cells[idxCity] : '',
           province: idxProvince >= 0 ? cells[idxProvince] : '',
           postcode: idxCap >= 0 ? cells[idxCap] : '',
           country: idxCountry >= 0 ? cells[idxCountry] : '',
-          lat: idxLat >= 0 ? Number(String(cells[idxLat] || '').replace(',', '.')) : NaN,
-          lon: idxLon >= 0 ? Number(String(cells[idxLon] || '').replace(',', '.')) : NaN
+          lat: idxLat >= 0 ? parseImportNumber(cells[idxLat]) : NaN,
+          lon: idxLon >= 0 ? parseImportNumber(cells[idxLon]) : NaN
         })).filter((row)=>String(row.name || '').trim());
       }
       function importCantieriRowsIntoSelectedCommessa(rawRows = []) {
