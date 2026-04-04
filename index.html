@@ -1082,6 +1082,7 @@
       const showPrezzarioMsg = (m, t='ok') => { id('prezzarioEsito').className = `msg ${t}`; id('prezzarioEsito').textContent = m; };
       const showPreventiviListMsg = (m, t='ok') => { id('preventiviEsito').className = `msg ${t}`; id('preventiviEsito').textContent = m; };
       const showCatalogMsg = (m, t='ok') => { id('catalogEsito').className = `msg ${t}`; id('catalogEsito').textContent = m; };
+      const showFuelMsg = (m, t='ok') => { id('fuelEsito').className = `msg ${t}`; id('fuelEsito').textContent = m; };
       function getNotificationSettings() {
         return readJSON(NOTIFICATION_SETTINGS_KEY, {
           entry_time: '07:55',
@@ -1410,6 +1411,65 @@
           throw new Error('Posizione GPS non valida. Attiva la localizzazione precisa e riprova.');
         }
         return { lat, lon };
+      }
+      function haversineKm(lat1, lon1, lat2, lon2) {
+        return haversineDistanceMeters(lat1, lon1, lat2, lon2) / 1000;
+      }
+      function fuelAliasesForSelection(fuelType='diesel') {
+        const type = String(fuelType || 'diesel').toLowerCase();
+        const map = {
+          diesel: ['diesel', 'gasoil'],
+          benzina: ['petrol', 'gasoline', 'benzina', 'octane_95', 'octane_98'],
+          gpl: ['lpg', 'gpl'],
+          metano: ['cng', 'methane', 'metano']
+        };
+        return map[type] || map.diesel;
+      }
+      function stationProvidesFuel(tags = {}, fuelType='diesel') {
+        const aliases = fuelAliasesForSelection(fuelType);
+        return aliases.some((alias)=>{
+          const key = `fuel:${alias}`;
+          const raw = String(tags?.[key] ?? '').trim().toLowerCase();
+          return ['yes', '1', 'true'].includes(raw);
+        });
+      }
+      function isPreferredFuelBrand(tags = {}) {
+        const haystack = [tags?.brand, tags?.operator, tags?.name].filter(Boolean).join(' ').toLowerCase();
+        return /\beni\b/.test(haystack) || /\bq8\b/.test(haystack) || haystack.includes('kuwait petroleum');
+      }
+      async function ensureLeafletLoaded() {
+        if (window.L?.map) return;
+        const cssId = 'leaflet-css-runtime';
+        if (!document.getElementById(cssId)) {
+          const link = document.createElement('link');
+          link.id = cssId;
+          link.rel = 'stylesheet';
+          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(link);
+        }
+        await new Promise((resolve, reject)=>{
+          const existing = document.getElementById('leaflet-js-runtime');
+          if (existing && window.L?.map) { resolve(); return; }
+          if (existing) {
+            existing.addEventListener('load', ()=>resolve(), { once:true });
+            existing.addEventListener('error', ()=>reject(new Error('Libreria mappa non caricata.')), { once:true });
+            return;
+          }
+          const script = document.createElement('script');
+          script.id = 'leaflet-js-runtime';
+          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+          script.async = true;
+          script.onload = ()=>resolve();
+          script.onerror = ()=>reject(new Error('Libreria mappa non caricata.'));
+          document.head.appendChild(script);
+        });
+      }
+      function applyFuelTypeByVehicleName(vehicleName='') {
+        const name = String(vehicleName || '').trim().toLowerCase();
+        if (!name) return;
+        const vehicle = getCatalogRowsByCategory('vehicles')
+          .find((row)=>String(row?.name || '').trim().toLowerCase() === name);
+        if (vehicle?.fuel_type && id('fuelType')) id('fuelType').value = vehicle.fuel_type;
       }
       async function fetchNearbyFuelStations(lat, lon, radiusKm=8, fuelType='diesel') {
         const radiusM = Math.max(1000, Math.min(Number(radiusKm || 8) * 1000, 25000));
