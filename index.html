@@ -878,6 +878,7 @@
             <label>Email utente cloud<input type="email" id="fbEmailInput" placeholder="utente@email.com" /></label>
             <label>Password cloud<input type="password" id="fbPasswordInput" placeholder="min 6 caratteri" /></label>
           </div>
+          <label class="small" style="margin-top:6px;display:flex;align-items:center;gap:8px;"><input type="checkbox" id="rememberCloudPasswordInput" checked /> Mantieni connessione cloud su questo dispositivo</label>
           <details class="small" style="margin-top:8px;">
             <summary>Mostra configurazione tecnica Firebase</summary>
             <div class="grid" style="margin-top:8px;">
@@ -1074,6 +1075,7 @@
       const GOOGLE_CLIENT_ID_KEY = 'timbrature.local.google.client_id';
       const FIREBASE_CONFIG_KEY = 'timbrature.local.firebase.config';
       const FIREBASE_SYNC_STATE_KEY = 'timbrature.local.firebase.sync.state';
+      const FIREBASE_CLOUD_AUTH_CACHE_KEY = 'timbrature.local.firebase.cloud.auth.cache';
       const DEVICE_ID_KEY = 'timbrature.local.device.id';
       const BIOMETRIC_CREDENTIAL_KEY = 'timbrature.local.auth.biometric.credential';
       const ACCESS_CONTROL_KEY = 'timbrature.local.access.control';
@@ -1321,6 +1323,7 @@
       let xlsxLoaderPromise = null;
       let sharedAppDbRef = null;
       let sharedAppUnsubscribe = null;
+      let sharedAppFirestoreUnsubscribe = null;
       let sharedAppPushTimer = null;
       let applyingSharedAppPayload = false;
       let sharedAppReady = false;
@@ -1328,6 +1331,9 @@
       let sharedAppLastAppliedAt = '';
       let sharedAppLastPushedAt = '';
       let sharedAppPullInProgress = false;
+      let firebaseCloudAutoConnectInProgress = false;
+      const SHARED_APP_FIRESTORE_COLLECTION = '_shared';
+      const SHARED_APP_FIRESTORE_DOC = 'global_app_data_v1';
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -5649,6 +5655,19 @@ out center tags;`;
         writeJSON(FIREBASE_SYNC_STATE_KEY, merged);
         return merged;
       }
+      function getFirebaseCloudAuthCache() {
+        return readJSON(FIREBASE_CLOUD_AUTH_CACHE_KEY, { email:'', password:'', remember:true });
+      }
+      function setFirebaseCloudAuthCache(next={}) {
+        const current = getFirebaseCloudAuthCache();
+        const merged = {
+          email: String(next.email ?? current.email ?? '').trim(),
+          password: String(next.password ?? current.password ?? ''),
+          remember: Boolean(next.remember ?? current.remember ?? true)
+        };
+        writeJSON(FIREBASE_CLOUD_AUTH_CACHE_KEY, merged);
+        return merged;
+      }
       function getGoogleClientId() { return (localStorage.getItem(GOOGLE_CLIENT_ID_KEY) || '').trim(); }
       function setGoogleClientId(clientId='') {
         const clean = String(clientId || '').trim();
@@ -5719,6 +5738,7 @@ out center tags;`;
       }
       function loadFirebaseConfigUI() {
         const cfg = sanitizeFirebaseConfig(getFirebaseConfigState());
+        const authCache = getFirebaseCloudAuthCache();
         if (id('fbApiKeyInput')) id('fbApiKeyInput').value = cfg.apiKey;
         if (id('fbAuthDomainInput')) id('fbAuthDomainInput').value = cfg.authDomain;
         if (id('fbProjectIdInput')) id('fbProjectIdInput').value = cfg.projectId;
@@ -5727,7 +5747,8 @@ out center tags;`;
         if (id('fbAppCheckSiteKeyInput')) id('fbAppCheckSiteKeyInput').value = cfg.appCheckSiteKey || '';
         if (id('fbAppCheckProviderInput')) id('fbAppCheckProviderInput').value = cfg.appCheckProvider || 'recaptcha_v3';
         if (id('fbAppCheckDebugInput')) id('fbAppCheckDebugInput').checked = Boolean(cfg.appCheckDebugToken);
-        if (id('fbEmailInput')) id('fbEmailInput').value = cfg.email;
+        if (id('fbEmailInput')) id('fbEmailInput').value = cfg.email || authCache.email || '';
+        if (id('rememberCloudPasswordInput')) id('rememberCloudPasswordInput').checked = authCache.remember !== false;
       }
       function saveFirebaseConfigFromUI(showMessage=true) {
         const next = normalizeKnownFirebaseProjectConfig(readFirebaseConfigFromUI());
@@ -5819,28 +5840,43 @@ out center tags;`;
         if (!firebaseCloudRtdb || !firebaseCloudAuth?.currentUser?.uid) throw new Error('Cloud Firebase non connesso.');
         return firebaseCloudRtdb.ref(`timbrature_sync/${firebaseCloudAuth.currentUser.uid}`);
       }
-      async function connectFirebaseCloud() {
+      async function connectFirebaseCloud(options={}) {
+        const silent = Boolean(options?.silent);
         const cfg = saveFirebaseConfigFromUI(false);
-        const { auth } = await ensureFirebaseCloudReady({ config: cfg, forceRefresh:true });
-        const email = (id('fbEmailInput')?.value || cfg.email || '').trim();
-        const password = (id('fbPasswordInput')?.value || '').trim();
-        if (!email || !password) throw new Error('Inserisci email e password cloud.');
-        try {
-          await auth.signInWithEmailAndPassword(email, password);
-        } catch (error) {
-          const code = String(error?.code || '');
-          if (code === 'auth/user-not-found' || code === 'auth/invalid-credential') {
-            await auth.createUserWithEmailAndPassword(email, password);
-          } else {
-            throw error;
+        const { auth } = await ensureFirebaseCloudReady({ config: cfg, forceRefresh:false });
+        const cache = getFirebaseCloudAuthCache();
+        const email = (id('fbEmailInput')?.value || cfg.email || cache.email || '').trim();
+        const typedPassword = (id('fbPasswordInput')?.value || '').trim();
+        const rememberCloud = Boolean(id('rememberCloudPasswordInput')?.checked ?? cache.remember ?? true);
+        const password = typedPassword || (rememberCloud ? String(cache.password || '') : '');
+        const existingUser = auth.currentUser;
+        const existingEmail = String(existingUser?.email || '').trim().toLowerCase();
+        const requestedEmail = String(email || '').trim().toLowerCase();
+        if (!existingUser || (requestedEmail && existingEmail && existingEmail !== requestedEmail)) {
+          if (!email || !password) throw new Error('Inserisci la password cloud almeno una volta per attivare la connessione automatica.');
+          try {
+            await auth.signInWithEmailAndPassword(email, password);
+          } catch (error) {
+            const code = String(error?.code || '');
+            if (code === 'auth/user-not-found' || code === 'auth/invalid-credential') {
+              await auth.createUserWithEmailAndPassword(email, password);
+            } else {
+              throw error;
+            }
           }
         }
         const user = auth.currentUser;
         setFirebaseSyncState({ connected:true, uid:user?.uid || '', email:user?.email || email, liveSync:true });
+        setFirebaseCloudAuthCache({
+          email: user?.email || email,
+          password: rememberCloud ? password : '',
+          remember: rememberCloud
+        });
+        if (id('fbPasswordInput')) id('fbPasswordInput').value = '';
         await ensureMezziRealtimeSubscription();
         try { startFirebaseLiveSync(); } catch (_) {}
         updateFirebaseSyncStatusUI();
-        showBackupMsg('Cloud Firebase connesso con successo.', 'ok');
+        if (!silent) showBackupMsg('Cloud Firebase connesso con successo.', 'ok');
       }
       async function pushFirebaseSnapshot() {
         const ref = getFirebaseSnapshotRef();
@@ -5890,6 +5926,23 @@ out center tags;`;
       function isPermissionDeniedError(error) {
         const code = String(error?.code || error?.message || '').toLowerCase();
         return code.includes('permission_denied') || code.includes('permission denied');
+      }
+      async function tryAutoConnectFirebaseCloud() {
+        if (firebaseCloudAutoConnectInProgress) return false;
+        const cache = getFirebaseCloudAuthCache();
+        if (!cache.remember || !cache.email || !cache.password) return false;
+        firebaseCloudAutoConnectInProgress = true;
+        try {
+          if (id('fbEmailInput') && !id('fbEmailInput').value) id('fbEmailInput').value = cache.email;
+          await connectFirebaseCloud({ silent:true });
+          showBackupMsg('Cloud Firebase riconnesso automaticamente.', 'ok');
+          return true;
+        } catch (error) {
+          console.warn('Auto-connessione cloud non riuscita:', error);
+          return false;
+        } finally {
+          firebaseCloudAutoConnectInProgress = false;
+        }
       }
       async function pullFirebaseSnapshotFromUI() {
         try {
@@ -6727,6 +6780,34 @@ out center tags;`;
         }
         return sharedAppDbRef;
       }
+      async function ensureSharedAppFirestoreDocRef() {
+        const auth = await ensureMainAuthReady();
+        if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
+        const db = window.firebase.firestore(auth.app);
+        return db.collection(SHARED_APP_FIRESTORE_COLLECTION).doc(SHARED_APP_FIRESTORE_DOC);
+      }
+      function applyIncomingSharedPayloadEnvelope(data = {}, source = 'unknown') {
+        const payload = data?.payload;
+        const updatedAt = String(data?.updated_at || '');
+        const updatedBy = String(data?.updated_by || '');
+        const myIdentity = String(currentAuthUser?.email || currentAuthUser?.uid || '');
+        if (!payload || typeof payload !== 'object') return false;
+        if (updatedAt && updatedAt === sharedAppLastAppliedAt) return false;
+        if (updatedAt && sharedAppLastAppliedAt && updatedAt < sharedAppLastAppliedAt) return false;
+        if (updatedAt && updatedBy && myIdentity && updatedBy === myIdentity && updatedAt === sharedAppLastPushedAt) {
+          sharedAppLastAppliedAt = updatedAt;
+          sharedAppReady = true;
+          return false;
+        }
+        applySharedAppPayload(payload);
+        sharedAppLastAppliedAt = updatedAt || new Date().toISOString();
+        sharedAppReady = true;
+        if (sharedAppPendingPush) {
+          sharedAppPendingPush = false;
+          scheduleSharedAppPush(`pending-local-changes:${source}`);
+        }
+        return true;
+      }
       function stopSharedAppSync() {
         sharedAppReady = false;
         sharedAppPendingPush = false;
@@ -6739,18 +6820,37 @@ out center tags;`;
           try { sharedAppUnsubscribe(); } catch (_) {}
           sharedAppUnsubscribe = null;
         }
+        if (sharedAppFirestoreUnsubscribe) {
+          try { sharedAppFirestoreUnsubscribe(); } catch (_) {}
+          sharedAppFirestoreUnsubscribe = null;
+        }
       }
       async function pushSharedAppPayload(reason = 'manual') {
         if (!currentAuthUser) return;
         try {
-          const ref = await ensureSharedAppDbRef();
           const pushedAt = new Date().toISOString();
-          await ref.set({
+          const envelope = {
             updated_at: pushedAt,
             updated_by: currentAuthUser.email || currentAuthUser.uid || '',
             reason,
             payload: buildSharedAppPayload()
-          });
+          };
+          let pushed = false;
+          try {
+            const ref = await ensureSharedAppDbRef();
+            await ref.set(envelope);
+            pushed = true;
+          } catch (rtdbError) {
+            console.warn('Sync condivisa RTDB push fallita, provo Firestore fallback:', rtdbError);
+          }
+          try {
+            const docRef = await ensureSharedAppFirestoreDocRef();
+            await docRef.set(envelope, { merge: true });
+            pushed = true;
+          } catch (firestoreError) {
+            console.warn('Sync condivisa Firestore fallback push fallita:', firestoreError);
+          }
+          if (!pushed) throw new Error('Nessun canale di sincronizzazione condivisa disponibile (RTDB/Firestore).');
           sharedAppLastPushedAt = pushedAt;
           sharedAppPendingPush = false;
         } catch (error) {
@@ -6766,15 +6866,24 @@ out center tags;`;
         if (!currentAuthUser || sharedAppPullInProgress) return false;
         sharedAppPullInProgress = true;
         try {
-          const ref = await ensureSharedAppDbRef();
-          const snap = await ref.get();
-          const data = snap?.val?.() || null;
-          const payload = data?.payload;
-          if (!payload || typeof payload !== 'object') return false;
-          applySharedAppPayload(payload);
-          sharedAppLastAppliedAt = String(data?.updated_at || new Date().toISOString());
-          sharedAppReady = true;
-          return true;
+          let applied = false;
+          try {
+            const ref = await ensureSharedAppDbRef();
+            const snap = await ref.get();
+            const data = snap?.val?.() || null;
+            applied = applyIncomingSharedPayloadEnvelope(data, `pull-rtdb:${reason}`) || applied;
+          } catch (rtdbError) {
+            console.warn(`Pull snapshot RTDB fallita (${reason}):`, rtdbError);
+          }
+          try {
+            const docRef = await ensureSharedAppFirestoreDocRef();
+            const doc = await docRef.get();
+            const data = doc?.data?.() || null;
+            applied = applyIncomingSharedPayloadEnvelope(data, `pull-firestore:${reason}`) || applied;
+          } catch (firestoreError) {
+            console.warn(`Pull snapshot Firestore fallback fallita (${reason}):`, firestoreError);
+          }
+          return applied;
         } catch (error) {
           console.warn(`Pull snapshot condivisa fallita (${reason}):`, error);
           return false;
@@ -6785,43 +6894,36 @@ out center tags;`;
       async function startSharedAppSync() {
         if (!currentAuthUser) return;
         try {
-          const ref = await ensureSharedAppDbRef();
           stopSharedAppSync();
           sharedAppReady = false;
-          const handler = (snapshot) => {
-            const data = snapshot?.val?.() || null;
-            const payload = data?.payload;
-            const updatedAt = String(data?.updated_at || '');
-            const updatedBy = String(data?.updated_by || '');
-            const myIdentity = String(currentAuthUser?.email || currentAuthUser?.uid || '');
-            if (!payload || typeof payload !== 'object') {
-              sharedAppReady = true;
-              scheduleSharedAppPush('bootstrap-empty');
-              return;
-            }
-            if (updatedAt && updatedAt === sharedAppLastAppliedAt) {
-              sharedAppReady = true;
-              return;
-            }
-            if (updatedAt && sharedAppLastAppliedAt && updatedAt < sharedAppLastAppliedAt) {
-              sharedAppReady = true;
-              return;
-            }
-            if (updatedAt && updatedBy && myIdentity && updatedBy === myIdentity && updatedAt === sharedAppLastPushedAt) {
-              sharedAppLastAppliedAt = updatedAt;
-              sharedAppReady = true;
-              return;
-            }
-            applySharedAppPayload(payload);
-            sharedAppLastAppliedAt = updatedAt || new Date().toISOString();
-            sharedAppReady = true;
-            if (sharedAppPendingPush) {
-              sharedAppPendingPush = false;
-              scheduleSharedAppPush('pending-local-changes');
-            }
-          };
-          ref.on('value', handler);
-          sharedAppUnsubscribe = ()=>ref.off('value', handler);
+          try {
+            const ref = await ensureSharedAppDbRef();
+            const handler = (snapshot) => {
+              const data = snapshot?.val?.() || null;
+              if (!data?.payload) {
+                sharedAppReady = true;
+                scheduleSharedAppPush('bootstrap-empty-rtdb');
+                return;
+              }
+              applyIncomingSharedPayloadEnvelope(data, 'live-rtdb');
+            };
+            ref.on('value', handler);
+            sharedAppUnsubscribe = ()=>ref.off('value', handler);
+          } catch (rtdbError) {
+            console.warn('Listener RTDB non disponibile, provo fallback Firestore:', rtdbError);
+          }
+          try {
+            const docRef = await ensureSharedAppFirestoreDocRef();
+            sharedAppFirestoreUnsubscribe = docRef.onSnapshot((docSnap)=>{
+              const data = docSnap?.data?.() || null;
+              if (!data?.payload) return;
+              applyIncomingSharedPayloadEnvelope(data, 'live-firestore');
+            }, (error)=>{
+              console.warn('Listener Firestore fallback non disponibile:', error);
+            });
+          } catch (firestoreError) {
+            console.warn('Sync condivisa Firestore fallback non disponibile:', firestoreError);
+          }
           pullSharedAppPayloadOnce('start-sync');
         } catch (error) {
           console.warn('Sync condivisa non disponibile:', error);
@@ -7066,7 +7168,10 @@ out center tags;`;
             ensureFirebaseCloudReady().then(()=>{
               firebaseCloudAuth.onAuthStateChanged((user)=>{
               if (!user) {
+                setFirebaseSyncState({ connected:false, uid:'', liveSync:false });
+                updateFirebaseSyncStatusUI();
                 stopMezziRealtimeSubscription();
+                tryAutoConnectFirebaseCloud().catch(()=>{});
                 return;
               }
               setFirebaseSyncState({ connected:true, uid:user.uid || '', email:user.email || getFirebaseSyncState().email || '', liveSync:true });
@@ -7205,6 +7310,11 @@ out center tags;`;
         });
         if (id('pushFirebaseSyncBtn')) id('pushFirebaseSyncBtn').addEventListener('click', pushFirebaseSnapshotFromUI);
         if (id('pullFirebaseSyncBtn')) id('pullFirebaseSyncBtn').addEventListener('click', pullFirebaseSnapshotFromUI);
+        if (id('rememberCloudPasswordInput')) id('rememberCloudPasswordInput').addEventListener('change', ()=>{
+          const remember = Boolean(id('rememberCloudPasswordInput')?.checked);
+          const cache = getFirebaseCloudAuthCache();
+          setFirebaseCloudAuthCache({ ...cache, remember, password: remember ? cache.password : '' });
+        });
         if (id('toggleFirebaseLiveSyncBtn')) id('toggleFirebaseLiveSyncBtn').addEventListener('click', toggleFirebaseLiveSync);
         if (id('installAppBtn')) id('installAppBtn').addEventListener('click', installPwaApp);
         if (id('addTeamCommessaRowBtn')) id('addTeamCommessaRowBtn').addEventListener('click', ()=>addTeamCommessaRow());
