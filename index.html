@@ -2077,6 +2077,9 @@ out center tags;`;
         const operatorName = getOperatorDisplayName();
         const stamp = new Date().toISOString();
         const current = cantieri[i];
+        if (markDone && current.done_at) {
+          return { stamp: current.done_at, operatorName: current.done_by || operatorName, cantiere: current, commessa: commesse[cIdx], markDone:true };
+        }
         if (!markDone && currentUserRole !== 'CAPOSQUADRA') {
           showLavoroMsg('Solo il caposquadra può modificare uno stato già segnato come FATTO.', 'err');
           return null;
@@ -2192,7 +2195,7 @@ out center tags;`;
         wrap.innerHTML = cantieri.map((c)=>{
           const doneAt = c.done_at ? new Date(c.done_at) : null;
           const isExpanded = selectedLavoroCantiereExpandedId === c.id;
-          const canEditDoneState = !c.done_at || currentUserRole === 'CAPOSQUADRA';
+          const canResetDoneState = c.done_at && currentUserRole === 'CAPOSQUADRA';
           const distanceText = Number.isFinite(c._distanceMeters) ? `${(c._distanceMeters / 1000).toFixed(2)} km` : 'distanza non disponibile';
           return `<li class="operator-cantiere-item">
             <button type="button" class="impianto-row-btn btn-small" data-lavoro-expand="${escapeHtml(c.id)}">Impianto ${escapeHtml(c.name || c.code || '-')}${c.done_at ? ' ✅' : ' 🟡'}</button>
@@ -2208,10 +2211,11 @@ out center tags;`;
               </div>
               <div class="inline-actions" style="margin-top:8px;">
                 <button type="button" class="secondary btn-small" data-lavoro-nav="${escapeHtml(c.id)}">Naviga</button>
-                <button type="button" class="btn-small" data-lavoro-fatto="${escapeHtml(c.id)}" ${canEditDoneState ? '' : 'disabled'}>${c.done_at ? 'Annulla fatto' : 'Fatto'}</button>
+                <button type="button" class="btn-small" data-lavoro-fatto="${escapeHtml(c.id)}" ${c.done_at ? 'disabled' : ''}>${c.done_at ? 'Fatto ✅' : 'Fatto'}</button>
+                ${canResetDoneState ? `<button type="button" class="secondary btn-small" data-lavoro-reset="${escapeHtml(c.id)}">Reset stato</button>` : ''}
                 <button type="button" class="secondary btn-small" data-lavoro-wa="${escapeHtml(c.id)}">Whazzupa</button>
               </div>
-              ${(!canEditDoneState) ? '<p class="small">Stato bloccato: solo il caposquadra può modificarlo dopo il FATTO.</p>' : ''}
+              ${(c.done_at && !canResetDoneState) ? '<p class="small">Stato bloccato: solo il caposquadra può eseguire il reset.</p>' : ''}
             ` : ''}
           </li>`;
         }).join('');
@@ -2232,10 +2236,17 @@ out center tags;`;
         wrap.querySelectorAll('[data-lavoro-fatto]').forEach((btn)=>btn.addEventListener('click', ()=>{
           const cantiere = cantieri.find((c)=>c.id === (btn.dataset.lavoroFatto || ''));
           if (!cantiere) return;
-          const saved = saveCantiereFatto(commessa.id, cantiere.id, !cantiere.done_at);
+          const saved = saveCantiereFatto(commessa.id, cantiere.id, true);
           if (!saved) return;
-          if (saved.markDone) showLavoroMsg(`Fatto registrato: ${saved.cantiere.name || '-'} alle ${new Date(saved.stamp).toLocaleString('it-IT')} (${saved.operatorName}).`, 'ok');
-          else showLavoroMsg(`Stato FATTO annullato da ${saved.operatorName}.`, 'ok');
+          showLavoroMsg(`Fatto registrato: ${saved.cantiere.name || '-'} alle ${new Date(saved.stamp).toLocaleString('it-IT')} (${saved.operatorName}).`, 'ok');
+          renderLavoroCommesseUI();
+        }));
+        wrap.querySelectorAll('[data-lavoro-reset]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const cantiere = cantieri.find((c)=>c.id === (btn.dataset.lavoroReset || ''));
+          if (!cantiere) return;
+          const saved = saveCantiereFatto(commessa.id, cantiere.id, false);
+          if (!saved) return;
+          showLavoroMsg(`Reset stato completato da ${saved.operatorName}.`, 'ok');
           renderLavoroCommesseUI();
         }));
         wrap.querySelectorAll('[data-lavoro-wa]').forEach((btn)=>btn.addEventListener('click', ()=>{
@@ -6574,6 +6585,10 @@ out center tags;`;
               return;
             }
             if (updatedAt && updatedAt === sharedAppLastAppliedAt) {
+              sharedAppReady = true;
+              return;
+            }
+            if (updatedAt && sharedAppLastAppliedAt && updatedAt < sharedAppLastAppliedAt) {
               sharedAppReady = true;
               return;
             }
