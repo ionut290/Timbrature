@@ -188,6 +188,14 @@
       .work-badge { display:inline-block; margin:0 0 6px; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
       .work-badge.ordinary { background:#dcfce7; color:#166534; border:1px solid #86efac; }
       .work-badge.extraordinary { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+      .lavoro-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+      .lavoro-tab-btn { background:#e2e8f0; color:#0f172a; border:1px solid #cbd5e1; }
+      .lavoro-tab-btn.active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
+      .operator-cantiere-item { border:1px solid #dbeafe; border-radius:10px; background:#fff; padding:10px; }
+      .operator-cantiere-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+      .impianto-row-btn { width:100%; text-align:left; background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; font-weight:700; }
+      .impianto-pill { border-radius:999px; font-size:18px; line-height:1; padding:6px 8px; background:#e2e8f0; }
+      .impianto-pill.done { background:#dcfce7; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
       @media (max-width: 768px) {
@@ -208,6 +216,9 @@
         <h2>Accesso all'app</h2>
         <p class="small">Per usare Timbrature devi registrarti oppure fare login con email e password. Dopo l'accesso puoi attivare impronta/Face ID su questo dispositivo.</p>
         <div class="grid">
+          <label>Nome e cognome (obbligatorio in registrazione)
+            <input type="text" id="authFullNameInput" placeholder="Mario Rossi" />
+          </label>
           <label>Email
             <input type="email" id="authEmailInput" placeholder="utente@email.com" />
           </label>
@@ -252,17 +263,41 @@
 
         <div class="card hidden" id="lavoroCard">
           <h2>Piattaforma lavoro</h2>
-          <p class="small">Apri la piattaforma lavoro direttamente da qui.</p>
-          <div class="inline-actions">
-            <button type="button" onclick="window.open('https://www.appsheet.com/start/a33fc9cd-0a18-4aa8-b70a-c067c0c6c278?platform=desktop#appName=PROVA3-1001666296&vss=H4sIAAAAAAAAA6XOsQ7CIBgE4He5mSdgNR2MQYcaF-mA5W9CbKEpVG0I7y6YGmd15Mh3_0XcDN3roNor-Dl-XjtawBEljstIElxi42yYXC_BJPZqWMODEFVdVxIJqWFvH8iDx-84_-86g9Fkg-kMTaWryNyxuvxdVAlWg8QwzEFdenoNzialnHWunT3pU57ywwS_tdVjVFYLp3Nlp3pP6QkF7HtrZQEAAA==&view=COMMESSE', '_blank', 'noopener,noreferrer')">Apri piattaforma lavoro</button>
+          <p class="small">Dentro la voce Lavoro trovi la piattaforma esterna e la nuova sezione Commesse operative.</p>
+          <div class="lavoro-tabs">
+            <button type="button" class="lavoro-tab-btn active" id="lavoroExternalTabBtn">Piattaforma esterna</button>
+            <button type="button" class="lavoro-tab-btn" id="lavoroCommesseTabBtn">Commesse</button>
           </div>
-          <div class="fuel-map">
-            <iframe
-              title="Piattaforma lavoro"
-              src="https://www.appsheet.com/start/a33fc9cd-0a18-4aa8-b70a-c067c0c6c278?platform=desktop#appName=PROVA3-1001666296&vss=H4sIAAAAAAAAA6XOsQ7CIBgE4He5mSdgNR2MQYcaF-mA5W9CbKEpVG0I7y6YGmd15Mh3_0XcDN3roNor-Dl-XjtawBEljstIElxi42yYXC_BJPZqWMODEFVdVxIJqWFvH8iDx-84_-86g9Fkg-kMTaWryNyxuvxdVAlWg8QwzEFdenoNzialnHWunT3pU57ywwS_tdVjVFYLp3Nlp3pP6QkF7HtrZQEAAA==&view=COMMESSE"
-              style="width:100%;height:100%;border:0;"
-              loading="lazy"
-              referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          <div id="lavoroExternalView">
+            <div class="inline-actions">
+              <button type="button" onclick="window.open('https://www.appsheet.com/start/a33fc9cd-0a18-4aa8-b70a-c067c0c6c278?platform=desktop#appName=PROVA3-1001666296&vss=H4sIAAAAAAAAA6XOsQ7CIBgE4He5mSdgNR2MQYcaF-mA5W9CbKEpVG0I7y6YGmd15Mh3_0XcDN3roNor-Dl-XjtawBEljstIElxi42yYXC_BJPZqWMODEFVdVxIJqWFvH8iDx-84_-86g9Fkg-kMTaWryNyxuvxdVAlWg8QwzEFdenoNzialnHWunT3pU57ywwS_tdVjVFYLp3Nlp3pP6QkF7HtrZQEAAA==&view=COMMESSE', '_blank', 'noopener,noreferrer')">Apri piattaforma lavoro</button>
+            </div>
+            <div class="fuel-map">
+              <iframe
+                title="Piattaforma lavoro"
+                src="https://www.appsheet.com/start/a33fc9cd-0a18-4aa8-b70a-c067c0c6c278?platform=desktop#appName=PROVA3-1001666296&vss=H4sIAAAAAAAAA6XOsQ7CIBgE4He5mSdgNR2MQYcaF-mA5W9CbKEpVG0I7y6YGmd15Mh3_0XcDN3roNor-Dl-XjtawBEljstIElxi42yYXC_BJPZqWMODEFVdVxIJqWFvH8iDx-84_-86g9Fkg-kMTaWryNyxuvxdVAlWg8QwzEFdenoNzialnHWunT3pU57ywwS_tdVjVFYLp3Nlp3pP6QkF7HtrZQEAAA==&view=COMMESSE"
+                style="width:100%;height:100%;border:0;"
+                loading="lazy"
+                referrerpolicy="strict-origin-when-cross-origin"></iframe>
+            </div>
+          </div>
+          <div id="lavoroCommesseView" class="hidden">
+            <div class="setup-box">
+              <h3 style="margin:0 0 8px;">Mappa impianti commessa</h3>
+              <div id="lavoroCantieriMap" class="fuel-map" style="min-height:280px;"></div>
+            </div>
+            <div class="grid">
+              <label>Seleziona commessa
+                <select id="lavoroCommessaSelect"><option value="">Seleziona commessa</option></select>
+              </label>
+              <label>Telefono cliente (per WhatsApp)
+                <input type="text" id="lavoroClientePhone" placeholder="Es. 393331112233" />
+              </label>
+            </div>
+            <p class="small">Elenco impianti commessa.</p>
+            <ul id="lavoroCantieriList" class="cantiere-list"></ul>
+            <p id="lavoroCantieriEmpty" class="small">Nessun cantiere disponibile per questa commessa.</p>
+            <p id="lavoroEsito" class="msg"></p>
           </div>
         </div>
 
@@ -1242,6 +1277,8 @@
       let googleTokenClient = null;
       let selectedCommessaId = '';
       let selectedCantiereId = '';
+      let selectedLavoroCommessaId = '';
+      let selectedLavoroCantiereExpandedId = '';
       let selectedDataHubCommessaId = '';
       let selectedDataHubCategory = 'vehicles';
       let journalPendingPhotos = [];
@@ -1250,6 +1287,9 @@
       let fuelMarkersLayer = null;
       let dataHubCantieriMap = null;
       let dataHubCantieriLayer = null;
+      let lavoroCantieriMap = null;
+      let lavoroCantieriLayer = null;
+      let lavoroOperatorCoords = null;
       let firebaseCloudApp = null;
       let firebaseCloudAuth = null;
       let firebaseCloudDb = null;
@@ -1292,6 +1332,7 @@
       const showProgramMsg = (m, t='ok') => { id('programEsito').className = `msg ${t}`; id('programEsito').textContent = m; };
       const showProfileMsg = (m, t='ok') => { id('profileEsito').className = `msg ${t}`; id('profileEsito').textContent = m; };
       const showTeamMsg = (m, t='ok') => { id('teamEsito').className = `msg ${t}`; id('teamEsito').textContent = m; };
+      const showLavoroMsg = (m, t='ok') => { if (!id('lavoroEsito')) return; id('lavoroEsito').className = `msg ${t}`; id('lavoroEsito').textContent = m; };
       const showBackupMsg = (m, t='ok') => { id('backupEsito').className = `msg ${t}`; id('backupEsito').textContent = m; };
       const showGiornaleMsg = (m, t='ok') => { id('giornaleEsito').className = `msg ${t}`; id('giornaleEsito').textContent = m; };
       const showPreventivoMsg = (m, t='ok') => { id('preventivoEsito').className = `msg ${t}`; id('preventivoEsito').textContent = m; };
@@ -2006,6 +2047,204 @@ out center tags;`;
         const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}&travelmode=driving`;
         window.open(url, '_blank', 'noopener,noreferrer');
       }
+      function setLavoroTab(view = 'external') {
+        const isCommesse = view === 'commesse';
+        if (id('lavoroExternalTabBtn')) id('lavoroExternalTabBtn').classList.toggle('active', !isCommesse);
+        if (id('lavoroCommesseTabBtn')) id('lavoroCommesseTabBtn').classList.toggle('active', isCommesse);
+        if (id('lavoroExternalView')) id('lavoroExternalView').classList.toggle('hidden', isCommesse);
+        if (id('lavoroCommesseView')) id('lavoroCommesseView').classList.toggle('hidden', !isCommesse);
+        if (isCommesse) renderLavoroCommesseUI();
+      }
+      function getOperatorDisplayName() {
+        const profileName = String(getProfile()?.nome || '').trim();
+        if (profileName) return profileName;
+        return currentAuthUser?.email || 'Operatore';
+      }
+      function saveCantiereFatto(commessaId = '', cantiereId = '', markDone = true) {
+        const commesse = getCommesse();
+        const cIdx = commesse.findIndex((row)=>row.id === commessaId);
+        if (cIdx < 0) return null;
+        const cantieri = Array.isArray(commesse[cIdx].cantieri) ? [...commesse[cIdx].cantieri] : [];
+        const i = cantieri.findIndex((row)=>row.id === cantiereId);
+        if (i < 0) return null;
+        const operatorName = getOperatorDisplayName();
+        const stamp = new Date().toISOString();
+        const current = cantieri[i];
+        if (!markDone && currentUserRole !== 'CAPOSQUADRA') {
+          showLavoroMsg('Solo il caposquadra può modificare uno stato già segnato come FATTO.', 'err');
+          return null;
+        }
+        cantieri[i] = normalizeCantiere({
+          ...current,
+          done_at: markDone ? stamp : '',
+          done_by: markDone ? operatorName : '',
+          updated_at: stamp
+        });
+        commesse[cIdx] = { ...commesse[cIdx], cantieri, updated_at: stamp };
+        setCommesse(commesse);
+        return { stamp, operatorName, cantiere: cantieri[i], commessa: commesse[cIdx], markDone };
+      }
+      function sendCantiereWhatsapp(commessa = {}, cantiere = {}) {
+        const phoneRaw = String(id('lavoroClientePhone')?.value || '').replace(/\D+/g, '');
+        const doneAt = cantiere?.done_at ? new Date(cantiere.done_at) : new Date();
+        const operatorName = String(cantiere?.done_by || getOperatorDisplayName()).trim();
+        const dateText = doneAt.toLocaleDateString('it-IT');
+        const timeText = doneAt.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+        const msg = `✅ Intervento effettuato\nID SAP: ${cantiere?.code || '-'}\nNome impianto: ${cantiere?.name || '-'}\nData: ${dateText}\nOra: ${timeText}\nOperatore: ${operatorName}\n📎 Allega foto intervento (graffetta WhatsApp)`;
+        const url = phoneRaw
+          ? `https://wa.me/${phoneRaw}?text=${encodeURIComponent(msg)}`
+          : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      async function renderLavoroCantieriMap(cantieri = []) {
+        const mapEl = id('lavoroCantieriMap');
+        if (!mapEl) return;
+        const valid = (Array.isArray(cantieri) ? cantieri : [])
+          .filter((c)=>Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)));
+        if (!valid.length) {
+          mapEl.innerHTML = '<p class="small" style="padding:10px;">Nessuna coordinata GPS disponibile per questa commessa.</p>';
+          return;
+        }
+        try {
+          await ensureLeafletLoaded();
+          if (!lavoroCantieriMap) mapEl.innerHTML = '';
+          if (!lavoroCantieriMap) {
+            lavoroCantieriMap = window.L.map(mapEl).setView([Number(valid[0].lat), Number(valid[0].lon)], 12);
+            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              maxZoom: 19,
+              attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(lavoroCantieriMap);
+            lavoroCantieriLayer = window.L.layerGroup().addTo(lavoroCantieriMap);
+          } else {
+            lavoroCantieriLayer?.clearLayers();
+            lavoroCantieriMap.invalidateSize();
+          }
+          valid.forEach((c)=>{
+            const done = Boolean(c.done_at);
+            const markerIcon = window.L.divIcon({
+              className: 'cantiere-work-marker',
+              html: `<span style="display:inline-block;width:16px;height:16px;border-radius:999px;background:${done ? '#16a34a' : '#f59e0b'};border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);"></span>`,
+              iconSize: [16, 16],
+              iconAnchor: [8, 8]
+            });
+            const marker = window.L.marker([Number(c.lat), Number(c.lon)], { icon: markerIcon });
+            marker.bindPopup(`<strong>${escapeHtml(c.name || 'Cantiere')}</strong><br>${done ? '✅ Fatto' : '🟡 Da fare'}`);
+            lavoroCantieriLayer.addLayer(marker);
+          });
+          lavoroCantieriMap.fitBounds(valid.map((c)=>[Number(c.lat), Number(c.lon)]), { padding:[18, 18], maxZoom:15 });
+        } catch (error) {
+          console.warn('Errore mappa lavoro commesse:', error);
+          mapEl.innerHTML = '<p class="small" style="padding:10px;">Mappa non disponibile al momento.</p>';
+        }
+      }
+      async function getLavoroOperatorCoords() {
+        if (lavoroOperatorCoords && Number.isFinite(Number(lavoroOperatorCoords.lat)) && Number.isFinite(Number(lavoroOperatorCoords.lon))) return lavoroOperatorCoords;
+        try {
+          const pos = await getCurrentPositionSafe();
+          const { lat, lon } = extractLatLon(pos);
+          lavoroOperatorCoords = { lat, lon };
+          return lavoroOperatorCoords;
+        } catch (_) {
+          return null;
+        }
+      }
+      async function renderLavoroCommesseUI() {
+        const select = id('lavoroCommessaSelect');
+        const wrap = id('lavoroCantieriList');
+        const empty = id('lavoroCantieriEmpty');
+        if (!select || !wrap || !empty) return;
+        const commesse = getCommesse().slice().sort((a,b)=>String(a.nome || '').localeCompare(String(b.nome || '')));
+        const current = selectedLavoroCommessaId || select.value || '';
+        select.innerHTML = `<option value="">Seleziona commessa</option>${commesse.map((c)=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.nome || '-')}</option>`).join('')}`;
+        if (commesse.some((c)=>c.id === current)) {
+          select.value = current;
+          selectedLavoroCommessaId = current;
+        } else {
+          selectedLavoroCommessaId = '';
+        }
+        const commessa = commesse.find((c)=>c.id === selectedLavoroCommessaId);
+        let cantieri = Array.isArray(commessa?.cantieri) ? [...commessa.cantieri] : [];
+        if (!commessa || !cantieri.length) {
+          selectedLavoroCantiereExpandedId = '';
+          wrap.innerHTML = '';
+          empty.classList.remove('hidden');
+          renderLavoroCantieriMap([]);
+          return;
+        }
+        const coords = await getLavoroOperatorCoords();
+        cantieri = cantieri
+          .map((c)=>({
+            ...c,
+            _distanceMeters: (coords && Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)))
+              ? haversineDistanceMeters(coords.lat, coords.lon, Number(c.lat), Number(c.lon))
+              : Number.POSITIVE_INFINITY
+          }))
+          .sort((a,b)=>a._distanceMeters - b._distanceMeters);
+        if (!cantieri.some((c)=>c.id === selectedLavoroCantiereExpandedId)) selectedLavoroCantiereExpandedId = '';
+        empty.classList.add('hidden');
+        wrap.innerHTML = cantieri.map((c)=>{
+          const doneAt = c.done_at ? new Date(c.done_at) : null;
+          const isExpanded = selectedLavoroCantiereExpandedId === c.id;
+          const canEditDoneState = !c.done_at || currentUserRole === 'CAPOSQUADRA';
+          const distanceText = Number.isFinite(c._distanceMeters) ? `${(c._distanceMeters / 1000).toFixed(2)} km` : 'distanza non disponibile';
+          return `<li class="operator-cantiere-item">
+            <button type="button" class="impianto-row-btn btn-small" data-lavoro-expand="${escapeHtml(c.id)}">Impianto ${escapeHtml(c.name || c.code || '-')}${c.done_at ? ' ✅' : ' 🟡'}</button>
+            ${isExpanded ? `
+              <div class="operator-cantiere-head" style="margin-top:8px;">
+                <div>
+                  <h5>ID SAP: ${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || 'Impianto')}</h5>
+                  <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || 'Indirizzo non disponibile')}</p>
+                  <p>Distanza operatore: ${escapeHtml(distanceText)}</p>
+                  <p>${doneAt ? `Ultimo FATTO: ${doneAt.toLocaleString('it-IT')} • ${escapeHtml(c.done_by || '-')}` : 'Non ancora segnato come fatto'}</p>
+                </div>
+                <span class="impianto-pill ${c.done_at ? 'done' : ''}" title="Stato impianto">${c.done_at ? '✅' : '🟡'}</span>
+              </div>
+              <div class="inline-actions" style="margin-top:8px;">
+                <button type="button" class="secondary btn-small" data-lavoro-nav="${escapeHtml(c.id)}">Naviga</button>
+                <button type="button" class="btn-small" data-lavoro-fatto="${escapeHtml(c.id)}" ${canEditDoneState ? '' : 'disabled'}>${c.done_at ? 'Annulla fatto' : 'Fatto'}</button>
+                <button type="button" class="secondary btn-small" data-lavoro-wa="${escapeHtml(c.id)}">Whazzupa</button>
+              </div>
+              ${(!canEditDoneState) ? '<p class="small">Stato bloccato: solo il caposquadra può modificarlo dopo il FATTO.</p>' : ''}
+            ` : ''}
+          </li>`;
+        }).join('');
+        wrap.querySelectorAll('[data-lavoro-expand]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const itemId = btn.dataset.lavoroExpand || '';
+          selectedLavoroCantiereExpandedId = selectedLavoroCantiereExpandedId === itemId ? '' : itemId;
+          renderLavoroCommesseUI();
+        }));
+        wrap.querySelectorAll('[data-lavoro-nav]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const cantiere = cantieri.find((c)=>c.id === btn.dataset.lavoroNav);
+          if (!cantiere) return;
+          if (!Number.isFinite(Number(cantiere.lat)) || !Number.isFinite(Number(cantiere.lon))) {
+            showLavoroMsg('Coordinate GPS mancanti per questo cantiere.', 'err');
+            return;
+          }
+          openGoogleMapsNavigation(Number(cantiere.lat), Number(cantiere.lon));
+        }));
+        wrap.querySelectorAll('[data-lavoro-fatto]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const cantiere = cantieri.find((c)=>c.id === (btn.dataset.lavoroFatto || ''));
+          if (!cantiere) return;
+          const saved = saveCantiereFatto(commessa.id, cantiere.id, !cantiere.done_at);
+          if (!saved) return;
+          if (saved.markDone) showLavoroMsg(`Fatto registrato: ${saved.cantiere.name || '-'} alle ${new Date(saved.stamp).toLocaleString('it-IT')} (${saved.operatorName}).`, 'ok');
+          else showLavoroMsg(`Stato FATTO annullato da ${saved.operatorName}.`, 'ok');
+          renderLavoroCommesseUI();
+        }));
+        wrap.querySelectorAll('[data-lavoro-wa]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const cantiere = cantieri.find((c)=>c.id === btn.dataset.lavoroWa);
+          if (!cantiere) return;
+          if (!cantiere.done_at) {
+            const saved = saveCantiereFatto(commessa.id, cantiere.id);
+            if (saved) showLavoroMsg('Cantiere marcato FATTO prima dell’invio WhatsApp.', 'ok');
+          }
+          const latest = getCommesse().find((row)=>row.id === commessa.id);
+          const refreshed = (latest?.cantieri || []).find((row)=>row.id === cantiere.id) || cantiere;
+          sendCantiereWhatsapp(latest || commessa, refreshed);
+          renderLavoroCommesseUI();
+        }));
+        renderLavoroCantieriMap(cantieri);
+      }
       function renderFuelStationsMap(userLat, userLon, stations=[]) {
         if (!window.L?.map) return;
         const mapEl = id('fuelMap');
@@ -2187,6 +2426,7 @@ out center tags;`;
         id('nome').value = p.nome || '';
         id('azienda').value = p.azienda || '';
         id('email').value = p.email || '';
+        if (id('authFullNameInput')) id('authFullNameInput').value = p.nome || '';
       }
       function renderTeamUI() {
         const draft = getTeamRequestDraft() || {};
@@ -4342,6 +4582,8 @@ out center tags;`;
           country: String(row.country || row.paese || '').trim(),
           lat,
           lon,
+          done_at: row.done_at || '',
+          done_by: String(row.done_by || '').trim(),
           created_at: row.created_at || new Date().toISOString(),
           updated_at: row.updated_at || new Date().toISOString()
         };
@@ -4696,6 +4938,7 @@ out center tags;`;
         `).join('');
         wrap.querySelectorAll('[data-commessa-id]').forEach((el)=>el.addEventListener('click', ()=>openCommessaDetail(el.dataset.commessaId)));
         renderGlobalCommesseSelect();
+        renderLavoroCommesseUI();
       }
       function renderGlobalCommesseSelect() {
         const select = id('globalCommessaSelect');
@@ -4705,6 +4948,7 @@ out center tags;`;
         select.innerHTML = `<option value="">Seleziona commessa</option>${rows.map((c)=>`<option value="${escapeHtml(c.nome || '')}">${escapeHtml(c.nome || '')}${c.impianto ? ` • ${escapeHtml(c.impianto)}` : ''}</option>`).join('')}`;
         if (rows.some((c)=>c.nome === current)) select.value = current;
         renderTeamDirectorySelects();
+        renderLavoroCommesseUI();
       }
       function promptAddCommessa() {
         const nome = (window.prompt('Nome commessa:') || '').trim();
@@ -6225,6 +6469,7 @@ out center tags;`;
         });
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId));
         if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
+        if (panelId === 'lavoroCard') renderLavoroCommesseUI();
         if (panelId === 'giornaleCard') {
           backToCommesse();
           renderCommesseList();
@@ -6348,12 +6593,24 @@ out center tags;`;
         await auth.signInWithEmailAndPassword(email, password);
       }
       async function registerWithEmailPassword() {
+        const fullName = (id('authFullNameInput')?.value || '').trim();
         const email = (id('authEmailInput')?.value || '').trim();
         const password = (id('authPasswordInput')?.value || '').trim();
+        if (!fullName) throw new Error('Inserisci nome e cognome prima di registrarti.');
         if (!email || !password) throw new Error('Inserisci email e password.');
         if (password.length < 6) throw new Error('La password deve avere almeno 6 caratteri.');
         const auth = await ensureMainAuthReady();
-        await auth.createUserWithEmailAndPassword(email, password);
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        const existing = getProfile();
+        setProfile({
+          ...existing,
+          nome: fullName,
+          email: email || existing.email || ''
+        });
+        loadProfileUI();
+        if (cred?.user?.updateProfile) {
+          try { await cred.user.updateProfile({ displayName: fullName }); } catch (_) {}
+        }
       }
       async function logoutCurrentUser() {
         const auth = await ensureMainAuthReady();
@@ -6473,6 +6730,7 @@ out center tags;`;
         }
         renderCommesseList();
         renderGlobalCommesseSelect();
+        renderLavoroCommesseUI();
         initNotificationUI();
         id('googleClientIdInput').value = getGoogleClientId();
         updateBackupStatusUI();
@@ -6544,6 +6802,13 @@ out center tags;`;
         if (id('globalCommessaSelect')) id('globalCommessaSelect').addEventListener('change', ()=>{
           if (id('clockInCantiere') && !id('clockInCantiere').value) id('clockInCantiere').value = id('globalCommessaSelect').value || '';
           if (id('cantiere') && !id('cantiere').value) id('cantiere').value = id('globalCommessaSelect').value || '';
+        });
+        if (id('lavoroExternalTabBtn')) id('lavoroExternalTabBtn').addEventListener('click', ()=>setLavoroTab('external'));
+        if (id('lavoroCommesseTabBtn')) id('lavoroCommesseTabBtn').addEventListener('click', ()=>setLavoroTab('commesse'));
+        if (id('lavoroCommessaSelect')) id('lavoroCommessaSelect').addEventListener('change', ()=>{
+          selectedLavoroCommessaId = id('lavoroCommessaSelect').value || '';
+          selectedLavoroCantiereExpandedId = '';
+          renderLavoroCommesseUI();
         });
         if (id('enableNotificationsBtn')) id('enableNotificationsBtn').addEventListener('click', requestNotificationPermission);
         ['notifyEntryTime','notifyExitTime','notifyIntenseSound'].forEach((fieldId)=>{
