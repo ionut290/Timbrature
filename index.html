@@ -834,6 +834,27 @@
           </div>
           <p id="catalogEsito" class="msg"></p>
           <ul id="catalogVehiclesList" class="catalog-list"></ul>
+          <div id="dataHubCommessaDetail" class="setup-box hidden" style="margin-top:12px;">
+            <div class="inline-actions">
+              <button type="button" class="secondary btn-small" id="closeDataHubCommessaDetailBtn">← Torna alle commesse</button>
+              <button type="button" class="secondary btn-small" id="exportCantieriExcelBtn">Esporta cantieri (Excel)</button>
+            </div>
+            <h3 id="dataHubCommessaTitle" style="margin:8px 0 4px;">Commessa</h3>
+            <p id="dataHubCommessaSubtitle" class="small"></p>
+            <div class="grid">
+              <label>Nome cantiere
+                <input type="text" id="dataHubCantiereName" placeholder="Es. Cantiere Nord" />
+              </label>
+              <label>Note cantiere
+                <textarea id="dataHubCantiereNotes" rows="2" placeholder="Note operative"></textarea>
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button type="button" id="saveDataHubCantiereBtn">Aggiungi cantiere con GPS</button>
+            </div>
+            <ul id="dataHubCantieriList" class="cantiere-list"></ul>
+            <p id="dataHubCantieriEmpty" class="small">Nessun cantiere salvato in questa commessa.</p>
+          </div>
         </div>
 
         <div class="card hidden" id="carburanteCard">
@@ -1937,6 +1958,83 @@ out center tags;`;
         await addCantiereFromGpsForSelectedCommessa(commessaId);
         selectedDataHubCommessaId = commessaId || selectedDataHubCommessaId;
         renderCatalogDataUI();
+        renderDataHubCommessaDetail();
+      }
+      function openDataHubCommessaDetail(commessaId='') {
+        selectedDataHubCommessaId = commessaId || '';
+        const detail = id('dataHubCommessaDetail');
+        if (detail) detail.classList.toggle('hidden', !selectedDataHubCommessaId);
+        renderDataHubCommessaDetail();
+      }
+      function closeDataHubCommessaDetail() {
+        selectedDataHubCommessaId = '';
+        if (id('dataHubCommessaDetail')) id('dataHubCommessaDetail').classList.add('hidden');
+        if (id('dataHubCantiereName')) id('dataHubCantiereName').value = '';
+        if (id('dataHubCantiereNotes')) id('dataHubCantiereNotes').value = '';
+      }
+      function renderDataHubCommessaDetail() {
+        const detail = id('dataHubCommessaDetail');
+        const title = id('dataHubCommessaTitle');
+        const subtitle = id('dataHubCommessaSubtitle');
+        const list = id('dataHubCantieriList');
+        const empty = id('dataHubCantieriEmpty');
+        if (!detail || !title || !subtitle || !list || !empty) return;
+        const commessa = getCommesse().find((c)=>c.id === selectedDataHubCommessaId);
+        if (!commessa) {
+          detail.classList.add('hidden');
+          return;
+        }
+        detail.classList.remove('hidden');
+        title.textContent = `Commessa: ${commessa.nome || '-'}`;
+        const cantieri = Array.isArray(commessa.cantieri) ? commessa.cantieri : [];
+        subtitle.textContent = `Cantieri registrati: ${cantieri.length}`;
+        if (!cantieri.length) {
+          list.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+        list.innerHTML = cantieri.map((c)=>`<li class="cantiere-item"><h5>${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || '-')}</h5><p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || '-')}</p><p>${escapeHtml(c.notes || '-')}</p></li>`).join('');
+      }
+      function exportCantieriDataHubExcel() {
+        const commessa = getCommesse().find((c)=>c.id === selectedDataHubCommessaId);
+        if (!commessa) { showCatalogMsg('Apri prima una commessa.', 'err'); return; }
+        const cantieri = Array.isArray(commessa.cantieri) ? commessa.cantieri : [];
+        if (!cantieri.length) { showCatalogMsg('Nessun cantiere da esportare.', 'err'); return; }
+        const header = ['Codice', 'Nome cantiere', 'Note', 'Indirizzo', 'Comune', 'Provincia', 'CAP', 'Paese', 'Latitudine', 'Longitudine'];
+        const rows = cantieri.map((c)=>[
+          c.code || '',
+          c.name || '',
+          c.notes || '',
+          c.address || '',
+          c.city || '',
+          c.province || '',
+          c.postcode || '',
+          c.country || '',
+          Number.isFinite(Number(c.lat)) ? Number(c.lat).toFixed(6) : '',
+          Number.isFinite(Number(c.lon)) ? Number(c.lon).toFixed(6) : ''
+        ]);
+        const csv = [header, ...rows].map((row)=>row.map((cell)=>`"${String(cell || '').replaceAll('"', '""')}"`).join(';')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `cantieri_${(commessa.nome || 'commessa').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+        showCatalogMsg('Export Excel completato (CSV compatibile).', 'ok');
+      }
+      async function saveCantiereFromDataHubForm() {
+        const commessa = getCommesse().find((c)=>c.id === selectedDataHubCommessaId);
+        if (!commessa) { showCatalogMsg('Apri prima una commessa.', 'err'); return; }
+        const name = String(id('dataHubCantiereName')?.value || '').trim();
+        const notes = String(id('dataHubCantiereNotes')?.value || '').trim();
+        if (!name) { showCatalogMsg('Inserisci il nome cantiere.', 'err'); return; }
+        await addCantiereFromGpsForSelectedCommessa(commessa.id, name, notes);
+        id('dataHubCantiereName').value = '';
+        id('dataHubCantiereNotes').value = '';
+        renderDataHubCommessaDetail();
       }
       function saveCatalogEntry() {
         const category = selectedDataHubCategory || 'vehicles';
@@ -1994,6 +2092,7 @@ out center tags;`;
         id('catalogPrimaryLabel').firstChild.textContent = category === 'vehicles' ? 'Nome mezzo' : (category === 'commesse' ? 'Nome commessa/cantiere' : 'Nome');
         id('catalogPrimaryInput').placeholder = category === 'vehicles' ? 'Es. Daily AB123CD / Escavatore Volvo' : (category === 'equipment' ? 'Es. Motosega Stihl' : (category === 'colleagues' ? 'Es. Mario Rossi' : 'Es. Commessa Bologna Nord'));
         id('catalogSecondaryWrap').classList.toggle('force-hidden', category !== 'vehicles');
+        if (category !== 'commesse' && id('dataHubCommessaDetail')) id('dataHubCommessaDetail').classList.add('hidden');
         const rows = getCatalogRowsByCategory(category);
         if (category === 'vehicles' && rows.length !== (getMasterData().vehicles || []).length) setMasterData({ ...getMasterData(), vehicles: rows });
         const labels = { diesel:'Diesel', octane_95:'Benzina (95)', lpg:'GPL', cng:'Metano (CNG)' };
@@ -2008,6 +2107,7 @@ out center tags;`;
                 <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
                   <p><strong>${escapeHtml(row.nome || '-')}</strong> • ${cantieri.length} cantieri</p>
                   <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button type="button" class="secondary btn-small" onclick="openDataHubCommessaDetail('${escapeHtml(row.id)}')">Apri pagina</button>
                     <button type="button" class="secondary btn-small" onclick="toggleDataHubCommessaCantieri('${escapeHtml(row.id)}')">${isOpen ? 'Nascondi cantieri' : 'Apri cantieri'}</button>
                     <button type="button" class="btn-small" onclick="addCantiereFromDataHub('${escapeHtml(row.id)}')">+ Cantiere GPS</button>
                     <button type="button" class="secondary btn-small" onclick="deleteCatalogEntry('commesse','${safeDeleteName}')">Elimina</button>
@@ -3496,6 +3596,7 @@ out center tags;`;
           code: String(row.code || '').trim(),
           name: String(row.name || row.nome || '').trim(),
           address: String(row.address || row.indirizzo || '').trim(),
+          notes: String(row.notes || row.note || '').trim(),
           city: String(row.city || row.comune || '').trim(),
           province: String(row.province || row.provincia || '').trim(),
           postcode: String(row.postcode || row.cap || '').trim(),
@@ -3626,6 +3727,7 @@ out center tags;`;
         renderCommesseList();
         showGiornaleMsg('Commessa aggiunta.', 'ok');
       }
+      async function addCantiereFromGpsForSelectedCommessa(commessaIdOverride='', nameOverride='', notesOverride='') {
       async function addCantiereFromGpsForSelectedCommessa(commessaIdOverride='') {
         const commesse = getCommesse();
         const selectedGlobalName = String(id('globalCommessaSelect')?.value || '').trim().toLowerCase();
@@ -3638,6 +3740,9 @@ out center tags;`;
         }
         const idx = commesse.findIndex((c)=>c.id === commessaId);
         if (idx < 0) { showGiornaleMsg('Commessa non trovata.', 'err'); return; }
+        const name = String(nameOverride || window.prompt('Nome cantiere:') || '').trim();
+        if (!name) return;
+        const notes = String(notesOverride || '').trim();
         const name = (window.prompt('Nome cantiere:') || '').trim();
         if (!name) return;
         showGiornaleMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
@@ -3674,6 +3779,7 @@ out center tags;`;
             id: `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
             code: generateCantiereCode(cantieri),
             name,
+            notes,
             address: road || '',
             city: geo.city || '',
             province: geo.province || '',
@@ -5240,6 +5346,9 @@ out center tags;`;
         id('finalizePreventivoBtn').addEventListener('click', finalizePreventivo);
         if (id('findFuelStationsBtn')) id('findFuelStationsBtn').addEventListener('click', findNearbyFuelStations);
         if (id('saveCatalogEntryBtn')) id('saveCatalogEntryBtn').addEventListener('click', saveCatalogEntry);
+        if (id('saveDataHubCantiereBtn')) id('saveDataHubCantiereBtn').addEventListener('click', saveCantiereFromDataHubForm);
+        if (id('closeDataHubCommessaDetailBtn')) id('closeDataHubCommessaDetailBtn').addEventListener('click', closeDataHubCommessaDetail);
+        if (id('exportCantieriExcelBtn')) id('exportCantieriExcelBtn').addEventListener('click', exportCantieriDataHubExcel);
         if (id('catalogPrimaryInput')) id('catalogPrimaryInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveCatalogEntry(); } });
         if (id('fuelVehicle')) id('fuelVehicle').addEventListener('change', ()=>applyFuelTypeByVehicleName(id('fuelVehicle').value));
         id('saveGoogleClientIdBtn').addEventListener('click', saveGoogleClientIdFromUI);
