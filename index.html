@@ -1948,16 +1948,26 @@ out center tags;`;
       function openDataHubCategory(category='vehicles') {
         selectedDataHubCategory = DATA_HUB_CATEGORIES.some((cat)=>cat.key === category) ? category : 'vehicles';
         if (selectedDataHubCategory !== 'commesse') selectedDataHubCommessaId = '';
-        renderCatalogDataUI();
+        try {
+          renderCatalogDataUI();
+        } catch (error) {
+          console.error('Errore apertura DataHub categoria:', error);
+          showCatalogMsg('Errore apertura categoria. Ricarica la pagina.', 'err');
+        }
       }
       function toggleDataHubCommessaCantieri(commessaId='') {
         selectedDataHubCommessaId = selectedDataHubCommessaId === commessaId ? '' : commessaId;
-        renderCatalogDataUI();
+        try {
+          renderCatalogDataUI();
+        } catch (error) {
+          console.error('Errore toggle cantieri commessa:', error);
+          showCatalogMsg('Errore apertura cantieri commessa.', 'err');
+        }
       }
       async function addCantiereFromDataHub(commessaId='') {
         await addCantiereFromGpsForSelectedCommessa(commessaId);
         selectedDataHubCommessaId = commessaId || selectedDataHubCommessaId;
-        renderCatalogDataUI();
+        try { renderCatalogDataUI(); } catch (_) {}
         renderDataHubCommessaDetail();
       }
       function openDataHubCommessaDetail(commessaId='') {
@@ -3728,7 +3738,6 @@ out center tags;`;
         showGiornaleMsg('Commessa aggiunta.', 'ok');
       }
       async function addCantiereFromGpsForSelectedCommessa(commessaIdOverride='', nameOverride='', notesOverride='') {
-      async function addCantiereFromGpsForSelectedCommessa(commessaIdOverride='') {
         const commesse = getCommesse();
         const selectedGlobalName = String(id('globalCommessaSelect')?.value || '').trim().toLowerCase();
         const fallbackFromGlobal = commesse.find((c)=>String(c.nome || '').trim().toLowerCase() === selectedGlobalName)?.id || '';
@@ -3743,8 +3752,6 @@ out center tags;`;
         const name = String(nameOverride || window.prompt('Nome cantiere:') || '').trim();
         if (!name) return;
         const notes = String(notesOverride || '').trim();
-        const name = (window.prompt('Nome cantiere:') || '').trim();
-        if (!name) return;
         showGiornaleMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
         showMsg('Lettura GPS e indirizzo automatico in corso...', 'ok');
         try {
@@ -5257,9 +5264,18 @@ out center tags;`;
         id('mese').value = currentMonthValueUTC();
         updateFocusMode();
         loadProfileUI();
-        renderDataHubCategoryButtons();
+        try {
+          renderDataHubCategoryButtons();
+        } catch (error) {
+          console.error('Errore renderDataHubCategoryButtons:', error);
+        }
         renderTeamUI();
-        renderCatalogDataUI();
+        try {
+          renderCatalogDataUI();
+        } catch (error) {
+          console.error('Errore renderCatalogDataUI:', error);
+          showMsg('Alcune funzioni Dati app non sono disponibili. Ricarica la pagina.', 'err');
+        }
         loadTeamDirectoryFromSheet(true);
         updateWelcomeMessage();
         loadTodayPunch();
