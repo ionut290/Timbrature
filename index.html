@@ -166,6 +166,11 @@
       .catalog-cat-btn { background:#e2e8f0; color:#0f172a; border:1px solid #cbd5e1; }
       .catalog-cat-btn.active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
       .catalog-subtitle { margin:8px 0 0; font-size:13px; color:#475569; }
+      .fuel-map { min-height:320px; margin-top:10px; border:1px solid #bfdbfe; border-radius:12px; overflow:hidden; background:#f8fbff; }
+      .fuel-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
+      .fuel-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
+      .fuel-item h4 { margin:0 0 4px; font-size:14px; color:#0f172a; }
+      .fuel-item p { margin:0; font-size:12px; color:#475569; }
       .team-commessa-box { border:1px solid #bfdbfe; border-radius:10px; background:#f8fbff; padding:10px; margin-top:10px; }
       .team-commessa-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
       .team-commessa-head h4 { margin:0; font-size:14px; color:#1e3a8a; }
@@ -1486,32 +1491,37 @@ out center tags;`;
           'https://overpass.kumi.systems/api/interpreter',
           'https://overpass.openstreetmap.fr/api/interpreter'
         ];
+        const fetchWithTimeout = async (url, options={}, timeoutMs=7500)=>{
+          const controller = new AbortController();
+          const timer = setTimeout(()=>controller.abort(), timeoutMs);
+          try {
+            const res = await fetch(url, { ...options, signal: controller.signal });
+            return res;
+          } finally {
+            clearTimeout(timer);
+          }
+        };
+        const fetchEndpointPayload = async (endpoint='')=>{
+          const directRes = await fetchWithTimeout(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: query
+          });
+          if (directRes.ok) return directRes.json();
+          const formRes = await fetchWithTimeout(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body: `data=${encodeURIComponent(query)}`
+          });
+          if (formRes.ok) return formRes.json();
+          throw new Error(`Endpoint Overpass non disponibile (${endpoint})`);
+        };
         let payload = null;
         let lastError = null;
-        for (const endpoint of endpoints) {
-          try {
-            const directRes = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-              body: query
-            });
-            if (directRes.ok) {
-              payload = await directRes.json();
-              break;
-            }
-            const formRes = await fetch(endpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-              body: `data=${encodeURIComponent(query)}`
-            });
-            if (formRes.ok) {
-              payload = await formRes.json();
-              break;
-            }
-            lastError = new Error(`Endpoint Overpass non disponibile (${endpoint})`);
-          } catch (error) {
-            lastError = error;
-          }
+        try {
+          payload = await Promise.any(endpoints.map((endpoint)=>fetchEndpointPayload(endpoint)));
+        } catch (error) {
+          lastError = error;
         }
         if (!payload) {
           console.warn('Overpass non disponibile:', lastError);
@@ -1560,16 +1570,22 @@ out center tags;`;
           fuelMap.setView([userLat, userLon], 13);
           fuelMarkersLayer?.clearLayers();
         }
-        const truckIcon = window.L.divIcon({
-          className: 'fuel-user-truck-icon',
-          html: '<div style="background:#1d4ed8;color:#fff;border-radius:999px;min-width:34px;min-height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);">P🚛</div>',
-          iconSize: [34, 34],
-          iconAnchor: [17, 17]
+        const userIcon = window.L.divIcon({
+          className: 'fuel-user-worker-icon',
+          html: '<div style="background:#0f766e;color:#fff;border-radius:999px;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);">👷</div>',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
         });
-        const userMarker = window.L.marker([userLat, userLon], { icon: truckIcon }).bindPopup('La tua posizione (P in camion)');
+        const stationIcon = window.L.divIcon({
+          className: 'fuel-station-icon',
+          html: '<div style="background:#1d4ed8;color:#fff;border-radius:999px;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);">⛽</div>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+        const userMarker = window.L.marker([userLat, userLon], { icon: userIcon }).bindPopup('La tua posizione (operatore)');
         fuelMarkersLayer.addLayer(userMarker);
         stations.forEach((st)=>{
-          const marker = window.L.marker([st.lat, st.lon]);
+          const marker = window.L.marker([st.lat, st.lon], { icon: stationIcon });
           marker.bindPopup(`<strong>${escapeHtml(st.name)}</strong><br>${escapeHtml(st.brand || '')}<br><button type="button" onclick="window.openGoogleMapsNavigation(${st.lat},${st.lon})">Naviga con Google Maps</button>`);
           marker.on('click', ()=>openGoogleMapsNavigation(st.lat, st.lon));
           fuelMarkersLayer.addLayer(marker);
