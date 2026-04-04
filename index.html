@@ -1240,6 +1240,7 @@
       let sharedAppUnsubscribe = null;
       let sharedAppPushTimer = null;
       let applyingSharedAppPayload = false;
+      let sharedAppReady = false;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -6120,6 +6121,7 @@ out center tags;`;
         return sharedAppDbRef;
       }
       function stopSharedAppSync() {
+        sharedAppReady = false;
         if (sharedAppUnsubscribe) {
           try { sharedAppUnsubscribe(); } catch (_) {}
           sharedAppUnsubscribe = null;
@@ -6140,7 +6142,7 @@ out center tags;`;
         }
       }
       function scheduleSharedAppPush(reason = 'auto') {
-        if (!currentAuthUser || applyingSharedAppPayload) return;
+        if (!currentAuthUser || applyingSharedAppPayload || !sharedAppReady) return;
         if (sharedAppPushTimer) clearTimeout(sharedAppPushTimer);
         sharedAppPushTimer = setTimeout(()=>{ pushSharedAppPayload(reason); }, 1000);
       }
@@ -6149,15 +6151,20 @@ out center tags;`;
         try {
           const ref = await ensureSharedAppDbRef();
           stopSharedAppSync();
+          sharedAppReady = false;
           const handler = (snapshot) => {
             const data = snapshot?.val?.() || null;
             const payload = data?.payload;
-            if (!payload || typeof payload !== 'object') return;
+            if (!payload || typeof payload !== 'object') {
+              sharedAppReady = true;
+              scheduleSharedAppPush('bootstrap-empty');
+              return;
+            }
             applySharedAppPayload(payload);
+            sharedAppReady = true;
           };
           ref.on('value', handler);
           sharedAppUnsubscribe = ()=>ref.off('value', handler);
-          scheduleSharedAppPush('auth-connect');
         } catch (error) {
           console.warn('Sync condivisa non disponibile:', error);
         }
