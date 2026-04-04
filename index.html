@@ -1312,6 +1312,7 @@
       let sharedAppPendingPush = false;
       let sharedAppLastAppliedAt = '';
       let sharedAppLastPushedAt = '';
+      let sharedAppPullInProgress = false;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -2166,6 +2167,7 @@ out center tags;`;
         const empty = id('lavoroCantieriEmpty');
         if (!select || !wrap || !empty) return;
         const commesse = getCommesse().slice().sort((a,b)=>String(a.nome || '').localeCompare(String(b.nome || '')));
+        if (!commesse.length && currentAuthUser) pullSharedAppPayloadOnce('lavoro-empty-list').catch(()=>{});
         const current = selectedLavoroCommessaId || select.value || '';
         select.innerHTML = `<option value="">Seleziona commessa</option>${commesse.map((c)=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.nome || '-')}</option>`).join('')}`;
         if (commesse.some((c)=>c.id === current)) {
@@ -6652,6 +6654,7 @@ out center tags;`;
         sharedAppPendingPush = false;
         sharedAppLastAppliedAt = '';
         sharedAppLastPushedAt = '';
+        sharedAppPullInProgress = false;
         if (sharedAppPushTimer) clearTimeout(sharedAppPushTimer);
         sharedAppPushTimer = null;
         if (sharedAppUnsubscribe) {
@@ -6680,6 +6683,26 @@ out center tags;`;
         if (!currentAuthUser || applyingSharedAppPayload || !sharedAppReady) return;
         if (sharedAppPushTimer) clearTimeout(sharedAppPushTimer);
         sharedAppPushTimer = setTimeout(()=>{ pushSharedAppPayload(reason); }, 120);
+      }
+      async function pullSharedAppPayloadOnce(reason = 'manual-pull') {
+        if (!currentAuthUser || sharedAppPullInProgress) return false;
+        sharedAppPullInProgress = true;
+        try {
+          const ref = await ensureSharedAppDbRef();
+          const snap = await ref.get();
+          const data = snap?.val?.() || null;
+          const payload = data?.payload;
+          if (!payload || typeof payload !== 'object') return false;
+          applySharedAppPayload(payload);
+          sharedAppLastAppliedAt = String(data?.updated_at || new Date().toISOString());
+          sharedAppReady = true;
+          return true;
+        } catch (error) {
+          console.warn(`Pull snapshot condivisa fallita (${reason}):`, error);
+          return false;
+        } finally {
+          sharedAppPullInProgress = false;
+        }
       }
       async function startSharedAppSync() {
         if (!currentAuthUser) return;
@@ -6721,6 +6744,7 @@ out center tags;`;
           };
           ref.on('value', handler);
           sharedAppUnsubscribe = ()=>ref.off('value', handler);
+          pullSharedAppPayloadOnce('start-sync');
         } catch (error) {
           console.warn('Sync condivisa non disponibile:', error);
         }
