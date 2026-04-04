@@ -885,6 +885,14 @@
               <label>Firebase Auth Domain<input type="text" id="fbAuthDomainInput" placeholder="progetto.firebaseapp.com" /></label>
               <label>Firebase Project ID<input type="text" id="fbProjectIdInput" placeholder="id-progetto" /></label>
               <label>Firebase App ID<input type="text" id="fbAppIdInput" placeholder="1:...:web:..." /></label>
+              <label>App Check Site Key<input type="text" id="fbAppCheckSiteKeyInput" placeholder="reCAPTCHA site key" /></label>
+              <label>Provider App Check
+                <select id="fbAppCheckProviderInput">
+                  <option value="recaptcha_v3">reCAPTCHA v3</option>
+                  <option value="recaptcha_enterprise">reCAPTCHA Enterprise</option>
+                </select>
+              </label>
+              <label><span>Debug token App Check (solo sviluppo)</span><input type="checkbox" id="fbAppCheckDebugInput" /></label>
             </div>
           </details>
           <div class="inline-actions" style="margin-top:10px;">
@@ -1038,6 +1046,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check-compat.js"></script>
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
       const FESTIVE_BONUS_PERCENT_DEFAULT = 30;
@@ -1079,6 +1088,9 @@
         messagingSenderId: '68842798266',
         appId: '1:68842798266:web:bb0df9bbdfe2d5980f9683',
         measurementId: 'G-8N09DJ0P95',
+        appCheckSiteKey: '6LcCBacsAAAAABKKhV3C92sC-ljyXyxy9wA9J4WO',
+        appCheckProvider: 'recaptcha_v3',
+        appCheckDebugToken: false,
         email: ''
       };
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
@@ -1263,6 +1275,7 @@
       let liveClockTimer = null;
       let autoPunchTimer = null;
       let appAuth = null;
+      let firebaseMainAppCheck = null;
       let currentAuthUser = null;
       let currentUserRole = 'OPERATORE';
       let authReady = false;
@@ -5629,6 +5642,9 @@ out center tags;`;
           messagingSenderId: String(input.messagingSenderId || '').trim(),
           appId: String(input.appId || '').trim(),
           measurementId: String(input.measurementId || '').trim(),
+          appCheckSiteKey: String(input.appCheckSiteKey || '').trim(),
+          appCheckProvider: String(input.appCheckProvider || 'recaptcha_v3').trim().toLowerCase() === 'recaptcha_enterprise' ? 'recaptcha_enterprise' : 'recaptcha_v3',
+          appCheckDebugToken: Boolean(input.appCheckDebugToken),
           email: String(input.email || '').trim()
         };
       }
@@ -5646,6 +5662,9 @@ out center tags;`;
           projectId: readField('fbProjectIdInput', current.projectId || DEFAULT_FIREBASE_WEB_CONFIG.projectId),
           databaseURL: current.databaseURL || DEFAULT_FIREBASE_WEB_CONFIG.databaseURL,
           appId: readField('fbAppIdInput', current.appId || DEFAULT_FIREBASE_WEB_CONFIG.appId),
+          appCheckSiteKey: readField('fbAppCheckSiteKeyInput', current.appCheckSiteKey || ''),
+          appCheckProvider: readField('fbAppCheckProviderInput', current.appCheckProvider || 'recaptcha_v3'),
+          appCheckDebugToken: Boolean(id('fbAppCheckDebugInput')?.checked || false),
           email: readField('fbEmailInput', current.email || ''),
           storageBucket: current.storageBucket || DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
           messagingSenderId: current.messagingSenderId || DEFAULT_FIREBASE_WEB_CONFIG.messagingSenderId,
@@ -5658,6 +5677,9 @@ out center tags;`;
         if (id('fbAuthDomainInput')) id('fbAuthDomainInput').value = cfg.authDomain;
         if (id('fbProjectIdInput')) id('fbProjectIdInput').value = cfg.projectId;
         if (id('fbAppIdInput')) id('fbAppIdInput').value = cfg.appId;
+        if (id('fbAppCheckSiteKeyInput')) id('fbAppCheckSiteKeyInput').value = cfg.appCheckSiteKey || '';
+        if (id('fbAppCheckProviderInput')) id('fbAppCheckProviderInput').value = cfg.appCheckProvider || 'recaptcha_v3';
+        if (id('fbAppCheckDebugInput')) id('fbAppCheckDebugInput').checked = Boolean(cfg.appCheckDebugToken);
         if (id('fbEmailInput')) id('fbEmailInput').value = cfg.email;
       }
       function saveFirebaseConfigFromUI(showMessage=true) {
@@ -6761,15 +6783,55 @@ out center tags;`;
           appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
           databaseURL: DEFAULT_FIREBASE_WEB_CONFIG.databaseURL
         }, appName);
+        const cfg = sanitizeFirebaseConfig(getFirebaseConfigState());
+        if (window.firebase?.appCheck) {
+          try {
+            if (cfg.appCheckDebugToken) window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+            const siteKey = String(cfg.appCheckSiteKey || '').trim();
+            if (siteKey) {
+              firebaseMainAppCheck = window.firebase.appCheck(app);
+              firebaseMainAppCheck.activate(siteKey, true);
+              firebaseMainAppCheck.getToken(true).catch((error)=>{
+                console.warn('[Firebase][AppCheck] Token iniziale non valido:', error?.code || error?.message || error);
+              });
+            } else {
+              console.warn('[Firebase][AppCheck] Site key assente: login/registrazione possono fallire se App Check è obbligatorio in Console.');
+            }
+          } catch (error) {
+            console.error('[Firebase][AppCheck] Inizializzazione fallita:', error);
+          }
+        } else {
+          console.warn('[Firebase][AppCheck] SDK app-check non caricato.');
+        }
         appAuth = window.firebase.auth(app);
         return appAuth;
+      }
+      async function runAuthWithAppCheckRetry(action) {
+        try {
+          return await action();
+        } catch (error) {
+          const code = String(error?.code || error?.message || '');
+          if (!/firebase-app-check-token-is-invalid/i.test(code)) throw error;
+          console.warn('[Firebase][Auth] Token App Check non valido: provo refresh forzato e retry.', error);
+          try {
+            Object.keys(localStorage).forEach((key)=>{
+              if (/appcheck|firebase-app-check/i.test(key)) localStorage.removeItem(key);
+            });
+          } catch (_) {}
+          if (firebaseMainAppCheck?.getToken) {
+            try { await firebaseMainAppCheck.getToken(true); } catch (refreshError) {
+              console.error('[Firebase][AppCheck] Refresh token fallito:', refreshError);
+            }
+          }
+          return action();
+        }
       }
       async function loginWithEmailPassword() {
         const email = (id('authEmailInput')?.value || '').trim();
         const password = (id('authPasswordInput')?.value || '').trim();
         if (!email || !password) throw new Error('Inserisci email e password.');
         const auth = await ensureMainAuthReady();
-        await auth.signInWithEmailAndPassword(email, password);
+        await runAuthWithAppCheckRetry(()=>auth.signInWithEmailAndPassword(email, password));
       }
       async function registerWithEmailPassword() {
         const fullName = (id('authFullNameInput')?.value || '').trim();
@@ -6779,7 +6841,7 @@ out center tags;`;
         if (!email || !password) throw new Error('Inserisci email e password.');
         if (password.length < 6) throw new Error('La password deve avere almeno 6 caratteri.');
         const auth = await ensureMainAuthReady();
-        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        const cred = await runAuthWithAppCheckRetry(()=>auth.createUserWithEmailAndPassword(email, password));
         const existing = getProfile();
         setProfile({
           ...existing,
