@@ -5430,6 +5430,17 @@ out center tags;`;
           await pushFirebaseSnapshot();
           showBackupMsg('Dati locali caricati su Firebase Cloud.', 'ok');
         } catch (error) {
+          const code = String(error?.code || error?.message || '').toLowerCase();
+          if (code.includes('permission_denied') || code.includes('permission denied')) {
+            try {
+              await pushSharedAppPayload('manual-fallback-shared');
+              showBackupMsg('Permesso negato su Cloud personale: dati caricati nello spazio condiviso globale.', 'ok');
+              return;
+            } catch (fallbackError) {
+              showBackupMsg(fallbackError.message || 'Permesso negato anche sullo spazio condiviso.', 'err');
+              return;
+            }
+          }
           showBackupMsg(error.message || 'Errore upload su Firebase Cloud.', 'err');
         }
       }
@@ -5438,6 +5449,22 @@ out center tags;`;
           const done = await pullFirebaseSnapshot(true);
           if (done) showBackupMsg('Dati cloud ripristinati sul dispositivo.', 'ok');
         } catch (error) {
+          const code = String(error?.code || error?.message || '').toLowerCase();
+          if (code.includes('permission_denied') || code.includes('permission denied')) {
+            try {
+              const ref = await ensureSharedAppDbRef();
+              const snap = await ref.get();
+              const remote = snap?.val?.() || null;
+              if (!remote?.payload) throw new Error('Nessun dato condiviso disponibile da scaricare.');
+              if (!window.confirm('Vuoi sovrascrivere i dati locali con quelli condivisi globali?')) return;
+              applySharedAppPayload(remote.payload || {});
+              showBackupMsg('Dati scaricati dallo spazio condiviso globale.', 'ok');
+              return;
+            } catch (fallbackError) {
+              showBackupMsg(fallbackError.message || 'Permesso negato anche sullo spazio condiviso.', 'err');
+              return;
+            }
+          }
           showBackupMsg(error.message || 'Errore download da Firebase Cloud.', 'err');
         }
       }
