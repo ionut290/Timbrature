@@ -159,11 +159,6 @@
       .viewer-overlay { position:fixed; inset:0; z-index:9999; background:rgba(2,6,23,.92); display:flex; align-items:center; justify-content:center; padding:16px; }
       .viewer-overlay img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.45); }
       .viewer-close { position:fixed; top:12px; right:12px; min-height:40px; min-width:40px; border-radius:999px; font-size:18px; background:#ef4444; }
-      .fuel-map { margin-top:10px; height:320px; border:1px solid #cbd5e1; border-radius:10px; overflow:hidden; }
-      .fuel-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
-      .fuel-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
-      .fuel-item h4 { margin:0 0 4px; font-size:14px; color:#0f172a; }
-      .fuel-item p { margin:0; font-size:12px; color:#475569; }
       .catalog-list { list-style:none; margin:10px 0 0; padding:0; display:grid; gap:8px; }
       .catalog-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
       .catalog-item p { margin:0; font-size:13px; color:#0f172a; }
@@ -204,7 +199,6 @@
               <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
               <button type="button" class="menu-link" data-menu-target="prezzarioCard">Prezzario</button>
               <button type="button" class="menu-link" data-menu-target="createPreventivoCard">Crea preventivo</button>
-              <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
               <button type="button" class="menu-link" data-menu-target="dataHubCard">Dati app</button>
               <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
@@ -1086,7 +1080,6 @@
       const showPreventivoMsg = (m, t='ok') => { id('preventivoEsito').className = `msg ${t}`; id('preventivoEsito').textContent = m; };
       const showPrezzarioMsg = (m, t='ok') => { id('prezzarioEsito').className = `msg ${t}`; id('prezzarioEsito').textContent = m; };
       const showPreventiviListMsg = (m, t='ok') => { id('preventiviEsito').className = `msg ${t}`; id('preventiviEsito').textContent = m; };
-      const showFuelMsg = (m, t='ok') => { id('fuelEsito').className = `msg ${t}`; id('fuelEsito').textContent = m; };
       const showCatalogMsg = (m, t='ok') => { id('catalogEsito').className = `msg ${t}`; id('catalogEsito').textContent = m; };
       function getNotificationSettings() {
         return readJSON(NOTIFICATION_SETTINGS_KEY, {
@@ -1402,43 +1395,6 @@
         const displayName = (profile.nome || 'Ionel Varga').trim();
         id('welcomeText').textContent = 'Powered by Ionel Varga';
         id('locationBadge').textContent = `Utente: ${displayName}`;
-      }
-      function fuelTypeToOsmTag(fuelType='diesel') {
-        const map = { diesel:'fuel:diesel', octane_95:'fuel:octane_95', lpg:'fuel:lpg', cng:'fuel:cng' };
-        return map[String(fuelType || 'diesel')] || 'fuel:diesel';
-      }
-      function isPreferredFuelBrand(tags={}) {
-        const brand = String(tags.brand || tags.operator || tags.name || '').toLowerCase();
-        return /(q8|eni|agip)/i.test(brand);
-      }
-      function stationProvidesFuel(tags={}, fuelType='diesel') {
-        const key = fuelTypeToOsmTag(fuelType);
-        const value = String(tags[key] || '').toLowerCase();
-        if (value === 'yes' || value === '1' || value === 'true') return true;
-        if (value === 'no') return false;
-        return fuelType === 'diesel' || fuelType === 'octane_95';
-      }
-      function haversineKm(lat1, lon1, lat2, lon2) {
-        const R = 6371;
-        const toRad = (v)=>v * Math.PI / 180;
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
-        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      }
-      async function ensureLeafletLoaded() {
-        if (window.L?.map) return;
-        await new Promise((resolve, reject)=>{
-          const css = document.createElement('link');
-          css.rel = 'stylesheet';
-          css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-          document.head.appendChild(css);
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-          script.onload = resolve;
-          script.onerror = ()=>reject(new Error('Impossibile caricare mappa Leaflet.'));
-          document.head.appendChild(script);
-        });
       }
       async function getCurrentPositionSafe() {
         if (!navigator.geolocation) throw new Error('Geolocalizzazione non supportata dal dispositivo.');
@@ -1829,7 +1785,19 @@ out center tags;`;
       function normalizeVehicleCatalogRows(rows=[]) {
         const seen = new Set();
         return rows
-          .map((row)=>({ name: String(row?.name || '').trim(), fuel_type: String(row?.fuel_type || 'diesel').trim() || 'diesel' }))
+          .map((row)=>({ name: String(row?.name || '').trim() }))
+          .filter((row)=>row.name)
+          .filter((row)=>{
+            const key = row.name.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+      }
+      function normalizeSimpleCatalogRows(rows=[]) {
+        const seen = new Set();
+        return rows
+          .map((row)=>({ name: String(row?.name || row || '').trim() }))
           .filter((row)=>row.name)
           .filter((row)=>{
             const key = row.name.toLowerCase();
@@ -1905,11 +1873,15 @@ out center tags;`;
         renderCatalogDataUI();
         renderTeamDirectorySelects();
       }
-      function applyFuelTypeByVehicleName(vehicleName='') {
-        const key = String(vehicleName || '').trim().toLowerCase();
-        if (!key) return;
-        const match = (getMasterData().vehicles || []).find((row)=>String(row?.name || '').trim().toLowerCase() === key);
-        if (match?.fuel_type && id('fuelType')) id('fuelType').value = match.fuel_type;
+      function deleteCatalogEntry(category='vehicles', name='') {
+        setCatalogRowsByCategory(category, getCatalogRowsByCategory(category).filter((row)=>String(row?.name || '').toLowerCase() !== String(name || '').toLowerCase()));
+        if (category === 'commesse') {
+          setCommesse(getCommesse().filter((row)=>String(row.nome || '').toLowerCase() !== String(name || '').toLowerCase()));
+          renderCommesseList();
+          renderGlobalCommesseSelect();
+        }
+        renderCatalogDataUI();
+        renderTeamDirectorySelects();
       }
       function renderCatalogDataUI() {
         const category = selectedDataHubCategory || 'vehicles';
@@ -4788,7 +4760,6 @@ out center tags;`;
         menuPanelIds.forEach((name)=>id(name).classList.toggle('hidden', name !== panelId));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId));
         if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
-        if (panelId === 'carburanteCard' && fuelMap) setTimeout(()=>fuelMap.invalidateSize(), 120);
         if (panelId === 'giornaleCard') {
           backToCommesse();
           renderCommesseList();
@@ -5058,7 +5029,6 @@ out center tags;`;
       window.deleteCatalogEntry = deleteCatalogEntry;
       window.openDataHubCategory = openDataHubCategory;
       window.openTeamRequestForDate = openTeamRequestForDate;
-      window.openGoogleMapsNavigation = openGoogleMapsNavigation;
     </script>
   </body>
 </html>
