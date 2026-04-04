@@ -5434,8 +5434,7 @@ out center tags;`;
           await pushFirebaseSnapshot();
           showBackupMsg('Dati locali caricati su Firebase Cloud.', 'ok');
         } catch (error) {
-          const code = String(error?.code || error?.message || '').toLowerCase();
-          if (code.includes('permission_denied') || code.includes('permission denied')) {
+          if (isPermissionDeniedError(error)) {
             try {
               await pushSharedAppPayload('manual-fallback-shared');
               showBackupMsg('Permesso negato su Cloud personale: dati caricati nello spazio condiviso globale.', 'ok');
@@ -5448,13 +5447,16 @@ out center tags;`;
           showBackupMsg(error.message || 'Errore upload su Firebase Cloud.', 'err');
         }
       }
+      function isPermissionDeniedError(error) {
+        const code = String(error?.code || error?.message || '').toLowerCase();
+        return code.includes('permission_denied') || code.includes('permission denied');
+      }
       async function pullFirebaseSnapshotFromUI() {
         try {
           const done = await pullFirebaseSnapshot(true);
           if (done) showBackupMsg('Dati cloud ripristinati sul dispositivo.', 'ok');
         } catch (error) {
-          const code = String(error?.code || error?.message || '').toLowerCase();
-          if (code.includes('permission_denied') || code.includes('permission denied')) {
+          if (isPermissionDeniedError(error)) {
             try {
               const ref = await ensureSharedAppDbRef();
               const snap = await ref.get();
@@ -5480,6 +5482,18 @@ out center tags;`;
         firebaseLivePushTimer = null;
         if (firebaseAutoPushDebounceTimer) clearTimeout(firebaseAutoPushDebounceTimer);
         firebaseAutoPushDebounceTimer = null;
+      }
+      async function handleFirebasePermissionDeniedFallback() {
+        stopFirebaseLiveSync();
+        setFirebaseSyncState({ liveSync:false });
+        updateFirebaseSyncStatusUI();
+        try {
+          const ref = await ensureSharedAppDbRef();
+          const snap = await ref.get();
+          const remote = snap?.val?.() || null;
+          if (remote?.payload) applySharedAppPayload(remote.payload || {});
+        } catch (_) {}
+        showBackupMsg('Permesso negato su Cloud personale: attiva sync dati condivisi globale.', 'err');
       }
       function refreshUIAfterDataRestore() {
         loadProfileUI();
@@ -5512,10 +5526,16 @@ out center tags;`;
           setFirebaseSyncState({ connected:true, lastPullAt:new Date().toISOString() });
           refreshUIAfterDataRestore();
           showBackupMsg('Sincronizzazione live: aggiornati dati da altro dispositivo.', 'ok');
+        }, (error)=>{
+          if (isPermissionDeniedError(error)) {
+            handleFirebasePermissionDeniedFallback().catch(()=>{});
+          }
         });
         firebaseLiveUnsubscribe = ()=>ref.off('value', listener);
-        pushFirebaseSnapshot().catch(()=>{});
-        firebaseLivePushTimer = window.setInterval(()=>pushFirebaseSnapshot().catch(()=>{}), 45000);
+        pushFirebaseSnapshot().catch((error)=>{ if (isPermissionDeniedError(error)) handleFirebasePermissionDeniedFallback().catch(()=>{}); });
+        firebaseLivePushTimer = window.setInterval(()=>{
+          pushFirebaseSnapshot().catch((error)=>{ if (isPermissionDeniedError(error)) handleFirebasePermissionDeniedFallback().catch(()=>{}); });
+        }, 45000);
       }
       function toggleFirebaseLiveSync() {
         const state = getFirebaseSyncState();
