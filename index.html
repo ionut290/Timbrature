@@ -6520,7 +6520,7 @@ out center tags;`;
       }
       function mergeCantieriByUpdatedAt(localRows = [], incomingRows = []) {
         const mergedMap = new Map();
-        const toKey = (row={})=>String(row?.id || row?.code || row?.name || '').trim().toLowerCase();
+        const toKey = (row={})=>String(row?.code || row?.name || row?.id || '').trim().toLowerCase();
         const resolveDoneState = (left = {}, right = {})=>{
           const leftStamp = String(left?.done_state_updated_at || left?.done_at || '');
           const rightStamp = String(right?.done_state_updated_at || right?.done_at || '');
@@ -6586,7 +6586,7 @@ out center tags;`;
       }
       function mergeCommesseByUpdatedAt(localRows = [], incomingRows = []) {
         const mergedMap = new Map();
-        const toKey = (row={})=>String(row?.id || row?.nome || row?.name || '').trim().toLowerCase();
+        const toKey = (row={})=>String(row?.nome || row?.name || row?.id || '').trim().toLowerCase();
         (Array.isArray(localRows) ? localRows : []).forEach((row)=>{
           const key = toKey(row);
           if (!key) return;
