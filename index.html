@@ -1724,7 +1724,14 @@
       function getTeamPrograms() { return readJSON(TEAM_PROGRAMS_KEY, []); }
       function setTeamPrograms(v) { writeJSON(TEAM_PROGRAMS_KEY, v); }
       function getMasterData() { return readJSON(MASTER_DATA_KEY, { vehicles:[], equipment:[], colleagues:[], commesse:[] }); }
-      function setMasterData(v) { writeJSON(MASTER_DATA_KEY, v); }
+      function triggerImmediateSharedBroadcast(reason = 'manual-update') {
+        if (!currentAuthUser || !sharedAppReady) return;
+        pushSharedAppPayload(reason).catch(()=>{});
+      }
+      function setMasterData(v) {
+        writeJSON(MASTER_DATA_KEY, v);
+        triggerImmediateSharedBroadcast('master-data-update');
+      }
       function normalizeMezzoFirestoreRow(row={}) {
         return {
           id: String(row.id || ''),
@@ -4283,7 +4290,10 @@ out center tags;`;
         const raw = readJSON(COMMESSE_KEY, []);
         return (Array.isArray(raw) ? raw : []).map((row)=>normalizeCommessa(row));
       }
-      function setCommesse(rows=[]) { writeJSON(COMMESSE_KEY, (Array.isArray(rows) ? rows : []).map((row)=>normalizeCommessa(row))); }
+      function setCommesse(rows=[]) {
+        writeJSON(COMMESSE_KEY, (Array.isArray(rows) ? rows : []).map((row)=>normalizeCommessa(row)));
+        triggerImmediateSharedBroadcast('commesse-update');
+      }
       function getGiornaleEntries() { return readJSON(GIORNALE_ENTRIES_KEY, []); }
       function setGiornaleEntries(rows=[]) { writeJSON(GIORNALE_ENTRIES_KEY, rows); }
       function generateCantiereCode(cantieri=[]) {
