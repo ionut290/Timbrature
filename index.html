@@ -238,6 +238,7 @@
               <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
               <button type="button" class="menu-link" data-menu-target="dataHubCard">Dati app</button>
               <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
+              <button type="button" class="menu-link" data-menu-target="accessControlCard">Gestione accessi</button>
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
           </aside>
@@ -838,6 +839,24 @@
           <p id="pwaInstallStatusLine" class="status-line status-neutral">Installazione app non disponibile su questo dispositivo/browser.</p>
         </div>
 
+        <div class="card hidden" id="accessControlCard">
+          <h2>Gestione accessi e gruppi utenti</h2>
+          <p class="small">Solo Admin: assegna un ruolo agli utenti e scegli quali sezioni possono vedere i gruppi.</p>
+          <div class="grid">
+            <label>Email utente
+              <input type="email" id="aclUserEmailInput" placeholder="utente@email.com" />
+            </label>
+            <label>Ruolo
+              <select id="aclUserRoleSelect"></select>
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="saveAclUserRoleBtn">Salva ruolo utente</button>
+          </div>
+          <div id="aclRolePermissionsWrap" class="setup-box"></div>
+          <p id="aclEsito" class="msg"></p>
+        </div>
+
         <div class="card hidden" id="dataHubCard">
           <h2>Dati app (anagrafiche)</h2>
           <p class="small">Scegli una categoria (mezzi, attrezzature, colleghi, commesse) e inserisci i dati. L'app usa questo elenco per compilare i campi nei vari moduli.</p>
@@ -964,6 +983,7 @@
       const FIREBASE_SYNC_STATE_KEY = 'timbrature.local.firebase.sync.state';
       const DEVICE_ID_KEY = 'timbrature.local.device.id';
       const BIOMETRIC_CREDENTIAL_KEY = 'timbrature.local.auth.biometric.credential';
+      const ACCESS_CONTROL_KEY = 'timbrature.local.access.control';
       const DEFAULT_FIREBASE_WEB_CONFIG = {
         apiKey: 'AIzaSyDFF7gaDLCGmb-abDRutX_y0vf_MzM449E',
         authDomain: 'timbrature-varga.firebaseapp.com',
@@ -978,7 +998,34 @@
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
-      const menuPanelIds = ['timbratureCard', 'programCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'documentUploadCard', 'prezzarioCard', 'createPreventivoCard', 'carburanteCard', 'dataHubCard', 'backupCard', 'userBox'];
+      const ROLE_DEFS = [
+        { key:'ADMIN', label:'Admin' },
+        { key:'CAPOSQUADRA', label:'Caposquadra' },
+        { key:'OPERATORE', label:'Operatore' },
+        { key:'BACKOFFICE', label:'Backoffice' }
+      ];
+      const MENU_PERMISSION_ITEMS = [
+        { panel:'timbratureCard', label:'Nuova timbratura / giornata' },
+        { panel:'programCard', label:'Impostazioni contratto' },
+        { panel:'teamCard', label:'Caposquadra / squadra' },
+        { panel:'storicoCard', label:'Storico mese' },
+        { panel:'calendarioCard', label:'Calendario' },
+        { panel:'documentiCard', label:'Documenti' },
+        { panel:'prezzarioCard', label:'Prezzario' },
+        { panel:'createPreventivoCard', label:'Crea preventivo' },
+        { panel:'carburanteCard', label:'Carburante' },
+        { panel:'dataHubCard', label:'Dati app' },
+        { panel:'backupCard', label:'Backup Google Drive' },
+        { panel:'userBox', label:'Profilo' },
+        { panel:'accessControlCard', label:'Gestione accessi' }
+      ];
+      const DEFAULT_ROLE_PERMISSIONS = {
+        ADMIN: MENU_PERMISSION_ITEMS.map((item)=>item.panel),
+        CAPOSQUADRA: ['timbratureCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'carburanteCard', 'userBox'],
+        OPERATORE: ['timbratureCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'carburanteCard', 'userBox'],
+        BACKOFFICE: ['storicoCard', 'calendarioCard', 'documentiCard', 'prezzarioCard', 'createPreventivoCard', 'dataHubCard', 'backupCard', 'userBox']
+      };
+      const menuPanelIds = MENU_PERMISSION_ITEMS.map((item)=>item.panel);
       const DATA_HUB_CATEGORIES = [
         { key:'vehicles', label:'Mezzi', hint:'Gestisci i mezzi (da Firestore) con carburante, targa, stato e note.' },
         { key:'equipment', label:'Attrezzature', hint:'Inserisci attrezzature o macchine usate nei lavori.' },
@@ -1118,6 +1165,7 @@
       let autoPunchTimer = null;
       let appAuth = null;
       let currentAuthUser = null;
+      let currentUserRole = 'OPERATORE';
       let authReady = false;
       let appUnlocked = false;
       let notificationTimer = null;
@@ -1177,6 +1225,7 @@
       const showCatalogMsg = (m, t='ok') => { id('catalogEsito').className = `msg ${t}`; id('catalogEsito').textContent = m; };
       const showFuelMsg = (m, t='ok') => { id('fuelEsito').className = `msg ${t}`; id('fuelEsito').textContent = m; };
       const showAuthMsg = (m, t='ok') => { id('authEsito').className = `msg ${t}`; id('authEsito').textContent = m; };
+      const showAclMsg = (m, t='ok') => { if (id('aclEsito')) { id('aclEsito').className = `msg ${t}`; id('aclEsito').textContent = m; } };
       function bytesToBase64(bytes) {
         let binary = '';
         bytes.forEach((b)=>{ binary += String.fromCharCode(b); });
@@ -1219,13 +1268,117 @@
           statusEl.textContent = `Accesso consentito${currentAuthUser?.email ? ` (${currentAuthUser.email})` : ''}.`;
         }
       }
+      function getAccessControlState() {
+        const saved = readJSON(ACCESS_CONTROL_KEY, {});
+        const rolePermissions = { ...DEFAULT_ROLE_PERMISSIONS, ...(saved.rolePermissions || {}) };
+        return {
+          userRolesByEmail: saved.userRolesByEmail || {},
+          rolePermissions
+        };
+      }
+      function setAccessControlState(nextState = {}) {
+        const prev = getAccessControlState();
+        writeJSON(ACCESS_CONTROL_KEY, {
+          userRolesByEmail: { ...(prev.userRolesByEmail || {}), ...(nextState.userRolesByEmail || {}) },
+          rolePermissions: { ...(prev.rolePermissions || {}), ...(nextState.rolePermissions || {}) }
+        });
+      }
+      function getRoleByEmail(email = '') {
+        const cleanEmail = String(email || '').trim().toLowerCase();
+        if (!cleanEmail) return 'OPERATORE';
+        const state = getAccessControlState();
+        return state.userRolesByEmail[cleanEmail] || '';
+      }
+      function ensureRoleForCurrentUser() {
+        if (!currentAuthUser) return 'OPERATORE';
+        const email = String(currentAuthUser.email || '').trim().toLowerCase();
+        const state = getAccessControlState();
+        let role = state.userRolesByEmail[email] || '';
+        if (!role) {
+          const usersCount = Object.keys(state.userRolesByEmail || {}).length;
+          role = usersCount === 0 ? 'ADMIN' : 'OPERATORE';
+          setAccessControlState({ userRolesByEmail: { [email]: role } });
+        }
+        currentUserRole = role;
+        return role;
+      }
+      function getAllowedPanelsForRole(role = 'OPERATORE') {
+        const state = getAccessControlState();
+        const allowed = state.rolePermissions?.[role] || DEFAULT_ROLE_PERMISSIONS[role] || [];
+        return allowed.filter((panelId)=>menuPanelIds.includes(panelId));
+      }
+      function applyRolePermissions() {
+        const allowedPanels = getAllowedPanelsForRole(currentUserRole);
+        document.querySelectorAll('[data-menu-target]').forEach((btn)=>{
+          const panelId = btn.dataset.menuTarget;
+          const visible = allowedPanels.includes(panelId);
+          btn.classList.toggle('force-hidden', !visible);
+        });
+        if (!allowedPanels.includes(activeMenuPanel)) {
+          const fallbackPanel = allowedPanels[0] || 'userBox';
+          setMenuSection(fallbackPanel);
+        }
+        if (id('accessControlCard')) id('accessControlCard').classList.toggle('force-hidden', currentUserRole !== 'ADMIN');
+      }
+      function renderAclRoleSelect() {
+        const select = id('aclUserRoleSelect');
+        if (!select) return;
+        select.innerHTML = ROLE_DEFS.map((role)=>`<option value="${role.key}">${role.label}</option>`).join('');
+      }
+      function renderAclPermissionsEditor() {
+        const wrap = id('aclRolePermissionsWrap');
+        if (!wrap) return;
+        const state = getAccessControlState();
+        wrap.innerHTML = ROLE_DEFS.map((role)=>{
+          const allowed = new Set(state.rolePermissions?.[role.key] || DEFAULT_ROLE_PERMISSIONS[role.key] || []);
+          const checks = MENU_PERMISSION_ITEMS.map((item)=>{
+            const checked = allowed.has(item.panel) ? 'checked' : '';
+            return `<label style="flex-direction:row;align-items:center;gap:6px;font-weight:500;"><input type="checkbox" data-acl-role="${role.key}" data-acl-panel="${item.panel}" ${checked}/> ${item.label}</label>`;
+          }).join('');
+          return `<div class="group-row"><h4 style="margin:0 0 8px;">${role.label}</h4><div class="day-selector">${checks}</div></div>`;
+        }).join('');
+      }
+      function saveAclUserRole() {
+        if (currentUserRole !== 'ADMIN') {
+          showAclMsg('Solo Admin può modificare i ruoli.', 'err');
+          return;
+        }
+        const email = String(id('aclUserEmailInput')?.value || '').trim().toLowerCase();
+        const role = String(id('aclUserRoleSelect')?.value || '').trim();
+        if (!email || !role) {
+          showAclMsg('Inserisci email e ruolo.', 'err');
+          return;
+        }
+        setAccessControlState({ userRolesByEmail: { [email]: role } });
+        if (currentAuthUser && String(currentAuthUser.email || '').trim().toLowerCase() === email) {
+          currentUserRole = role;
+          updateAuthUiState();
+          applyRolePermissions();
+        }
+        showAclMsg(`Ruolo ${role} salvato per ${email}.`, 'ok');
+      }
+      function saveAclRolePermissionsFromUi() {
+        if (currentUserRole !== 'ADMIN') return;
+        const nextPermissions = {};
+        ROLE_DEFS.forEach((role)=>{ nextPermissions[role.key] = []; });
+        document.querySelectorAll('[data-acl-role][data-acl-panel]').forEach((checkbox)=>{
+          if (!(checkbox instanceof HTMLInputElement) || !checkbox.checked) return;
+          const role = checkbox.dataset.aclRole || '';
+          const panel = checkbox.dataset.aclPanel || '';
+          if (!role || !panel || !nextPermissions[role]) return;
+          nextPermissions[role].push(panel);
+        });
+        setAccessControlState({ rolePermissions: nextPermissions });
+        applyRolePermissions();
+        showAclMsg('Permessi gruppi aggiornati.', 'ok');
+      }
       function updateAuthUiState() {
         const hasUser = !!currentAuthUser;
         const biometricBtn = id('authBiometricUnlockBtn');
         const hasBiometric = !!getBiometricCredentialId(currentAuthUser?.uid || '');
         if (biometricBtn) biometricBtn.classList.toggle('hidden', !hasUser || !hasBiometric);
         const userLine = id('authUserLine');
-        if (userLine) userLine.textContent = hasUser ? `Utente autenticato: ${currentAuthUser.email || currentAuthUser.uid}` : 'Non autenticato.';
+        if (userLine) userLine.textContent = hasUser ? `Utente: ${currentAuthUser.email || currentAuthUser.uid} • Ruolo: ${currentUserRole}` : 'Non autenticato.';
       }
       async function unlockWithBiometrics() {
         if (!window.PublicKeyCredential) throw new Error('Biometria non supportata su questo dispositivo/browser.');
@@ -5597,6 +5750,8 @@ out center tags;`;
 
       function setMenuSection(panelId) {
         if (!menuPanelIds.includes(panelId)) return;
+        const allowedPanels = getAllowedPanelsForRole(currentUserRole);
+        if (allowedPanels.length && !allowedPanels.includes(panelId)) return;
         activeMenuPanel = panelId;
         menuPanelIds.forEach((name)=>{
           const panel = id(name);
@@ -5654,11 +5809,15 @@ out center tags;`;
         const auth = await ensureMainAuthReady();
         auth.onAuthStateChanged((user)=>{
           currentAuthUser = user || null;
-          updateAuthUiState();
           if (!user) {
+            currentUserRole = 'OPERATORE';
+            updateAuthUiState();
             setAppLocked(true, 'Effettua login o registrazione per accedere.');
             return;
           }
+          ensureRoleForCurrentUser();
+          updateAuthUiState();
+          applyRolePermissions();
           const hasBiometric = !!getBiometricCredentialId(user.uid || '');
           if (hasBiometric) {
             setAppLocked(true, 'Utente riconosciuto. Sblocca con impronta/Face ID oppure rifai login.');
@@ -5735,6 +5894,8 @@ out center tags;`;
         } catch (error) {
           console.error('Errore renderDataHubCategoryButtons:', error);
         }
+        renderAclRoleSelect();
+        renderAclPermissionsEditor();
         renderTeamUI();
         try {
           renderCatalogDataUI();
@@ -5849,6 +6010,8 @@ out center tags;`;
         id('runDriveBackupBtn').addEventListener('click', runGoogleDriveBackup);
         id('restoreLatestDriveBackupBtn').addEventListener('click', restoreLatestGoogleDriveBackup);
         if (id('saveFirebaseConfigBtn')) id('saveFirebaseConfigBtn').addEventListener('click', saveFirebaseConfigFromUI);
+        if (id('saveAclUserRoleBtn')) id('saveAclUserRoleBtn').addEventListener('click', saveAclUserRole);
+        if (id('aclRolePermissionsWrap')) id('aclRolePermissionsWrap').addEventListener('change', saveAclRolePermissionsFromUi);
         if (id('authLoginBtn')) id('authLoginBtn').addEventListener('click', async ()=>{
           try {
             await loginWithEmailPassword();
