@@ -233,6 +233,7 @@
             <h3>Menu</h3>
             <div class="menu-links">
               <button type="button" class="menu-link active" data-menu-target="timbratureCard">Nuova timbratura / giornata</button>
+              <button type="button" class="menu-link" data-menu-target="lavoroCard">Lavoro</button>
               <button type="button" class="menu-link" data-menu-target="programCard">Impostazioni contratto</button>
               <button type="button" class="menu-link" data-menu-target="teamCard">Caposquadra / squadra</button>
               <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
@@ -247,6 +248,22 @@
               <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
             </div>
           </aside>
+        </div>
+
+        <div class="card hidden" id="lavoroCard">
+          <h2>Piattaforma lavoro</h2>
+          <p class="small">Apri la piattaforma lavoro direttamente da qui.</p>
+          <div class="inline-actions">
+            <button type="button" onclick="window.open('https://www.appsheet.com/start/a33fc9cd-0a18-4aa8-b70a-c067c0c6c278?platform=desktop#appName=PROVA3-1001666296&vss=H4sIAAAAAAAAA6XOsQ7CIBgE4He5mSdgNR2MQYcaF-mA5W9CbKEpVG0I7y6YGmd15Mh3_0XcDN3roNor-Dl-XjtawBEljstIElxi42yYXC_BJPZqWMODEFVdVxIJqWFvH8iDx-84_-86g9Fkg-kMTaWryNyxuvxdVAlWg8QwzEFdenoNzialnHWunT3pU57ywwS_tdVjVFYLp3Nlp3pP6QkF7HtrZQEAAA==&view=COMMESSE', '_blank', 'noopener,noreferrer')">Apri piattaforma lavoro</button>
+          </div>
+          <div class="fuel-map">
+            <iframe
+              title="Piattaforma lavoro"
+              src="https://www.appsheet.com/start/a33fc9cd-0a18-4aa8-b70a-c067c0c6c278?platform=desktop#appName=PROVA3-1001666296&vss=H4sIAAAAAAAAA6XOsQ7CIBgE4He5mSdgNR2MQYcaF-mA5W9CbKEpVG0I7y6YGmd15Mh3_0XcDN3roNor-Dl-XjtawBEljstIElxi42yYXC_BJPZqWMODEFVdVxIJqWFvH8iDx-84_-86g9Fkg-kMTaWryNyxuvxdVAlWg8QwzEFdenoNzialnHWunT3pU57ywwS_tdVjVFYLp3Nlp3pP6QkF7HtrZQEAAA==&view=COMMESSE"
+              style="width:100%;height:100%;border:0;"
+              loading="lazy"
+              referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          </div>
         </div>
 
         <div class="card hidden" id="userBox">
@@ -1015,6 +1032,7 @@
       const DEVICE_ID_KEY = 'timbrature.local.device.id';
       const BIOMETRIC_CREDENTIAL_KEY = 'timbrature.local.auth.biometric.credential';
       const ACCESS_CONTROL_KEY = 'timbrature.local.access.control';
+      const ACCESS_CONTROL_SCHEMA_VERSION = 2;
       const SHARED_APP_SYNC_META_KEY = 'timbrature.shared.app.sync.meta';
       const SHARED_APP_DATA_PATH = 'shared/global_app_data_v1';
       const DEFAULT_FIREBASE_WEB_CONFIG = {
@@ -1039,6 +1057,7 @@
       ];
       const MENU_PERMISSION_ITEMS = [
         { panel:'timbratureCard', label:'Nuova timbratura / giornata' },
+        { panel:'lavoroCard', label:'Lavoro' },
         { panel:'programCard', label:'Impostazioni contratto' },
         { panel:'teamCard', label:'Caposquadra / squadra' },
         { panel:'storicoCard', label:'Storico mese' },
@@ -1054,9 +1073,9 @@
       ];
       const DEFAULT_ROLE_PERMISSIONS = {
         ADMIN: MENU_PERMISSION_ITEMS.map((item)=>item.panel),
-        CAPOSQUADRA: ['timbratureCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'carburanteCard', 'userBox'],
-        OPERATORE: ['timbratureCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'carburanteCard', 'userBox'],
-        BACKOFFICE: ['storicoCard', 'calendarioCard', 'documentiCard', 'prezzarioCard', 'createPreventivoCard', 'dataHubCard', 'backupCard', 'userBox']
+        CAPOSQUADRA: ['timbratureCard', 'lavoroCard', 'teamCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'carburanteCard', 'userBox'],
+        OPERATORE: ['timbratureCard', 'lavoroCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'carburanteCard', 'userBox'],
+        BACKOFFICE: ['lavoroCard', 'storicoCard', 'calendarioCard', 'documentiCard', 'prezzarioCard', 'createPreventivoCard', 'dataHubCard', 'backupCard', 'userBox']
       };
       const SHARED_APP_KEYS = [
         RECORDS_KEY,
@@ -1327,6 +1346,19 @@
       function getAccessControlState() {
         const saved = readJSON(ACCESS_CONTROL_KEY, {});
         const rolePermissions = { ...DEFAULT_ROLE_PERMISSIONS, ...(saved.rolePermissions || {}) };
+        if (Number(saved.schemaVersion || 0) < ACCESS_CONTROL_SCHEMA_VERSION) {
+          ROLE_DEFS.forEach((role)=>{
+            if (!DEFAULT_ROLE_PERMISSIONS[role.key]?.includes('lavoroCard')) return;
+            const allowed = new Set(rolePermissions[role.key] || []);
+            allowed.add('lavoroCard');
+            rolePermissions[role.key] = Array.from(allowed);
+          });
+          writeJSON(ACCESS_CONTROL_KEY, {
+            userRolesByEmail: saved.userRolesByEmail || {},
+            rolePermissions,
+            schemaVersion: ACCESS_CONTROL_SCHEMA_VERSION
+          });
+        }
         return {
           userRolesByEmail: saved.userRolesByEmail || {},
           rolePermissions
@@ -1336,7 +1368,8 @@
         const prev = getAccessControlState();
         writeJSON(ACCESS_CONTROL_KEY, {
           userRolesByEmail: { ...(prev.userRolesByEmail || {}), ...(nextState.userRolesByEmail || {}) },
-          rolePermissions: { ...(prev.rolePermissions || {}), ...(nextState.rolePermissions || {}) }
+          rolePermissions: { ...(prev.rolePermissions || {}), ...(nextState.rolePermissions || {}) },
+          schemaVersion: ACCESS_CONTROL_SCHEMA_VERSION
         });
       }
       function getRoleByEmail(email = '') {
