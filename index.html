@@ -1321,6 +1321,7 @@
       let xlsxLoaderPromise = null;
       let sharedAppDbRef = null;
       let sharedAppUnsubscribe = null;
+      let sharedAppFirestoreUnsubscribe = null;
       let sharedAppPushTimer = null;
       let applyingSharedAppPayload = false;
       let sharedAppReady = false;
@@ -1328,6 +1329,8 @@
       let sharedAppLastAppliedAt = '';
       let sharedAppLastPushedAt = '';
       let sharedAppPullInProgress = false;
+      const SHARED_APP_FIRESTORE_COLLECTION = '_shared';
+      const SHARED_APP_FIRESTORE_DOC = 'global_app_data_v1';
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -6727,6 +6730,34 @@ out center tags;`;
         }
         return sharedAppDbRef;
       }
+      async function ensureSharedAppFirestoreDocRef() {
+        const auth = await ensureMainAuthReady();
+        if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
+        const db = window.firebase.firestore(auth.app);
+        return db.collection(SHARED_APP_FIRESTORE_COLLECTION).doc(SHARED_APP_FIRESTORE_DOC);
+      }
+      function applyIncomingSharedPayloadEnvelope(data = {}, source = 'unknown') {
+        const payload = data?.payload;
+        const updatedAt = String(data?.updated_at || '');
+        const updatedBy = String(data?.updated_by || '');
+        const myIdentity = String(currentAuthUser?.email || currentAuthUser?.uid || '');
+        if (!payload || typeof payload !== 'object') return false;
+        if (updatedAt && updatedAt === sharedAppLastAppliedAt) return false;
+        if (updatedAt && sharedAppLastAppliedAt && updatedAt < sharedAppLastAppliedAt) return false;
+        if (updatedAt && updatedBy && myIdentity && updatedBy === myIdentity && updatedAt === sharedAppLastPushedAt) {
+          sharedAppLastAppliedAt = updatedAt;
+          sharedAppReady = true;
+          return false;
+        }
+        applySharedAppPayload(payload);
+        sharedAppLastAppliedAt = updatedAt || new Date().toISOString();
+        sharedAppReady = true;
+        if (sharedAppPendingPush) {
+          sharedAppPendingPush = false;
+          scheduleSharedAppPush(`pending-local-changes:${source}`);
+        }
+        return true;
+      }
       function stopSharedAppSync() {
         sharedAppReady = false;
         sharedAppPendingPush = false;
@@ -6739,18 +6770,37 @@ out center tags;`;
           try { sharedAppUnsubscribe(); } catch (_) {}
           sharedAppUnsubscribe = null;
         }
+        if (sharedAppFirestoreUnsubscribe) {
+          try { sharedAppFirestoreUnsubscribe(); } catch (_) {}
+          sharedAppFirestoreUnsubscribe = null;
+        }
       }
       async function pushSharedAppPayload(reason = 'manual') {
         if (!currentAuthUser) return;
         try {
-          const ref = await ensureSharedAppDbRef();
           const pushedAt = new Date().toISOString();
-          await ref.set({
+          const envelope = {
             updated_at: pushedAt,
             updated_by: currentAuthUser.email || currentAuthUser.uid || '',
             reason,
             payload: buildSharedAppPayload()
-          });
+          };
+          let pushed = false;
+          try {
+            const ref = await ensureSharedAppDbRef();
+            await ref.set(envelope);
+            pushed = true;
+          } catch (rtdbError) {
+            console.warn('Sync condivisa RTDB push fallita, provo Firestore fallback:', rtdbError);
+          }
+          try {
+            const docRef = await ensureSharedAppFirestoreDocRef();
+            await docRef.set(envelope, { merge: true });
+            pushed = true;
+          } catch (firestoreError) {
+            console.warn('Sync condivisa Firestore fallback push fallita:', firestoreError);
+          }
+          if (!pushed) throw new Error('Nessun canale di sincronizzazione condivisa disponibile (RTDB/Firestore).');
           sharedAppLastPushedAt = pushedAt;
           sharedAppPendingPush = false;
         } catch (error) {
@@ -6766,15 +6816,24 @@ out center tags;`;
         if (!currentAuthUser || sharedAppPullInProgress) return false;
         sharedAppPullInProgress = true;
         try {
-          const ref = await ensureSharedAppDbRef();
-          const snap = await ref.get();
-          const data = snap?.val?.() || null;
-          const payload = data?.payload;
-          if (!payload || typeof payload !== 'object') return false;
-          applySharedAppPayload(payload);
-          sharedAppLastAppliedAt = String(data?.updated_at || new Date().toISOString());
-          sharedAppReady = true;
-          return true;
+          let applied = false;
+          try {
+            const ref = await ensureSharedAppDbRef();
+            const snap = await ref.get();
+            const data = snap?.val?.() || null;
+            applied = applyIncomingSharedPayloadEnvelope(data, `pull-rtdb:${reason}`) || applied;
+          } catch (rtdbError) {
+            console.warn(`Pull snapshot RTDB fallita (${reason}):`, rtdbError);
+          }
+          try {
+            const docRef = await ensureSharedAppFirestoreDocRef();
+            const doc = await docRef.get();
+            const data = doc?.data?.() || null;
+            applied = applyIncomingSharedPayloadEnvelope(data, `pull-firestore:${reason}`) || applied;
+          } catch (firestoreError) {
+            console.warn(`Pull snapshot Firestore fallback fallita (${reason}):`, firestoreError);
+          }
+          return applied;
         } catch (error) {
           console.warn(`Pull snapshot condivisa fallita (${reason}):`, error);
           return false;
@@ -6785,43 +6844,36 @@ out center tags;`;
       async function startSharedAppSync() {
         if (!currentAuthUser) return;
         try {
-          const ref = await ensureSharedAppDbRef();
           stopSharedAppSync();
           sharedAppReady = false;
-          const handler = (snapshot) => {
-            const data = snapshot?.val?.() || null;
-            const payload = data?.payload;
-            const updatedAt = String(data?.updated_at || '');
-            const updatedBy = String(data?.updated_by || '');
-            const myIdentity = String(currentAuthUser?.email || currentAuthUser?.uid || '');
-            if (!payload || typeof payload !== 'object') {
-              sharedAppReady = true;
-              scheduleSharedAppPush('bootstrap-empty');
-              return;
-            }
-            if (updatedAt && updatedAt === sharedAppLastAppliedAt) {
-              sharedAppReady = true;
-              return;
-            }
-            if (updatedAt && sharedAppLastAppliedAt && updatedAt < sharedAppLastAppliedAt) {
-              sharedAppReady = true;
-              return;
-            }
-            if (updatedAt && updatedBy && myIdentity && updatedBy === myIdentity && updatedAt === sharedAppLastPushedAt) {
-              sharedAppLastAppliedAt = updatedAt;
-              sharedAppReady = true;
-              return;
-            }
-            applySharedAppPayload(payload);
-            sharedAppLastAppliedAt = updatedAt || new Date().toISOString();
-            sharedAppReady = true;
-            if (sharedAppPendingPush) {
-              sharedAppPendingPush = false;
-              scheduleSharedAppPush('pending-local-changes');
-            }
-          };
-          ref.on('value', handler);
-          sharedAppUnsubscribe = ()=>ref.off('value', handler);
+          try {
+            const ref = await ensureSharedAppDbRef();
+            const handler = (snapshot) => {
+              const data = snapshot?.val?.() || null;
+              if (!data?.payload) {
+                sharedAppReady = true;
+                scheduleSharedAppPush('bootstrap-empty-rtdb');
+                return;
+              }
+              applyIncomingSharedPayloadEnvelope(data, 'live-rtdb');
+            };
+            ref.on('value', handler);
+            sharedAppUnsubscribe = ()=>ref.off('value', handler);
+          } catch (rtdbError) {
+            console.warn('Listener RTDB non disponibile, provo fallback Firestore:', rtdbError);
+          }
+          try {
+            const docRef = await ensureSharedAppFirestoreDocRef();
+            sharedAppFirestoreUnsubscribe = docRef.onSnapshot((docSnap)=>{
+              const data = docSnap?.data?.() || null;
+              if (!data?.payload) return;
+              applyIncomingSharedPayloadEnvelope(data, 'live-firestore');
+            }, (error)=>{
+              console.warn('Listener Firestore fallback non disponibile:', error);
+            });
+          } catch (firestoreError) {
+            console.warn('Sync condivisa Firestore fallback non disponibile:', firestoreError);
+          }
           pullSharedAppPayloadOnce('start-sync');
         } catch (error) {
           console.warn('Sync condivisa non disponibile:', error);
