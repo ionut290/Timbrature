@@ -4300,6 +4300,9 @@ out center tags;`;
         return dataRows.map((cells)=>({
           code: idxCode >= 0 ? String(cells[idxCode] || '').trim() : '',
           name: idxNome >= 0 ? cells[idxNome] : '',
+          distretto: idxDistretto >= 0 ? String(cells[idxDistretto] || '').trim() : '',
+          priceCode: idxVoce >= 0 ? String(cells[idxVoce] || '').trim() : '',
+          interventionType: idxTipologia >= 0 ? String(cells[idxTipologia] || '').trim() : '',
           notes: [
             idxNote >= 0 ? cells[idxNote] : '',
             idxDistretto >= 0 ? `Distretto: ${cells[idxDistretto] || ''}` : '',
@@ -4323,6 +4326,17 @@ out center tags;`;
           return true;
         });
       }
+      function mergeVariantInNotes(notes = '', priceCode = '', interventionType = '') {
+        const code = String(priceCode || '').trim();
+        const type = String(interventionType || '').trim();
+        if (!code || !type) return String(notes || '').trim();
+        const variantEntry = `${code} = ${type}`;
+        const current = String(notes || '').trim();
+        if (current.includes(variantEntry)) return current;
+        if (!current) return `Varianti: ${variantEntry}`;
+        if (current.includes('Varianti:')) return `${current} | ${variantEntry}`;
+        return `${current} | Varianti: ${variantEntry}`;
+      }
       function importCantieriRowsIntoSelectedCommessa(rawRows = []) {
         const commessa = getCommesse().find((c)=>c.id === selectedDataHubCommessaId);
         if (!commessa) throw new Error('Apri prima una commessa nel dettaglio.');
@@ -4332,17 +4346,35 @@ out center tags;`;
         const cantieri = Array.isArray(commesse[idx].cantieri) ? [...commesse[idx].cantieri] : [];
         const existingNames = new Set(cantieri.map((c)=>String(c.name || '').trim().toLowerCase()).filter(Boolean));
         let inserted = 0;
+        let updatedVariants = 0;
         let skippedDuplicate = 0;
         let skippedEmpty = 0;
         rawRows.forEach((raw)=>{
           const name = String(raw.name || '').trim();
+          const code = String(raw.code || '').trim();
           if (!name) { skippedEmpty += 1; return; }
-          if (existingNames.has(name.toLowerCase())) { skippedDuplicate += 1; return; }
+          const duplicateIdx = cantieri.findIndex((c)=>{
+            const sameName = String(c.name || '').trim().toLowerCase() === name.toLowerCase();
+            const sameCode = code && String(c.code || '').trim().toLowerCase() === code.toLowerCase();
+            return sameName || sameCode;
+          });
+          if (duplicateIdx >= 0) {
+            const current = cantieri[duplicateIdx];
+            const mergedNotes = mergeVariantInNotes(current.notes || '', raw.priceCode || '', raw.interventionType || '');
+            if (mergedNotes !== (current.notes || '')) {
+              cantieri[duplicateIdx] = { ...current, notes: mergedNotes, updated_at: new Date().toISOString() };
+              updatedVariants += 1;
+            } else {
+              skippedDuplicate += 1;
+            }
+            return;
+          }
           const normalized = normalizeCantiere({
             ...raw,
             id: `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
-            code: String(raw.code || '').trim() || generateCantiereCode(cantieri),
+            code: code || generateCantiereCode(cantieri),
             name,
+            notes: mergeVariantInNotes(raw.notes || '', raw.priceCode || '', raw.interventionType || ''),
             lat: Number.isFinite(Number(raw.lat)) ? Number(raw.lat) : NaN,
             lon: Number.isFinite(Number(raw.lon)) ? Number(raw.lon) : NaN,
             created_at: new Date().toISOString(),
@@ -4361,7 +4393,7 @@ out center tags;`;
         setCommesse(commesse);
         renderCommesseList();
         renderDataHubCommessaDetail();
-        return { inserted, skippedDuplicate, skippedEmpty, skipped: skippedDuplicate + skippedEmpty };
+        return { inserted, updatedVariants, skippedDuplicate, skippedEmpty, skipped: skippedDuplicate + skippedEmpty };
       }
       async function ensureXlsxLibReady() {
         if (window.XLSX?.utils) return window.XLSX;
@@ -4384,7 +4416,7 @@ out center tags;`;
           if (!rows.length) throw new Error('Nessun cantiere valido trovato nei dati incollati.');
           const result = importCantieriRowsIntoSelectedCommessa(rows);
           id('dataHubImportEsito').className = 'msg ok';
-          id('dataHubImportEsito').textContent = `Import completato: ${result.inserted} inseriti, ${result.skipped} saltati (duplicati: ${result.skippedDuplicate}, vuoti: ${result.skippedEmpty}).`;
+          id('dataHubImportEsito').textContent = `Import completato: ${result.inserted} inseriti, ${result.updatedVariants} aggiornati (varianti prezzo/sfalcio), ${result.skipped} saltati (duplicati: ${result.skippedDuplicate}, vuoti: ${result.skippedEmpty}).`;
           showCatalogMsg(`Import cantieri completato (${result.inserted} inseriti).`, 'ok');
         } catch (error) {
           id('dataHubImportEsito').className = 'msg err';
@@ -4416,7 +4448,7 @@ out center tags;`;
           if (!rows.length) throw new Error('Nessun cantiere valido trovato nel file.');
           const result = importCantieriRowsIntoSelectedCommessa(rows);
           id('dataHubImportEsito').className = 'msg ok';
-          id('dataHubImportEsito').textContent = `Import file completato: ${result.inserted} inseriti, ${result.skipped} saltati (duplicati: ${result.skippedDuplicate}, vuoti: ${result.skippedEmpty}).`;
+          id('dataHubImportEsito').textContent = `Import file completato: ${result.inserted} inseriti, ${result.updatedVariants} aggiornati (varianti prezzo/sfalcio), ${result.skipped} saltati (duplicati: ${result.skippedDuplicate}, vuoti: ${result.skippedEmpty}).`;
           id('importCantieriFileInput').value = '';
           showCatalogMsg(`Import da file completato (${result.inserted} cantieri).`, 'ok');
         } catch (error) {
