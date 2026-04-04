@@ -188,6 +188,14 @@
       .work-badge { display:inline-block; margin:0 0 6px; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; }
       .work-badge.ordinary { background:#dcfce7; color:#166534; border:1px solid #86efac; }
       .work-badge.extraordinary { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+      .lavoro-tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+      .lavoro-tab-btn { background:#e2e8f0; color:#0f172a; border:1px solid #cbd5e1; }
+      .lavoro-tab-btn.active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
+      .operator-cantiere-item { border:1px solid #dbeafe; border-radius:10px; background:#fff; padding:10px; }
+      .operator-cantiere-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+      .impianto-row-btn { width:100%; text-align:left; background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; font-weight:700; }
+      .impianto-pill { border-radius:999px; font-size:18px; line-height:1; padding:6px 8px; background:#e2e8f0; }
+      .impianto-pill.done { background:#dcfce7; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
       @media (max-width: 768px) {
@@ -208,6 +216,9 @@
         <h2>Accesso all'app</h2>
         <p class="small">Per usare Timbrature devi registrarti oppure fare login con email e password. Dopo l'accesso puoi attivare impronta/Face ID su questo dispositivo.</p>
         <div class="grid">
+          <label>Nome e cognome (obbligatorio in registrazione)
+            <input type="text" id="authFullNameInput" placeholder="Mario Rossi" />
+          </label>
           <label>Email
             <input type="email" id="authEmailInput" placeholder="utente@email.com" />
           </label>
@@ -252,17 +263,41 @@
 
         <div class="card hidden" id="lavoroCard">
           <h2>Piattaforma lavoro</h2>
-          <p class="small">Apri la piattaforma lavoro direttamente da qui.</p>
-          <div class="inline-actions">
-            <button type="button" onclick="window.open('https://www.appsheet.com/start/a33fc9cd-0a18-4aa8-b70a-c067c0c6c278?platform=desktop#appName=PROVA3-1001666296&vss=H4sIAAAAAAAAA6XOsQ7CIBgE4He5mSdgNR2MQYcaF-mA5W9CbKEpVG0I7y6YGmd15Mh3_0XcDN3roNor-Dl-XjtawBEljstIElxi42yYXC_BJPZqWMODEFVdVxIJqWFvH8iDx-84_-86g9Fkg-kMTaWryNyxuvxdVAlWg8QwzEFdenoNzialnHWunT3pU57ywwS_tdVjVFYLp3Nlp3pP6QkF7HtrZQEAAA==&view=COMMESSE', '_blank', 'noopener,noreferrer')">Apri piattaforma lavoro</button>
+          <p class="small">Dentro la voce Lavoro trovi la piattaforma esterna e la nuova sezione Commesse operative.</p>
+          <div class="lavoro-tabs">
+            <button type="button" class="lavoro-tab-btn active" id="lavoroExternalTabBtn">Piattaforma esterna</button>
+            <button type="button" class="lavoro-tab-btn" id="lavoroCommesseTabBtn">Commesse</button>
           </div>
-          <div class="fuel-map">
-            <iframe
-              title="Piattaforma lavoro"
-              src="https://www.appsheet.com/start/a33fc9cd-0a18-4aa8-b70a-c067c0c6c278?platform=desktop#appName=PROVA3-1001666296&vss=H4sIAAAAAAAAA6XOsQ7CIBgE4He5mSdgNR2MQYcaF-mA5W9CbKEpVG0I7y6YGmd15Mh3_0XcDN3roNor-Dl-XjtawBEljstIElxi42yYXC_BJPZqWMODEFVdVxIJqWFvH8iDx-84_-86g9Fkg-kMTaWryNyxuvxdVAlWg8QwzEFdenoNzialnHWunT3pU57ywwS_tdVjVFYLp3Nlp3pP6QkF7HtrZQEAAA==&view=COMMESSE"
-              style="width:100%;height:100%;border:0;"
-              loading="lazy"
-              referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          <div id="lavoroExternalView">
+            <div class="inline-actions">
+              <button type="button" onclick="window.open('https://www.appsheet.com/start/a33fc9cd-0a18-4aa8-b70a-c067c0c6c278?platform=desktop#appName=PROVA3-1001666296&vss=H4sIAAAAAAAAA6XOsQ7CIBgE4He5mSdgNR2MQYcaF-mA5W9CbKEpVG0I7y6YGmd15Mh3_0XcDN3roNor-Dl-XjtawBEljstIElxi42yYXC_BJPZqWMODEFVdVxIJqWFvH8iDx-84_-86g9Fkg-kMTaWryNyxuvxdVAlWg8QwzEFdenoNzialnHWunT3pU57ywwS_tdVjVFYLp3Nlp3pP6QkF7HtrZQEAAA==&view=COMMESSE', '_blank', 'noopener,noreferrer')">Apri piattaforma lavoro</button>
+            </div>
+            <div class="fuel-map">
+              <iframe
+                title="Piattaforma lavoro"
+                src="https://www.appsheet.com/start/a33fc9cd-0a18-4aa8-b70a-c067c0c6c278?platform=desktop#appName=PROVA3-1001666296&vss=H4sIAAAAAAAAA6XOsQ7CIBgE4He5mSdgNR2MQYcaF-mA5W9CbKEpVG0I7y6YGmd15Mh3_0XcDN3roNor-Dl-XjtawBEljstIElxi42yYXC_BJPZqWMODEFVdVxIJqWFvH8iDx-84_-86g9Fkg-kMTaWryNyxuvxdVAlWg8QwzEFdenoNzialnHWunT3pU57ywwS_tdVjVFYLp3Nlp3pP6QkF7HtrZQEAAA==&view=COMMESSE"
+                style="width:100%;height:100%;border:0;"
+                loading="lazy"
+                referrerpolicy="strict-origin-when-cross-origin"></iframe>
+            </div>
+          </div>
+          <div id="lavoroCommesseView" class="hidden">
+            <div class="setup-box">
+              <h3 style="margin:0 0 8px;">Mappa impianti commessa</h3>
+              <div id="lavoroCantieriMap" class="fuel-map" style="min-height:280px;"></div>
+            </div>
+            <div class="grid">
+              <label>Seleziona commessa
+                <select id="lavoroCommessaSelect"><option value="">Seleziona commessa</option></select>
+              </label>
+              <label>Telefono cliente (per WhatsApp)
+                <input type="text" id="lavoroClientePhone" placeholder="Es. 393331112233" />
+              </label>
+            </div>
+            <p class="small">Elenco impianti commessa.</p>
+            <ul id="lavoroCantieriList" class="cantiere-list"></ul>
+            <p id="lavoroCantieriEmpty" class="small">Nessun cantiere disponibile per questa commessa.</p>
+            <p id="lavoroEsito" class="msg"></p>
           </div>
         </div>
 
@@ -850,6 +885,15 @@
               <label>Firebase Auth Domain<input type="text" id="fbAuthDomainInput" placeholder="progetto.firebaseapp.com" /></label>
               <label>Firebase Project ID<input type="text" id="fbProjectIdInput" placeholder="id-progetto" /></label>
               <label>Firebase App ID<input type="text" id="fbAppIdInput" placeholder="1:...:web:..." /></label>
+              <label><span>Abilita App Check</span><input type="checkbox" id="fbAppCheckEnabledInput" /></label>
+              <label>App Check Site Key<input type="text" id="fbAppCheckSiteKeyInput" placeholder="reCAPTCHA site key" /></label>
+              <label>Provider App Check
+                <select id="fbAppCheckProviderInput">
+                  <option value="recaptcha_v3">reCAPTCHA v3</option>
+                  <option value="recaptcha_enterprise">reCAPTCHA Enterprise</option>
+                </select>
+              </label>
+              <label><span>Debug token App Check (solo sviluppo)</span><input type="checkbox" id="fbAppCheckDebugInput" /></label>
             </div>
           </details>
           <div class="inline-actions" style="margin-top:10px;">
@@ -1003,6 +1047,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check-compat.js"></script>
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
       const FESTIVE_BONUS_PERCENT_DEFAULT = 30;
@@ -1044,6 +1089,10 @@
         messagingSenderId: '68842798266',
         appId: '1:68842798266:web:bb0df9bbdfe2d5980f9683',
         measurementId: 'G-8N09DJ0P95',
+        appCheckEnabled: false,
+        appCheckSiteKey: '',
+        appCheckProvider: 'recaptcha_v3',
+        appCheckDebugToken: false,
         email: ''
       };
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
@@ -1228,6 +1277,7 @@
       let liveClockTimer = null;
       let autoPunchTimer = null;
       let appAuth = null;
+      let firebaseMainAppCheck = null;
       let currentAuthUser = null;
       let currentUserRole = 'OPERATORE';
       let authReady = false;
@@ -1242,6 +1292,8 @@
       let googleTokenClient = null;
       let selectedCommessaId = '';
       let selectedCantiereId = '';
+      let selectedLavoroCommessaId = '';
+      let selectedLavoroCantiereExpandedId = '';
       let selectedDataHubCommessaId = '';
       let selectedDataHubCategory = 'vehicles';
       let journalPendingPhotos = [];
@@ -1250,6 +1302,9 @@
       let fuelMarkersLayer = null;
       let dataHubCantieriMap = null;
       let dataHubCantieriLayer = null;
+      let lavoroCantieriMap = null;
+      let lavoroCantieriLayer = null;
+      let lavoroOperatorCoords = null;
       let firebaseCloudApp = null;
       let firebaseCloudAuth = null;
       let firebaseCloudDb = null;
@@ -1270,6 +1325,9 @@
       let applyingSharedAppPayload = false;
       let sharedAppReady = false;
       let sharedAppPendingPush = false;
+      let sharedAppLastAppliedAt = '';
+      let sharedAppLastPushedAt = '';
+      let sharedAppPullInProgress = false;
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -1278,7 +1336,12 @@
         scheduleFirebaseAutoPush(`writeJSON:${k}`);
         if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) {
           if (!sharedAppReady) sharedAppPendingPush = true;
-          scheduleSharedAppPush(`writeJSON:${k}`);
+          const realtimePriority = k === COMMESSE_KEY || k === GIORNALE_ENTRIES_KEY || k === RECORDS_KEY;
+          if (realtimePriority && currentAuthUser && sharedAppReady) {
+            pushSharedAppPayload(`immediate:${k}`).catch(()=>{});
+          } else {
+            scheduleSharedAppPush(`writeJSON:${k}`);
+          }
         }
       }
       const nowDateISO = () => new Date().toISOString().slice(0, 10);
@@ -1292,6 +1355,7 @@
       const showProgramMsg = (m, t='ok') => { id('programEsito').className = `msg ${t}`; id('programEsito').textContent = m; };
       const showProfileMsg = (m, t='ok') => { id('profileEsito').className = `msg ${t}`; id('profileEsito').textContent = m; };
       const showTeamMsg = (m, t='ok') => { id('teamEsito').className = `msg ${t}`; id('teamEsito').textContent = m; };
+      const showLavoroMsg = (m, t='ok') => { if (!id('lavoroEsito')) return; id('lavoroEsito').className = `msg ${t}`; id('lavoroEsito').textContent = m; };
       const showBackupMsg = (m, t='ok') => { id('backupEsito').className = `msg ${t}`; id('backupEsito').textContent = m; };
       const showGiornaleMsg = (m, t='ok') => { id('giornaleEsito').className = `msg ${t}`; id('giornaleEsito').textContent = m; };
       const showPreventivoMsg = (m, t='ok') => { id('preventivoEsito').className = `msg ${t}`; id('preventivoEsito').textContent = m; };
@@ -2006,6 +2070,218 @@ out center tags;`;
         const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}&travelmode=driving`;
         window.open(url, '_blank', 'noopener,noreferrer');
       }
+      function setLavoroTab(view = 'external') {
+        const isCommesse = view === 'commesse';
+        if (id('lavoroExternalTabBtn')) id('lavoroExternalTabBtn').classList.toggle('active', !isCommesse);
+        if (id('lavoroCommesseTabBtn')) id('lavoroCommesseTabBtn').classList.toggle('active', isCommesse);
+        if (id('lavoroExternalView')) id('lavoroExternalView').classList.toggle('hidden', isCommesse);
+        if (id('lavoroCommesseView')) id('lavoroCommesseView').classList.toggle('hidden', !isCommesse);
+        if (isCommesse) renderLavoroCommesseUI();
+      }
+      function getOperatorDisplayName() {
+        const profileName = String(getProfile()?.nome || '').trim();
+        if (profileName) return profileName;
+        return currentAuthUser?.email || 'Operatore';
+      }
+      function saveCantiereFatto(commessaId = '', cantiereId = '', markDone = true) {
+        const commesse = getCommesse();
+        const cIdx = commesse.findIndex((row)=>row.id === commessaId);
+        if (cIdx < 0) return null;
+        const cantieri = Array.isArray(commesse[cIdx].cantieri) ? [...commesse[cIdx].cantieri] : [];
+        const i = cantieri.findIndex((row)=>row.id === cantiereId);
+        if (i < 0) return null;
+        const operatorName = getOperatorDisplayName();
+        const stamp = new Date().toISOString();
+        const current = cantieri[i];
+        if (markDone && current.done_at) {
+          return { stamp: current.done_at, operatorName: current.done_by || operatorName, cantiere: current, commessa: commesse[cIdx], markDone:true };
+        }
+        if (!markDone && currentUserRole !== 'CAPOSQUADRA') {
+          showLavoroMsg('Solo il caposquadra può modificare uno stato già segnato come FATTO.', 'err');
+          return null;
+        }
+        cantieri[i] = normalizeCantiere({
+          ...current,
+          done_at: markDone ? stamp : '',
+          done_by: markDone ? operatorName : '',
+          done_state_updated_at: stamp,
+          done_state_actor_role: currentUserRole,
+          updated_at: stamp
+        });
+        commesse[cIdx] = { ...commesse[cIdx], cantieri, updated_at: stamp };
+        setCommesse(commesse);
+        return { stamp, operatorName, cantiere: cantieri[i], commessa: commesse[cIdx], markDone };
+      }
+      function sendCantiereWhatsapp(commessa = {}, cantiere = {}) {
+        const phoneRaw = String(id('lavoroClientePhone')?.value || '').replace(/\D+/g, '');
+        const doneAt = cantiere?.done_at ? new Date(cantiere.done_at) : new Date();
+        const operatorName = String(cantiere?.done_by || getOperatorDisplayName()).trim();
+        const dateText = doneAt.toLocaleDateString('it-IT');
+        const timeText = doneAt.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
+        const msg = `✅ Intervento effettuato\nID SAP: ${cantiere?.code || '-'}\nNome impianto: ${cantiere?.name || '-'}\nData: ${dateText}\nOra: ${timeText}\nOperatore: ${operatorName}\n📎 Allega foto intervento (graffetta WhatsApp)`;
+        const url = phoneRaw
+          ? `https://wa.me/${phoneRaw}?text=${encodeURIComponent(msg)}`
+          : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      async function renderLavoroCantieriMap(cantieri = []) {
+        const mapEl = id('lavoroCantieriMap');
+        if (!mapEl) return;
+        const valid = (Array.isArray(cantieri) ? cantieri : [])
+          .filter((c)=>Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)));
+        if (!valid.length) {
+          mapEl.innerHTML = '<p class="small" style="padding:10px;">Nessuna coordinata GPS disponibile per questa commessa.</p>';
+          return;
+        }
+        try {
+          await ensureLeafletLoaded();
+          if (!lavoroCantieriMap) mapEl.innerHTML = '';
+          if (!lavoroCantieriMap) {
+            lavoroCantieriMap = window.L.map(mapEl).setView([Number(valid[0].lat), Number(valid[0].lon)], 12);
+            window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              maxZoom: 19,
+              attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(lavoroCantieriMap);
+            lavoroCantieriLayer = window.L.layerGroup().addTo(lavoroCantieriMap);
+          } else {
+            lavoroCantieriLayer?.clearLayers();
+            lavoroCantieriMap.invalidateSize();
+          }
+          valid.forEach((c)=>{
+            const done = Boolean(c.done_at);
+            const markerIcon = window.L.divIcon({
+              className: 'cantiere-work-marker',
+              html: `<span style="display:inline-block;width:16px;height:16px;border-radius:999px;background:${done ? '#16a34a' : '#f59e0b'};border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);"></span>`,
+              iconSize: [16, 16],
+              iconAnchor: [8, 8]
+            });
+            const marker = window.L.marker([Number(c.lat), Number(c.lon)], { icon: markerIcon });
+            marker.bindPopup(`<strong>${escapeHtml(c.name || 'Cantiere')}</strong><br>${done ? '✅ Fatto' : '🟡 Da fare'}`);
+            lavoroCantieriLayer.addLayer(marker);
+          });
+          lavoroCantieriMap.fitBounds(valid.map((c)=>[Number(c.lat), Number(c.lon)]), { padding:[18, 18], maxZoom:15 });
+        } catch (error) {
+          console.warn('Errore mappa lavoro commesse:', error);
+          mapEl.innerHTML = '<p class="small" style="padding:10px;">Mappa non disponibile al momento.</p>';
+        }
+      }
+      async function getLavoroOperatorCoords() {
+        if (lavoroOperatorCoords && Number.isFinite(Number(lavoroOperatorCoords.lat)) && Number.isFinite(Number(lavoroOperatorCoords.lon))) return lavoroOperatorCoords;
+        try {
+          const pos = await getCurrentPositionSafe();
+          const { lat, lon } = extractLatLon(pos);
+          lavoroOperatorCoords = { lat, lon };
+          return lavoroOperatorCoords;
+        } catch (_) {
+          return null;
+        }
+      }
+      async function renderLavoroCommesseUI() {
+        const select = id('lavoroCommessaSelect');
+        const wrap = id('lavoroCantieriList');
+        const empty = id('lavoroCantieriEmpty');
+        if (!select || !wrap || !empty) return;
+        const commesse = getCommesse().slice().sort((a,b)=>String(a.nome || '').localeCompare(String(b.nome || '')));
+        if (!commesse.length && currentAuthUser) pullSharedAppPayloadOnce('lavoro-empty-list').catch(()=>{});
+        const current = selectedLavoroCommessaId || select.value || '';
+        select.innerHTML = `<option value="">Seleziona commessa</option>${commesse.map((c)=>`<option value="${escapeHtml(c.id)}">${escapeHtml(c.nome || '-')}</option>`).join('')}`;
+        if (commesse.some((c)=>c.id === current)) {
+          select.value = current;
+          selectedLavoroCommessaId = current;
+        } else {
+          selectedLavoroCommessaId = '';
+        }
+        const commessa = commesse.find((c)=>c.id === selectedLavoroCommessaId);
+        let cantieri = Array.isArray(commessa?.cantieri) ? [...commessa.cantieri] : [];
+        if (!commessa || !cantieri.length) {
+          selectedLavoroCantiereExpandedId = '';
+          wrap.innerHTML = '';
+          empty.classList.remove('hidden');
+          renderLavoroCantieriMap([]);
+          return;
+        }
+        const coords = await getLavoroOperatorCoords();
+        cantieri = cantieri
+          .map((c)=>({
+            ...c,
+            _distanceMeters: (coords && Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lon)))
+              ? haversineDistanceMeters(coords.lat, coords.lon, Number(c.lat), Number(c.lon))
+              : Number.POSITIVE_INFINITY
+          }))
+          .sort((a,b)=>a._distanceMeters - b._distanceMeters);
+        if (!cantieri.some((c)=>c.id === selectedLavoroCantiereExpandedId)) selectedLavoroCantiereExpandedId = '';
+        empty.classList.add('hidden');
+        wrap.innerHTML = cantieri.map((c)=>{
+          const doneAt = c.done_at ? new Date(c.done_at) : null;
+          const isExpanded = selectedLavoroCantiereExpandedId === c.id;
+          const canResetDoneState = c.done_at && currentUserRole === 'CAPOSQUADRA';
+          const distanceText = Number.isFinite(c._distanceMeters) ? `${(c._distanceMeters / 1000).toFixed(2)} km` : 'distanza non disponibile';
+          return `<li class="operator-cantiere-item">
+            <button type="button" class="impianto-row-btn btn-small" data-lavoro-expand="${escapeHtml(c.id)}">Impianto ${escapeHtml(c.name || c.code || '-')}${c.done_at ? ' ✅' : ' 🟡'}</button>
+            ${isExpanded ? `
+              <div class="operator-cantiere-head" style="margin-top:8px;">
+                <div>
+                  <h5>ID SAP: ${escapeHtml(c.code || '-')} • ${escapeHtml(c.name || 'Impianto')}</h5>
+                  <p>${escapeHtml([c.address, c.city].filter(Boolean).join(', ') || 'Indirizzo non disponibile')}</p>
+                  <p>Distanza operatore: ${escapeHtml(distanceText)}</p>
+                  <p>${doneAt ? `Ultimo FATTO: ${doneAt.toLocaleString('it-IT')} • ${escapeHtml(c.done_by || '-')}` : 'Non ancora segnato come fatto'}</p>
+                </div>
+                <span class="impianto-pill ${c.done_at ? 'done' : ''}" title="Stato impianto">${c.done_at ? '✅' : '🟡'}</span>
+              </div>
+              <div class="inline-actions" style="margin-top:8px;">
+                <button type="button" class="secondary btn-small" data-lavoro-nav="${escapeHtml(c.id)}">Naviga</button>
+                <button type="button" class="btn-small" data-lavoro-fatto="${escapeHtml(c.id)}" ${c.done_at ? 'disabled' : ''}>${c.done_at ? 'Fatto ✅' : 'Fatto'}</button>
+                ${canResetDoneState ? `<button type="button" class="secondary btn-small" data-lavoro-reset="${escapeHtml(c.id)}">Reset stato</button>` : ''}
+                <button type="button" class="secondary btn-small" data-lavoro-wa="${escapeHtml(c.id)}">Whazzupa</button>
+              </div>
+              ${(c.done_at && !canResetDoneState) ? '<p class="small">Stato bloccato: solo il caposquadra può eseguire il reset.</p>' : ''}
+            ` : ''}
+          </li>`;
+        }).join('');
+        wrap.querySelectorAll('[data-lavoro-expand]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const itemId = btn.dataset.lavoroExpand || '';
+          selectedLavoroCantiereExpandedId = selectedLavoroCantiereExpandedId === itemId ? '' : itemId;
+          renderLavoroCommesseUI();
+        }));
+        wrap.querySelectorAll('[data-lavoro-nav]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const cantiere = cantieri.find((c)=>c.id === btn.dataset.lavoroNav);
+          if (!cantiere) return;
+          if (!Number.isFinite(Number(cantiere.lat)) || !Number.isFinite(Number(cantiere.lon))) {
+            showLavoroMsg('Coordinate GPS mancanti per questo cantiere.', 'err');
+            return;
+          }
+          openGoogleMapsNavigation(Number(cantiere.lat), Number(cantiere.lon));
+        }));
+        wrap.querySelectorAll('[data-lavoro-fatto]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const cantiere = cantieri.find((c)=>c.id === (btn.dataset.lavoroFatto || ''));
+          if (!cantiere) return;
+          const saved = saveCantiereFatto(commessa.id, cantiere.id, true);
+          if (!saved) return;
+          showLavoroMsg(`Fatto registrato: ${saved.cantiere.name || '-'} alle ${new Date(saved.stamp).toLocaleString('it-IT')} (${saved.operatorName}).`, 'ok');
+          renderLavoroCommesseUI();
+        }));
+        wrap.querySelectorAll('[data-lavoro-reset]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const cantiere = cantieri.find((c)=>c.id === (btn.dataset.lavoroReset || ''));
+          if (!cantiere) return;
+          const saved = saveCantiereFatto(commessa.id, cantiere.id, false);
+          if (!saved) return;
+          showLavoroMsg(`Reset stato completato da ${saved.operatorName}.`, 'ok');
+          renderLavoroCommesseUI();
+        }));
+        wrap.querySelectorAll('[data-lavoro-wa]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const cantiere = cantieri.find((c)=>c.id === btn.dataset.lavoroWa);
+          if (!cantiere) return;
+          if (!cantiere.done_at) {
+            const saved = saveCantiereFatto(commessa.id, cantiere.id);
+            if (saved) showLavoroMsg('Cantiere marcato FATTO prima dell’invio WhatsApp.', 'ok');
+          }
+          const latest = getCommesse().find((row)=>row.id === commessa.id);
+          const refreshed = (latest?.cantieri || []).find((row)=>row.id === cantiere.id) || cantiere;
+          sendCantiereWhatsapp(latest || commessa, refreshed);
+          renderLavoroCommesseUI();
+        }));
+        renderLavoroCantieriMap(cantieri);
+      }
       function renderFuelStationsMap(userLat, userLon, stations=[]) {
         if (!window.L?.map) return;
         const mapEl = id('fuelMap');
@@ -2187,6 +2463,7 @@ out center tags;`;
         id('nome').value = p.nome || '';
         id('azienda').value = p.azienda || '';
         id('email').value = p.email || '';
+        if (id('authFullNameInput')) id('authFullNameInput').value = p.nome || '';
       }
       function renderTeamUI() {
         const draft = getTeamRequestDraft() || {};
@@ -4342,6 +4619,10 @@ out center tags;`;
           country: String(row.country || row.paese || '').trim(),
           lat,
           lon,
+          done_at: row.done_at || '',
+          done_by: String(row.done_by || '').trim(),
+          done_state_updated_at: String(row.done_state_updated_at || row.done_at || '').trim(),
+          done_state_actor_role: String(row.done_state_actor_role || '').trim().toUpperCase(),
           created_at: row.created_at || new Date().toISOString(),
           updated_at: row.updated_at || new Date().toISOString()
         };
@@ -4382,6 +4663,7 @@ out center tags;`;
       function setCommesse(rows=[]) {
         writeJSON(COMMESSE_KEY, (Array.isArray(rows) ? rows : []).map((row)=>normalizeCommessa(row)));
         triggerImmediateSharedBroadcast('commesse-update');
+        try { renderLavoroCommesseUI(); } catch (_) {}
       }
       function getGiornaleEntries() { return readJSON(GIORNALE_ENTRIES_KEY, []); }
       function setGiornaleEntries(rows=[]) { writeJSON(GIORNALE_ENTRIES_KEY, rows); }
@@ -4696,6 +4978,7 @@ out center tags;`;
         `).join('');
         wrap.querySelectorAll('[data-commessa-id]').forEach((el)=>el.addEventListener('click', ()=>openCommessaDetail(el.dataset.commessaId)));
         renderGlobalCommesseSelect();
+        renderLavoroCommesseUI();
       }
       function renderGlobalCommesseSelect() {
         const select = id('globalCommessaSelect');
@@ -4705,6 +4988,7 @@ out center tags;`;
         select.innerHTML = `<option value="">Seleziona commessa</option>${rows.map((c)=>`<option value="${escapeHtml(c.nome || '')}">${escapeHtml(c.nome || '')}${c.impianto ? ` • ${escapeHtml(c.impianto)}` : ''}</option>`).join('')}`;
         if (rows.some((c)=>c.nome === current)) select.value = current;
         renderTeamDirectorySelects();
+        renderLavoroCommesseUI();
       }
       function promptAddCommessa() {
         const nome = (window.prompt('Nome commessa:') || '').trim();
@@ -5313,7 +5597,11 @@ out center tags;`;
           appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
           storageBucket: DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
           messagingSenderId: DEFAULT_FIREBASE_WEB_CONFIG.messagingSenderId,
-          measurementId: DEFAULT_FIREBASE_WEB_CONFIG.measurementId
+          measurementId: DEFAULT_FIREBASE_WEB_CONFIG.measurementId,
+          appCheckEnabled: DEFAULT_FIREBASE_WEB_CONFIG.appCheckEnabled,
+          appCheckSiteKey: DEFAULT_FIREBASE_WEB_CONFIG.appCheckSiteKey,
+          appCheckProvider: DEFAULT_FIREBASE_WEB_CONFIG.appCheckProvider,
+          appCheckDebugToken: DEFAULT_FIREBASE_WEB_CONFIG.appCheckDebugToken
         };
       }
       function getFirebaseSyncState() {
@@ -5361,6 +5649,10 @@ out center tags;`;
           messagingSenderId: String(input.messagingSenderId || '').trim(),
           appId: String(input.appId || '').trim(),
           measurementId: String(input.measurementId || '').trim(),
+          appCheckEnabled: Boolean(input.appCheckEnabled),
+          appCheckSiteKey: String(input.appCheckSiteKey || '').trim(),
+          appCheckProvider: String(input.appCheckProvider || 'recaptcha_v3').trim().toLowerCase() === 'recaptcha_enterprise' ? 'recaptcha_enterprise' : 'recaptcha_v3',
+          appCheckDebugToken: Boolean(input.appCheckDebugToken),
           email: String(input.email || '').trim()
         };
       }
@@ -5378,6 +5670,10 @@ out center tags;`;
           projectId: readField('fbProjectIdInput', current.projectId || DEFAULT_FIREBASE_WEB_CONFIG.projectId),
           databaseURL: current.databaseURL || DEFAULT_FIREBASE_WEB_CONFIG.databaseURL,
           appId: readField('fbAppIdInput', current.appId || DEFAULT_FIREBASE_WEB_CONFIG.appId),
+          appCheckEnabled: Boolean(id('fbAppCheckEnabledInput')?.checked || false),
+          appCheckSiteKey: readField('fbAppCheckSiteKeyInput', current.appCheckSiteKey || ''),
+          appCheckProvider: readField('fbAppCheckProviderInput', current.appCheckProvider || 'recaptcha_v3'),
+          appCheckDebugToken: Boolean(id('fbAppCheckDebugInput')?.checked || false),
           email: readField('fbEmailInput', current.email || ''),
           storageBucket: current.storageBucket || DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
           messagingSenderId: current.messagingSenderId || DEFAULT_FIREBASE_WEB_CONFIG.messagingSenderId,
@@ -5390,6 +5686,10 @@ out center tags;`;
         if (id('fbAuthDomainInput')) id('fbAuthDomainInput').value = cfg.authDomain;
         if (id('fbProjectIdInput')) id('fbProjectIdInput').value = cfg.projectId;
         if (id('fbAppIdInput')) id('fbAppIdInput').value = cfg.appId;
+        if (id('fbAppCheckEnabledInput')) id('fbAppCheckEnabledInput').checked = Boolean(cfg.appCheckEnabled);
+        if (id('fbAppCheckSiteKeyInput')) id('fbAppCheckSiteKeyInput').value = cfg.appCheckSiteKey || '';
+        if (id('fbAppCheckProviderInput')) id('fbAppCheckProviderInput').value = cfg.appCheckProvider || 'recaptcha_v3';
+        if (id('fbAppCheckDebugInput')) id('fbAppCheckDebugInput').checked = Boolean(cfg.appCheckDebugToken);
         if (id('fbEmailInput')) id('fbEmailInput').value = cfg.email;
       }
       function saveFirebaseConfigFromUI(showMessage=true) {
@@ -5404,7 +5704,11 @@ out center tags;`;
         return left.apiKey === right.apiKey
           && left.authDomain === right.authDomain
           && left.projectId === right.projectId
-          && left.appId === right.appId;
+          && left.appId === right.appId
+          && left.appCheckEnabled === right.appCheckEnabled
+          && left.appCheckSiteKey === right.appCheckSiteKey
+          && left.appCheckProvider === right.appCheckProvider
+          && left.appCheckDebugToken === right.appCheckDebugToken;
       }
       function updateFirebaseSyncStatusUI() {
         const state = getFirebaseSyncState();
@@ -6225,6 +6529,7 @@ out center tags;`;
         });
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId));
         if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
+        if (panelId === 'lavoroCard') renderLavoroCommesseUI();
         if (panelId === 'giornaleCard') {
           backToCommesse();
           renderCommesseList();
@@ -6242,18 +6547,133 @@ out center tags;`;
         SHARED_APP_KEYS.forEach((key)=>{ payload[key] = readJSON(key, null); });
         return payload;
       }
+      function compareUpdatedAt(a = '', b = '') {
+        const left = String(a || '');
+        const right = String(b || '');
+        if (!left && !right) return 0;
+        if (!left) return -1;
+        if (!right) return 1;
+        if (left === right) return 0;
+        return left > right ? 1 : -1;
+      }
+      function mergeCantieriByUpdatedAt(localRows = [], incomingRows = []) {
+        const mergedMap = new Map();
+        const toKey = (row={})=>String(row?.code || row?.name || row?.id || '').trim().toLowerCase();
+        const resolveDoneState = (left = {}, right = {})=>{
+          const leftStamp = String(left?.done_state_updated_at || left?.done_at || '');
+          const rightStamp = String(right?.done_state_updated_at || right?.done_at || '');
+          const leftRole = String(left?.done_state_actor_role || '').toUpperCase();
+          const rightRole = String(right?.done_state_actor_role || '').toUpperCase();
+          const winner = compareUpdatedAt(rightStamp, leftStamp) > 0 ? right : (compareUpdatedAt(leftStamp, rightStamp) > 0 ? left : null);
+          const loser = winner === right ? left : (winner === left ? right : null);
+          if (winner) {
+            const winnerRole = String(winner?.done_state_actor_role || '').toUpperCase();
+            if (!winner?.done_at && loser?.done_at && winnerRole !== 'CAPOSQUADRA') {
+              return {
+                done_at: loser?.done_at || '',
+                done_by: loser?.done_by || '',
+                done_state_updated_at: String(loser?.done_state_updated_at || loser?.done_at || ''),
+                done_state_actor_role: String(loser?.done_state_actor_role || '').toUpperCase()
+              };
+            }
+            return {
+              done_at: winner?.done_at || '',
+              done_by: winner?.done_by || '',
+              done_state_updated_at: String(winner === right ? rightStamp : leftStamp),
+              done_state_actor_role: winnerRole
+            };
+          }
+          if (left?.done_at || right?.done_at) {
+            const preferred = left?.done_at ? left : right;
+            return {
+              done_at: preferred?.done_at || '',
+              done_by: preferred?.done_by || '',
+              done_state_updated_at: String(preferred?.done_state_updated_at || preferred?.done_at || ''),
+              done_state_actor_role: String(preferred?.done_state_actor_role || '').toUpperCase()
+            };
+          }
+          return { done_at:'', done_by:'', done_state_updated_at:'', done_state_actor_role: (rightRole || leftRole || '') };
+        };
+        (Array.isArray(localRows) ? localRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          mergedMap.set(key, normalizeCantiere(row));
+        });
+        (Array.isArray(incomingRows) ? incomingRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          const incoming = normalizeCantiere(row);
+          const current = mergedMap.get(key);
+          if (!current) {
+            mergedMap.set(key, incoming);
+            return;
+          }
+          const newer = compareUpdatedAt(incoming.updated_at, current.updated_at) >= 0 ? incoming : current;
+          const older = newer === incoming ? current : incoming;
+          const doneState = resolveDoneState(current, incoming);
+          mergedMap.set(key, normalizeCantiere({
+            ...older,
+            ...newer,
+            done_at: doneState.done_at,
+            done_by: doneState.done_by,
+            done_state_updated_at: doneState.done_state_updated_at,
+            done_state_actor_role: doneState.done_state_actor_role
+          }));
+        });
+        return Array.from(mergedMap.values());
+      }
+      function mergeCommesseByUpdatedAt(localRows = [], incomingRows = []) {
+        const mergedMap = new Map();
+        const toKey = (row={})=>String(row?.nome || row?.name || row?.id || '').trim().toLowerCase();
+        (Array.isArray(localRows) ? localRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          mergedMap.set(key, normalizeCommessa(row));
+        });
+        (Array.isArray(incomingRows) ? incomingRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          const incoming = normalizeCommessa(row);
+          const current = mergedMap.get(key);
+          if (!current) {
+            mergedMap.set(key, incoming);
+            return;
+          }
+          const newer = compareUpdatedAt(incoming.updated_at, current.updated_at) >= 0 ? incoming : current;
+          const older = newer === incoming ? current : incoming;
+          const mergedCantieri = mergeCantieriByUpdatedAt(current.cantieri || [], incoming.cantieri || []);
+          mergedMap.set(key, normalizeCommessa({
+            ...older,
+            ...newer,
+            cantieri: mergedCantieri,
+            updated_at: compareUpdatedAt(incoming.updated_at, current.updated_at) >= 0 ? incoming.updated_at : current.updated_at
+          }));
+        });
+        return Array.from(mergedMap.values());
+      }
       function applySharedAppPayload(payload = {}) {
         applyingSharedAppPayload = true;
         try {
           SHARED_APP_KEYS.forEach((key)=>{
             if (!Object.prototype.hasOwnProperty.call(payload, key)) return;
+            if (key === COMMESSE_KEY) {
+              const localCommesse = readJSON(COMMESSE_KEY, []);
+              const incomingCommesse = payload[key];
+              localStorage.setItem(key, JSON.stringify(mergeCommesseByUpdatedAt(localCommesse, incomingCommesse)));
+              return;
+            }
             localStorage.setItem(key, JSON.stringify(payload[key]));
           });
           writeJSON(SHARED_APP_SYNC_META_KEY, { last_pull_at: new Date().toISOString() });
           try { loadProfileUI(); } catch (_) {}
           try { renderTeamUI(); } catch (_) {}
           try { renderCatalogDataUI(); } catch (_) {}
-          try { renderCommesseList(); renderDataHubCommessaDetail(); renderGlobalCommesseSelect(); } catch (_) {}
+          try {
+            renderCommesseList();
+            renderDataHubCommessaDetail();
+            renderGlobalCommesseSelect();
+            renderLavoroCommesseUI();
+          } catch (_) {}
           try { renderDocuments(); } catch (_) {}
           try { renderPreventiviList(); } catch (_) {}
           try { loadMyMonth(); } catch (_) {}
@@ -6273,6 +6693,11 @@ out center tags;`;
       function stopSharedAppSync() {
         sharedAppReady = false;
         sharedAppPendingPush = false;
+        sharedAppLastAppliedAt = '';
+        sharedAppLastPushedAt = '';
+        sharedAppPullInProgress = false;
+        if (sharedAppPushTimer) clearTimeout(sharedAppPushTimer);
+        sharedAppPushTimer = null;
         if (sharedAppUnsubscribe) {
           try { sharedAppUnsubscribe(); } catch (_) {}
           sharedAppUnsubscribe = null;
@@ -6282,12 +6707,14 @@ out center tags;`;
         if (!currentAuthUser) return;
         try {
           const ref = await ensureSharedAppDbRef();
+          const pushedAt = new Date().toISOString();
           await ref.set({
-            updated_at: new Date().toISOString(),
+            updated_at: pushedAt,
             updated_by: currentAuthUser.email || currentAuthUser.uid || '',
             reason,
             payload: buildSharedAppPayload()
           });
+          sharedAppLastPushedAt = pushedAt;
           sharedAppPendingPush = false;
         } catch (error) {
           console.warn('Sync condivisa push fallita:', error);
@@ -6296,7 +6723,27 @@ out center tags;`;
       function scheduleSharedAppPush(reason = 'auto') {
         if (!currentAuthUser || applyingSharedAppPayload || !sharedAppReady) return;
         if (sharedAppPushTimer) clearTimeout(sharedAppPushTimer);
-        sharedAppPushTimer = setTimeout(()=>{ pushSharedAppPayload(reason); }, 350);
+        sharedAppPushTimer = setTimeout(()=>{ pushSharedAppPayload(reason); }, 120);
+      }
+      async function pullSharedAppPayloadOnce(reason = 'manual-pull') {
+        if (!currentAuthUser || sharedAppPullInProgress) return false;
+        sharedAppPullInProgress = true;
+        try {
+          const ref = await ensureSharedAppDbRef();
+          const snap = await ref.get();
+          const data = snap?.val?.() || null;
+          const payload = data?.payload;
+          if (!payload || typeof payload !== 'object') return false;
+          applySharedAppPayload(payload);
+          sharedAppLastAppliedAt = String(data?.updated_at || new Date().toISOString());
+          sharedAppReady = true;
+          return true;
+        } catch (error) {
+          console.warn(`Pull snapshot condivisa fallita (${reason}):`, error);
+          return false;
+        } finally {
+          sharedAppPullInProgress = false;
+        }
       }
       async function startSharedAppSync() {
         if (!currentAuthUser) return;
@@ -6307,12 +6754,29 @@ out center tags;`;
           const handler = (snapshot) => {
             const data = snapshot?.val?.() || null;
             const payload = data?.payload;
+            const updatedAt = String(data?.updated_at || '');
+            const updatedBy = String(data?.updated_by || '');
+            const myIdentity = String(currentAuthUser?.email || currentAuthUser?.uid || '');
             if (!payload || typeof payload !== 'object') {
               sharedAppReady = true;
               scheduleSharedAppPush('bootstrap-empty');
               return;
             }
+            if (updatedAt && updatedAt === sharedAppLastAppliedAt) {
+              sharedAppReady = true;
+              return;
+            }
+            if (updatedAt && sharedAppLastAppliedAt && updatedAt < sharedAppLastAppliedAt) {
+              sharedAppReady = true;
+              return;
+            }
+            if (updatedAt && updatedBy && myIdentity && updatedBy === myIdentity && updatedAt === sharedAppLastPushedAt) {
+              sharedAppLastAppliedAt = updatedAt;
+              sharedAppReady = true;
+              return;
+            }
             applySharedAppPayload(payload);
+            sharedAppLastAppliedAt = updatedAt || new Date().toISOString();
             sharedAppReady = true;
             if (sharedAppPendingPush) {
               sharedAppPendingPush = false;
@@ -6321,6 +6785,7 @@ out center tags;`;
           };
           ref.on('value', handler);
           sharedAppUnsubscribe = ()=>ref.off('value', handler);
+          pullSharedAppPayloadOnce('start-sync');
         } catch (error) {
           console.warn('Sync condivisa non disponibile:', error);
         }
@@ -6337,23 +6802,96 @@ out center tags;`;
           appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
           databaseURL: DEFAULT_FIREBASE_WEB_CONFIG.databaseURL
         }, appName);
+        const cfg = sanitizeFirebaseConfig(getFirebaseConfigState());
+        if (window.firebase?.appCheck) {
+          try {
+            if (cfg.appCheckDebugToken) window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+            const appCheckEnabled = Boolean(cfg.appCheckEnabled);
+            const siteKey = String(cfg.appCheckSiteKey || '').trim();
+            if (appCheckEnabled && siteKey) {
+              firebaseMainAppCheck = window.firebase.appCheck(app);
+              firebaseMainAppCheck.activate(siteKey, true);
+              firebaseMainAppCheck.getToken(true).catch((error)=>{
+                console.warn('[Firebase][AppCheck] Token iniziale non valido:', error?.code || error?.message || error);
+              });
+            } else if (appCheckEnabled && !siteKey) {
+              console.warn('[Firebase][AppCheck] App Check abilitato ma site key assente: disattivo App Check finché non configuri la chiave.');
+            } else {
+              firebaseMainAppCheck = null;
+              console.info('[Firebase][AppCheck] Disattivato da impostazioni app.');
+            }
+          } catch (error) {
+            console.error('[Firebase][AppCheck] Inizializzazione fallita:', error);
+          }
+        } else {
+          console.warn('[Firebase][AppCheck] SDK app-check non caricato.');
+        }
         appAuth = window.firebase.auth(app);
         return appAuth;
+      }
+      async function runAuthWithAppCheckRetry(action) {
+        try {
+          return await action();
+        } catch (error) {
+          const code = String(error?.code || error?.message || '');
+          if (!/firebase-app-check-token-is-invalid/i.test(code)) throw error;
+          console.warn('[Firebase][Auth] Token App Check non valido: provo refresh forzato e retry.', error);
+          try {
+            Object.keys(localStorage).forEach((key)=>{
+              if (/appcheck|firebase-app-check/i.test(key)) localStorage.removeItem(key);
+            });
+            if (window.indexedDB?.databases) {
+              const dbs = await window.indexedDB.databases();
+              for (const db of (dbs || [])) {
+                const name = String(db?.name || '');
+                if (!name) continue;
+                if (/firebase-app-check|firebase-installations/i.test(name)) {
+                  try { window.indexedDB.deleteDatabase(name); } catch (_) {}
+                }
+              }
+            }
+          } catch (_) {}
+          if (firebaseMainAppCheck?.getToken) {
+            try { await firebaseMainAppCheck.getToken(true); } catch (refreshError) {
+              console.error('[Firebase][AppCheck] Refresh token fallito:', refreshError);
+            }
+          }
+          return action();
+        }
+      }
+      function friendlyAuthErrorMessage(error) {
+        const code = String(error?.code || error?.message || '').toLowerCase();
+        if (code.includes('firebase-app-check-token-is-invalid')) {
+          return 'Token App Check non valido. Disattiva temporaneamente "Abilita App Check" nelle impostazioni app oppure in Firebase Console imposta Authentication su Monitoraggio e verifica site key/provider.';
+        }
+        return error?.message || 'Operazione autenticazione non riuscita.';
       }
       async function loginWithEmailPassword() {
         const email = (id('authEmailInput')?.value || '').trim();
         const password = (id('authPasswordInput')?.value || '').trim();
         if (!email || !password) throw new Error('Inserisci email e password.');
         const auth = await ensureMainAuthReady();
-        await auth.signInWithEmailAndPassword(email, password);
+        await runAuthWithAppCheckRetry(()=>auth.signInWithEmailAndPassword(email, password));
       }
       async function registerWithEmailPassword() {
+        const fullName = (id('authFullNameInput')?.value || '').trim();
         const email = (id('authEmailInput')?.value || '').trim();
         const password = (id('authPasswordInput')?.value || '').trim();
+        if (!fullName) throw new Error('Inserisci nome e cognome prima di registrarti.');
         if (!email || !password) throw new Error('Inserisci email e password.');
         if (password.length < 6) throw new Error('La password deve avere almeno 6 caratteri.');
         const auth = await ensureMainAuthReady();
-        await auth.createUserWithEmailAndPassword(email, password);
+        const cred = await runAuthWithAppCheckRetry(()=>auth.createUserWithEmailAndPassword(email, password));
+        const existing = getProfile();
+        setProfile({
+          ...existing,
+          nome: fullName,
+          email: email || existing.email || ''
+        });
+        loadProfileUI();
+        if (cred?.user?.updateProfile) {
+          try { await cred.user.updateProfile({ displayName: fullName }); } catch (_) {}
+        }
       }
       async function logoutCurrentUser() {
         const auth = await ensureMainAuthReady();
@@ -6473,6 +7011,7 @@ out center tags;`;
         }
         renderCommesseList();
         renderGlobalCommesseSelect();
+        renderLavoroCommesseUI();
         initNotificationUI();
         id('googleClientIdInput').value = getGoogleClientId();
         updateBackupStatusUI();
@@ -6545,6 +7084,13 @@ out center tags;`;
           if (id('clockInCantiere') && !id('clockInCantiere').value) id('clockInCantiere').value = id('globalCommessaSelect').value || '';
           if (id('cantiere') && !id('cantiere').value) id('cantiere').value = id('globalCommessaSelect').value || '';
         });
+        if (id('lavoroExternalTabBtn')) id('lavoroExternalTabBtn').addEventListener('click', ()=>setLavoroTab('external'));
+        if (id('lavoroCommesseTabBtn')) id('lavoroCommesseTabBtn').addEventListener('click', ()=>setLavoroTab('commesse'));
+        if (id('lavoroCommessaSelect')) id('lavoroCommessaSelect').addEventListener('change', ()=>{
+          selectedLavoroCommessaId = id('lavoroCommessaSelect').value || '';
+          selectedLavoroCantiereExpandedId = '';
+          renderLavoroCommesseUI();
+        });
         if (id('enableNotificationsBtn')) id('enableNotificationsBtn').addEventListener('click', requestNotificationPermission);
         ['notifyEntryTime','notifyExitTime','notifyIntenseSound'].forEach((fieldId)=>{
           if (id(fieldId)) id(fieldId).addEventListener('change', saveNotificationSettingsFromUI);
@@ -6575,7 +7121,7 @@ out center tags;`;
             await loginWithEmailPassword();
             showAuthMsg('Login eseguito.', 'ok');
           } catch (error) {
-            showAuthMsg(error.message || 'Login non riuscito.', 'err');
+            showAuthMsg(friendlyAuthErrorMessage(error), 'err');
           }
         });
         if (id('authRegisterBtn')) id('authRegisterBtn').addEventListener('click', async ()=>{
@@ -6583,7 +7129,7 @@ out center tags;`;
             await registerWithEmailPassword();
             showAuthMsg('Registrazione completata. Ora sei autenticato.', 'ok');
           } catch (error) {
-            showAuthMsg(error.message || 'Registrazione non riuscita.', 'err');
+            showAuthMsg(friendlyAuthErrorMessage(error), 'err');
           }
         });
         if (id('authBiometricUnlockBtn')) id('authBiometricUnlockBtn').addEventListener('click', async ()=>{
