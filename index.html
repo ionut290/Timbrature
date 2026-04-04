@@ -2088,6 +2088,7 @@ out center tags;`;
           ...current,
           done_at: markDone ? stamp : '',
           done_by: markDone ? operatorName : '',
+          done_state_updated_at: stamp,
           updated_at: stamp
         });
         commesse[cIdx] = { ...commesse[cIdx], cantieri, updated_at: stamp };
@@ -4602,6 +4603,7 @@ out center tags;`;
           lon,
           done_at: row.done_at || '',
           done_by: String(row.done_by || '').trim(),
+          done_state_updated_at: String(row.done_state_updated_at || row.done_at || '').trim(),
           created_at: row.created_at || new Date().toISOString(),
           updated_at: row.updated_at || new Date().toISOString()
         };
@@ -6505,15 +6507,96 @@ out center tags;`;
         SHARED_APP_KEYS.forEach((key)=>{ payload[key] = readJSON(key, null); });
         return payload;
       }
-      function maxUpdatedAtFromCommesse(rows = []) {
-        const list = Array.isArray(rows) ? rows : [];
-        return list.reduce((best, commessa)=>{
-          const commessaAt = String(commessa?.updated_at || '');
-          const cantieri = Array.isArray(commessa?.cantieri) ? commessa.cantieri : [];
-          const cantiereAt = cantieri.reduce((innerBest, c)=>String(c?.updated_at || '') > innerBest ? String(c?.updated_at || '') : innerBest, '');
-          const candidate = commessaAt > cantiereAt ? commessaAt : cantiereAt;
-          return candidate > best ? candidate : best;
-        }, '');
+      function compareUpdatedAt(a = '', b = '') {
+        const left = String(a || '');
+        const right = String(b || '');
+        if (!left && !right) return 0;
+        if (!left) return -1;
+        if (!right) return 1;
+        if (left === right) return 0;
+        return left > right ? 1 : -1;
+      }
+      function mergeCantieriByUpdatedAt(localRows = [], incomingRows = []) {
+        const mergedMap = new Map();
+        const toKey = (row={})=>String(row?.id || row?.code || row?.name || '').trim().toLowerCase();
+        const resolveDoneState = (left = {}, right = {})=>{
+          const leftStamp = String(left?.done_state_updated_at || left?.done_at || '');
+          const rightStamp = String(right?.done_state_updated_at || right?.done_at || '');
+          if (compareUpdatedAt(rightStamp, leftStamp) > 0) return {
+            done_at: right?.done_at || '',
+            done_by: right?.done_by || '',
+            done_state_updated_at: rightStamp
+          };
+          if (compareUpdatedAt(leftStamp, rightStamp) > 0) return {
+            done_at: left?.done_at || '',
+            done_by: left?.done_by || '',
+            done_state_updated_at: leftStamp
+          };
+          if (left?.done_at || right?.done_at) {
+            const preferred = left?.done_at ? left : right;
+            return {
+              done_at: preferred?.done_at || '',
+              done_by: preferred?.done_by || '',
+              done_state_updated_at: String(preferred?.done_state_updated_at || preferred?.done_at || '')
+            };
+          }
+          return { done_at:'', done_by:'', done_state_updated_at:'' };
+        };
+        (Array.isArray(localRows) ? localRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          mergedMap.set(key, normalizeCantiere(row));
+        });
+        (Array.isArray(incomingRows) ? incomingRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          const incoming = normalizeCantiere(row);
+          const current = mergedMap.get(key);
+          if (!current) {
+            mergedMap.set(key, incoming);
+            return;
+          }
+          const newer = compareUpdatedAt(incoming.updated_at, current.updated_at) >= 0 ? incoming : current;
+          const older = newer === incoming ? current : incoming;
+          const doneState = resolveDoneState(current, incoming);
+          mergedMap.set(key, normalizeCantiere({
+            ...older,
+            ...newer,
+            done_at: doneState.done_at,
+            done_by: doneState.done_by,
+            done_state_updated_at: doneState.done_state_updated_at
+          }));
+        });
+        return Array.from(mergedMap.values());
+      }
+      function mergeCommesseByUpdatedAt(localRows = [], incomingRows = []) {
+        const mergedMap = new Map();
+        const toKey = (row={})=>String(row?.id || row?.nome || row?.name || '').trim().toLowerCase();
+        (Array.isArray(localRows) ? localRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          mergedMap.set(key, normalizeCommessa(row));
+        });
+        (Array.isArray(incomingRows) ? incomingRows : []).forEach((row)=>{
+          const key = toKey(row);
+          if (!key) return;
+          const incoming = normalizeCommessa(row);
+          const current = mergedMap.get(key);
+          if (!current) {
+            mergedMap.set(key, incoming);
+            return;
+          }
+          const newer = compareUpdatedAt(incoming.updated_at, current.updated_at) >= 0 ? incoming : current;
+          const older = newer === incoming ? current : incoming;
+          const mergedCantieri = mergeCantieriByUpdatedAt(current.cantieri || [], incoming.cantieri || []);
+          mergedMap.set(key, normalizeCommessa({
+            ...older,
+            ...newer,
+            cantieri: mergedCantieri,
+            updated_at: compareUpdatedAt(incoming.updated_at, current.updated_at) >= 0 ? incoming.updated_at : current.updated_at
+          }));
+        });
+        return Array.from(mergedMap.values());
       }
       function applySharedAppPayload(payload = {}) {
         applyingSharedAppPayload = true;
@@ -6523,9 +6606,8 @@ out center tags;`;
             if (key === COMMESSE_KEY) {
               const localCommesse = readJSON(COMMESSE_KEY, []);
               const incomingCommesse = payload[key];
-              const localAt = maxUpdatedAtFromCommesse(localCommesse);
-              const incomingAt = maxUpdatedAtFromCommesse(incomingCommesse);
-              if (localAt && incomingAt && localAt > incomingAt) return;
+              localStorage.setItem(key, JSON.stringify(mergeCommesseByUpdatedAt(localCommesse, incomingCommesse)));
+              return;
             }
             localStorage.setItem(key, JSON.stringify(payload[key]));
           });
