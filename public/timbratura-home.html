@@ -1220,18 +1220,11 @@
         OPERATORE: ['timbratureCard', 'lavoroCard', 'storicoCard', 'calendarioCard', 'chatCard', 'documentiCard', 'carburanteCard', 'userBox'],
         BACKOFFICE: ['lavoroCard', 'storicoCard', 'calendarioCard', 'chatCard', 'documentiCard', 'prezzarioCard', 'createPreventivoCard', 'dataHubCard', 'backupCard', 'userBox']
       };
-      const SHARED_APP_KEYS = [
-        RECORDS_KEY,
-        PROGRAMS_KEY,
-        TEAM_KEY,
-        TEAM_PROGRAMS_KEY,
-        TEAM_DIRECTORY_KEY,
+      const SHARED_DATA_HUB_KEYS = [
         COMMESSE_KEY,
-        GIORNALE_ENTRIES_KEY,
-        MASTER_DATA_KEY,
-        PREVENTIVI_KEY,
-        PREZZARIO_CONFIG_KEY
+        MASTER_DATA_KEY
       ];
+      const SHARED_APP_KEYS = [...SHARED_DATA_HUB_KEYS];
       const menuPanelIds = MENU_PERMISSION_ITEMS.map((item)=>item.panel);
       const DATA_HUB_CATEGORIES = [
         { key:'vehicles', label:'Mezzi', hint:'Gestisci i mezzi (da Firestore) con carburante, targa, stato e note.' },
@@ -1436,7 +1429,7 @@
         scheduleFirebaseAutoPush(`writeJSON:${k}`);
         if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) {
           if (!sharedAppReady) sharedAppPendingPush = true;
-          const realtimePriority = k === COMMESSE_KEY || k === GIORNALE_ENTRIES_KEY || k === RECORDS_KEY;
+          const realtimePriority = SHARED_DATA_HUB_KEYS.includes(k);
           if (realtimePriority && currentAuthUser && sharedAppReady) {
             pushSharedAppPayload(`immediate:${k}`).catch(()=>{});
           } else {
