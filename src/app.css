@@ -98,6 +98,64 @@ body {
   border: 1px solid #e5e7eb;
 }
 
+.appTopbar {
+  display: flex;
+  justify-content: flex-end;
+  position: relative;
+}
+
+.kebabButton {
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #0f172a;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  padding: 0;
+}
+
+.kebabMenu {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  z-index: 10;
+  width: min(280px, calc(100vw - 32px));
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.kebabItem {
+  text-align: left;
+  border: 1px solid #cbd5e1;
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.kebabItem.active {
+  background: #0f172a;
+  color: #fff;
+}
+
+.timbraturaSection {
+  padding: 0;
+  overflow: hidden;
+}
+
+
+.timbraturaFrame {
+  width: 100%;
+  min-height: calc(100vh - 220px);
+  border: 0;
+  display: block;
+}
+
 .toolbar {
   display: flex;
   gap: 12px;
