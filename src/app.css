@@ -64,6 +64,37 @@ body {
   overflow: hidden;
 }
 
+
+.timbraturaHint {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.timbraturaHint p {
+  margin: 0;
+  color: #334155;
+}
+
+.openTimbraturaLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  border: 1px solid #cbd5e1;
+  background: #0f172a;
+  color: #fff;
+  font-size: 14px;
+}
+
 .timbraturaFrame {
   width: 100%;
   min-height: calc(100vh - 220px);
