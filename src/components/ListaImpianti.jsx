@@ -1,3 +1,4 @@
+import React from 'react';
 import { serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
