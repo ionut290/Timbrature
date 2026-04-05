@@ -1,3 +1,4 @@
+import React from "react";
 import { serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -28,9 +29,10 @@ export default function ListaImpianti({ impianti, onError, onActionDone }) {
             <li key={impianto.id} className="impiantoItem">
               <div>
                 <h3>{impianto.nome || 'Senza nome'}</h3>
+                <p>ID SAP: {impianto.idSap || '-'}</p>
                 <p>Comune: {impianto.comune || '-'}</p>
+                <p>Indirizzo: {impianto.indirizzo || '-'}</p>
                 <p>Stato: {impianto.stato || '-'}</p>
-                <p>Priorità: {impianto.priorita || '-'}</p>
               </div>
               <button
                 type="button"

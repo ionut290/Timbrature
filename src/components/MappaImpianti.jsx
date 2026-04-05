@@ -1,3 +1,4 @@
+import React from "react";
 import { useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -23,7 +24,7 @@ function buildMarkerIcon(stato = 'da_fare') {
 }
 
 function getMapCenter(impianti) {
-  if (!impianti.length) return [41.9028, 12.4964]; // Roma default
+  if (!impianti.length) return [41.9028, 12.4964];
   const validi = impianti.filter((i) => Number.isFinite(i.lat) && Number.isFinite(i.lng));
   if (!validi.length) return [41.9028, 12.4964];
 
@@ -56,13 +57,13 @@ export default function MappaImpianti({ impianti }) {
                 <Popup>
                   <strong>{impianto.nome || 'Senza nome'}</strong>
                   <br />
-                  <span>{impianto.comune || '-'}</span>
+                  <span>ID SAP: {impianto.idSap || '-'}</span>
                   <br />
-                  <span>{impianto.indirizzo || '-'}</span>
+                  <span>Comune: {impianto.comune || '-'}</span>
+                  <br />
+                  <span>Indirizzo: {impianto.indirizzo || '-'}</span>
                   <br />
                   <span>Stato: {impianto.stato || '-'}</span>
-                  <br />
-                  <span>Priorità: {impianto.priorita || '-'}</span>
                 </Popup>
               </Marker>
             ))}
