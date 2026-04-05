@@ -214,7 +214,7 @@
         gap:24px;
         white-space:nowrap;
         min-width:200%;
-        animation:ticker-right-to-left-loop 22s linear infinite;
+        animation:ticker-left-to-right-loop 22s linear infinite;
         padding:0 12px;
       }
       .ticker-text {
@@ -223,9 +223,9 @@
         color:#020617;
         text-shadow:none;
       }
-      @keyframes ticker-right-to-left-loop {
-        from { transform:translateX(0%); }
-        to { transform:translateX(-50%); }
+      @keyframes ticker-left-to-right-loop {
+        from { transform:translateX(-50%); }
+        to { transform:translateX(0%); }
       }
       @media (prefers-reduced-motion: reduce) {
         .ticker-track { animation:none; }
@@ -4448,13 +4448,14 @@ out center tags;`;
         const total = entries.reduce((acc, [, rows])=>acc + (Array.isArray(rows) ? rows.length : 0), 0);
         const preview = [];
         entries.forEach(([date, rows])=>{
-          (Array.isArray(rows) ? rows : []).slice(0, 1).forEach((row)=>{
-            const note = String(row.note || '').trim();
-            const shortNote = note.length > 45 ? `${note.slice(0, 45)}…` : note;
+          const safeRows = (Array.isArray(rows) ? rows : []).slice().sort((a,b)=>String(a.time || '').localeCompare(String(b.time || '')));
+          safeRows.slice(0, 2).forEach((row)=>{
+            const note = String(row.note || '').trim() || 'Appuntamento';
+            const shortNote = note.length > 70 ? `${note.slice(0, 70)}…` : note;
             preview.push(`${date}${row.time ? ` ${row.time}` : ''} ${shortNote}`.trim());
           });
         });
-        return `Appuntamenti settimana: ${total}. Prossimi: ${preview.slice(0, 3).join(' | ')}`;
+        return `Appuntamenti settimana: ${total}. Testi: ${preview.slice(0, 5).join(' | ')}`;
       }
       function formatMonthlyHoursSummary() {
         const month = currentMonthValueUTC();
