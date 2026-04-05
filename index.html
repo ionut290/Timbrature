@@ -230,6 +230,19 @@
       @media (prefers-reduced-motion: reduce) {
         .ticker-track { animation:none; }
       }
+      .weather-mini {
+        margin-top:8px;
+        border:1px solid #bfdbfe;
+        border-radius:10px;
+        background:#eff6ff;
+        padding:8px;
+        cursor:pointer;
+        max-width:320px;
+      }
+      .weather-mini-title { margin:0; font-size:12px; font-weight:700; color:#1e3a8a; }
+      .weather-mini-now { margin:4px 0 0; font-size:13px; font-weight:700; color:#0f172a; }
+      .weather-mini-forecast { margin:6px 0 0; padding-left:16px; font-size:12px; color:#1e293b; display:grid; gap:3px; }
+      .weather-mini-forecast.hidden { display:none; }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
       @media (max-width: 768px) {
@@ -553,6 +566,11 @@
             <div>
               <p class="pill" id="locationBadge">Utente: Ionel Varga</p>
               <p class="welcome-box" id="welcomeText"></p>
+              <div class="weather-mini" id="weatherMiniWidget" role="button" tabindex="0" aria-expanded="false" title="Tocca per vedere le previsioni settimanali">
+                <p class="weather-mini-title">Meteo rapido (oggi)</p>
+                <p class="weather-mini-now" id="weatherMiniNow">Caricamento meteo...</p>
+                <ul class="weather-mini-forecast hidden" id="weatherMiniForecast"></ul>
+              </div>
             </div>
           </div>
           <div class="inline-actions">
@@ -1106,6 +1124,7 @@
       const APPOINTMENTS_KEY = 'timbrature.local.appointments';
       const WEATHER_TICKER_CACHE_KEY = 'timbrature.local.weather.ticker.cache';
       const WORLD_NEWS_TICKER_CACHE_KEY = 'timbrature.local.world.news.ticker.cache';
+      const WEATHER_FORECAST_CACHE_KEY = 'timbrature.local.weather.forecast.cache';
       const NOTIFICATION_SETTINGS_KEY = 'timbrature.local.notifications.settings';
       const NOTIFICATION_SENT_KEY = 'timbrature.local.notifications.sent';
       const COMMESSE_KEY = 'timbrature.local.commesse';
@@ -4485,24 +4504,50 @@ out center tags;`;
         writeJSON(WORLD_NEWS_TICKER_CACHE_KEY, cache);
       }
       async function fetchWorldNewsSummary() {
-        const url = 'https://www.reddit.com/r/worldnews/top.json?limit=8&t=day';
-        const response = await fetch(url, { cache:'no-store' });
-        if (!response.ok) throw new Error('world_news_fetch_failed');
-        const data = await response.json();
-        const rows = Array.isArray(data?.data?.children) ? data.data.children : [];
-        const titles = rows.map((item)=>String(item?.data?.title || '').trim()).filter(Boolean);
-        if (!titles.length) return 'Notizie mondo: nessun aggiornamento disponibile.';
-        return `Notizie mondo: ${titles.join(' || ')}`;
+        const rssUrl = 'https://www.ansa.it/sito/ansait_rss.xml';
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
+        const response = await fetch(proxyUrl, { cache:'no-store' });
+        if (!response.ok) throw new Error('italian_news_fetch_failed');
+        const xmlText = await response.text();
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(xmlText, 'application/xml');
+        const titles = Array.from(xml.querySelectorAll('item > title')).map((node)=>String(node.textContent || '').trim()).filter(Boolean);
+        if (!titles.length) return 'Notizie Italia/Mondo: nessun aggiornamento disponibile.';
+        return `Notizie Italia/Mondo: ${titles.slice(0, 10).join(' || ')}`;
+      }
+      function getWeatherForecastCache() {
+        return readJSON(WEATHER_FORECAST_CACHE_KEY, {});
+      }
+      function setWeatherForecastCache(cache={}) {
+        writeJSON(WEATHER_FORECAST_CACHE_KEY, cache);
+      }
+      function renderWeatherMiniWidget(cache={}) {
+        const nowEl = id('weatherMiniNow');
+        const listEl = id('weatherMiniForecast');
+        if (!nowEl || !listEl) return;
+        const todaySummary = String(cache.todaySummary || 'Meteo non disponibile.');
+        nowEl.textContent = todaySummary;
+        const rows = Array.isArray(cache.weekRows) ? cache.weekRows : [];
+        if (!rows.length) {
+          listEl.innerHTML = '<li>Nessuna previsione settimanale disponibile.</li>';
+          return;
+        }
+        listEl.innerHTML = rows.map((line)=>`<li>${escapeHtml(line)}</li>`).join('');
+      }
+      function formatWeekdayShort(isoDate='') {
+        const d = new Date(`${isoDate}T00:00:00`);
+        if (Number.isNaN(d.getTime())) return isoDate;
+        return d.toLocaleDateString('it-IT', { weekday:'short', day:'2-digit', month:'2-digit' });
       }
       async function fetchWeatherTickerSummary() {
-        if (!navigator.geolocation) return 'Meteo oggi: geolocalizzazione non disponibile.';
+        if (!navigator.geolocation) return { ticker:'Meteo oggi: geolocalizzazione non disponibile.', todaySummary:'Meteo non disponibile.', weekRows:[] };
         const position = await new Promise((resolve, reject)=>{
           navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:false, timeout:6000, maximumAge:60 * 60 * 1000 });
         });
         const lat = Number(position?.coords?.latitude);
         const lon = Number(position?.coords?.longitude);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return 'Meteo oggi: posizione non valida.';
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`;
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { ticker:'Meteo oggi: posizione non valida.', todaySummary:'Meteo non disponibile.', weekRows:[] };
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,time&forecast_days=7&timezone=auto`;
         const response = await fetch(url, { cache:'no-store' });
         if (!response.ok) throw new Error('weather_fetch_failed');
         const data = await response.json();
@@ -4514,24 +4559,43 @@ out center tags;`;
         const curLabel = Number.isFinite(current) ? `${Math.round(current)}°C` : '--';
         const minLabel = Number.isFinite(tMin) ? `${Math.round(tMin)}°C` : '--';
         const maxLabel = Number.isFinite(tMax) ? `${Math.round(tMax)}°C` : '--';
-        return `Meteo oggi: ${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
+        const ticker = `Meteo oggi: ${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
+        const todaySummary = `${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
+        const days = Array.isArray(data?.daily?.time) ? data.daily.time : [];
+        const codes = Array.isArray(data?.daily?.weather_code) ? data.daily.weather_code : [];
+        const mins = Array.isArray(data?.daily?.temperature_2m_min) ? data.daily.temperature_2m_min : [];
+        const maxs = Array.isArray(data?.daily?.temperature_2m_max) ? data.daily.temperature_2m_max : [];
+        const weekRows = days.map((day, idx)=>{
+          const dayText = weatherCodeToText(Number(codes[idx]));
+          const min = Number.isFinite(Number(mins[idx])) ? `${Math.round(Number(mins[idx]))}°C` : '--';
+          const max = Number.isFinite(Number(maxs[idx])) ? `${Math.round(Number(maxs[idx]))}°C` : '--';
+          return `${formatWeekdayShort(day)}: ${dayText} (min ${min} / max ${max})`;
+        });
+        return { ticker, todaySummary, weekRows };
       }
+
       async function refreshInfoTicker(forceWeather = false) {
         const weatherCache = getWeatherTickerCache();
         const newsCache = getWorldNewsTickerCache();
         const nowTs = Date.now();
         const maxAge = 45 * 60 * 1000;
         let weatherSummary = String(weatherCache.summary || 'Meteo oggi: in aggiornamento...');
+        const forecastCache = getWeatherForecastCache();
+        renderWeatherMiniWidget(forecastCache);
         let worldNewsSummary = String(newsCache.summary || 'Notizie mondo: in aggiornamento...');
         const shouldFetchWeather = forceWeather || !weatherCache.summary || !weatherCache.fetchedAt || (nowTs - Number(weatherCache.fetchedAt || 0) > maxAge);
         const shouldFetchNews = forceWeather || !newsCache.summary || !newsCache.fetchedAt || (nowTs - Number(newsCache.fetchedAt || 0) > maxAge);
         if (shouldFetchWeather && (nowTs - lastWeatherTickerFetchAt > 15000)) {
           lastWeatherTickerFetchAt = nowTs;
           try {
-            weatherSummary = await fetchWeatherTickerSummary();
+            const weatherPayload = await fetchWeatherTickerSummary();
+            weatherSummary = String(weatherPayload.ticker || 'Meteo oggi: non disponibile al momento.');
             setWeatherTickerCache({ summary:weatherSummary, fetchedAt:nowTs });
+            setWeatherForecastCache({ todaySummary:String(weatherPayload.todaySummary || ''), weekRows:Array.isArray(weatherPayload.weekRows) ? weatherPayload.weekRows : [], fetchedAt:nowTs });
+            renderWeatherMiniWidget({ todaySummary:String(weatherPayload.todaySummary || ''), weekRows:Array.isArray(weatherPayload.weekRows) ? weatherPayload.weekRows : [] });
           } catch (_) {
             if (!weatherCache.summary) weatherSummary = 'Meteo oggi: non disponibile al momento.';
+            if (!forecastCache.todaySummary) renderWeatherMiniWidget({ todaySummary:'Meteo non disponibile.', weekRows:[] });
           }
         }
         if (shouldFetchNews) {
@@ -7423,6 +7487,17 @@ out center tags;`;
         });
         id('agendaSaveBtn').addEventListener('click', saveAgendaEntry);
         id('todayAgendaWidget').addEventListener('click', ()=>setMenuSection('calendarioCard'));
+        const toggleWeatherForecast = ()=>{
+          const panel = id('weatherMiniForecast');
+          const box = id('weatherMiniWidget');
+          if (!panel || !box) return;
+          panel.classList.toggle('hidden');
+          box.setAttribute('aria-expanded', String(!panel.classList.contains('hidden')));
+        };
+        if (id('weatherMiniWidget')) {
+          id('weatherMiniWidget').addEventListener('click', toggleWeatherForecast);
+          id('weatherMiniWidget').addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleWeatherForecast(); } });
+        }
         id('openDocFormBtn').addEventListener('click', openDocForm);
         id('cancelDocFormBtn').addEventListener('click', closeDocForm);
         id('openDeleteDocBtn').addEventListener('click', openDeleteDocPanel);
