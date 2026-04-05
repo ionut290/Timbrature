@@ -107,12 +107,16 @@ function parseDelimitedText(text, delimiter = ',') {
 
 function toImpiantoPayload(row = {}) {
   const payload = {
-    commessaId: String(row.commessaId || row.commessaid || row.commessa || '').trim(),
-    nome: String(row.nome || row.name || '').trim(),
-    comune: String(row.comune || row.city || '').trim(),
-    indirizzo: String(row.indirizzo || row.address || '').trim(),
-    lat: Number(row.lat ?? row.latitude),
-    lng: Number(row.lng ?? row.lon ?? row.longitude),
+    commessaId: String(
+      row.commessaId || row.commessaid || row.commessa || ''
+    ).trim(),
+    distretto: String(row.distretto || row.Distretto || row['distretto'] || '').trim(),
+    idSap: String(row.idSap || row.idsap || row['ID SAP'] || row['id sap'] || '').trim(),
+    nome: String(row.nome || row.name || row['Denominazione Impianto'] || row['denominazione impianto'] || '').trim(),
+    comune: String(row.comune || row.city || row['Comune ubicazione Impianto'] || row['comune ubicazione impianto'] || '').trim(),
+    indirizzo: String(row.indirizzo || row.address || row['Via e civico di ubicazione Impianto'] || row['via e civico di ubicazione impianto'] || '').trim(),
+    lat: Number(row.lat ?? row.latitude ?? row['Coordinate GPS(Y)'] ?? row['coordinate gps(y)']),
+    lng: Number(row.lng ?? row.lon ?? row.longitude ?? row['Coordinate GPS(X)'] ?? row['coordinate gps(x)']),
     stato: String(row.stato || 'da_fare').trim() || 'da_fare',
     priorita: String(row.priorita || row.priority || 'media').trim() || 'media',
     fotoCount: Number(row.fotoCount ?? row.fotocount ?? row.foto_count ?? 0),
@@ -120,7 +124,7 @@ function toImpiantoPayload(row = {}) {
     updatedAt: serverTimestamp(),
   };
 
-  if (!payload.commessaId || !payload.nome || !payload.comune) return null;
+  if (!payload.nome || !payload.comune) return null;
   if (!Number.isFinite(payload.lat) || !Number.isFinite(payload.lng)) return null;
   if (!Number.isFinite(payload.fotoCount)) payload.fotoCount = 0;
   return payload;
@@ -232,7 +236,7 @@ export default function GestioneImpiantiLive() {
         const message = err?.message ? ` ${err.message}` : '';
         setError(`Errore Firestore impianti${code}.${message}`.trim());
         if (fallback.length) {
-          setNotice('Mostrati anche impianti locali da Dati app come fallback.');
+          setNotice('');
         } else {
           setNotice('');
         }

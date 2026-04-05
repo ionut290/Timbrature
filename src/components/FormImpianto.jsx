@@ -5,6 +5,8 @@ import { db } from '../firebase';
 
 const initialState = {
   commessaId: '',
+  distretto: '',
+  idSap: '',
   nome: '',
   comune: '',
   indirizzo: '',
@@ -30,7 +32,9 @@ export default function FormImpianto({ onError, onActionDone }) {
 
     try {
       const payload = {
-        commessaId: form.commessaId.trim(),
+        commessaId: form.commessaId.trim() || '',
+        distretto: form.distretto.trim() || '',
+        idSap: form.idSap.trim() || '',
         nome: form.nome.trim(),
         comune: form.comune.trim(),
         indirizzo: form.indirizzo.trim(),
@@ -43,8 +47,8 @@ export default function FormImpianto({ onError, onActionDone }) {
         updatedAt: serverTimestamp(),
       };
 
-      if (!payload.commessaId || !payload.nome || !payload.comune) {
-        throw new Error('Compila almeno commessaId, nome e comune.');
+      if (!payload.nome || !payload.comune) {
+        throw new Error('Compila almeno Denominazione impianto e Comune.');
       }
       if (!Number.isFinite(payload.lat) || !Number.isFinite(payload.lng)) {
         throw new Error('Latitudine e longitudine non valide.');
@@ -66,12 +70,22 @@ export default function FormImpianto({ onError, onActionDone }) {
       <h2>Nuovo impianto</h2>
       <form onSubmit={handleSubmit} className="formGrid">
         <label>
-          Commessa ID
-          <input name="commessaId" value={form.commessaId} onChange={handleChange} required />
+          Commessa ID (opzionale)
+          <input name="commessaId" value={form.commessaId} onChange={handleChange} />
         </label>
 
         <label>
-          Nome
+          Distretto
+          <input name="distretto" value={form.distretto} onChange={handleChange} />
+        </label>
+
+        <label>
+          ID SAP
+          <input name="idSap" value={form.idSap} onChange={handleChange} />
+        </label>
+
+        <label>
+          Denominazione Impianto
           <input name="nome" value={form.nome} onChange={handleChange} required />
         </label>
 
@@ -81,18 +95,18 @@ export default function FormImpianto({ onError, onActionDone }) {
         </label>
 
         <label>
-          Indirizzo
+          Via e civico
           <input name="indirizzo" value={form.indirizzo} onChange={handleChange} />
         </label>
 
         <label>
           Lat
-          <input name="lat" type="number" step="any" value={form.lat} onChange={handleChange} required />
+          <input name="lat" value={form.lat} onChange={handleChange} required />
         </label>
 
         <label>
           Lng
-          <input name="lng" type="number" step="any" value={form.lng} onChange={handleChange} required />
+          <input name="lng" value={form.lng} onChange={handleChange} required />
         </label>
 
         <label>
@@ -109,17 +123,19 @@ export default function FormImpianto({ onError, onActionDone }) {
 
         <label>
           Priorità
-          <input name="priorita" value={form.priorita} onChange={handleChange} />
+          <select name="priorita" value={form.priorita} onChange={handleChange}>
+            <option value="bassa">bassa</option>
+            <option value="media">media</option>
+            <option value="alta">alta</option>
+          </select>
         </label>
 
         <label>
           Foto count
-          <input name="fotoCount" type="number" value={form.fotoCount} onChange={handleChange} />
+          <input name="fotoCount" value={form.fotoCount} onChange={handleChange} type="number" min="0" />
         </label>
 
-        <button type="submit" disabled={saving}>
-          {saving ? 'Salvataggio...' : 'Salva impianto'}
-        </button>
+        <button type="submit" disabled={saving}>{saving ? 'Salvataggio...' : 'Salva impianto'}</button>
       </form>
     </div>
   );
