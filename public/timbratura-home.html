@@ -1227,7 +1227,20 @@
         COMMESSE_KEY,
         MASTER_DATA_KEY
       ];
-      const SHARED_APP_KEYS = [...SHARED_DATA_HUB_KEYS];
+      const SHARED_APP_KEYS = [
+        RECORDS_KEY,
+        TEAM_KEY,
+        TEAM_PROGRAMS_KEY,
+        TEAM_DIRECTORY_KEY,
+        DOCUMENTS_KEY,
+        APPOINTMENTS_KEY,
+        COMMESSE_KEY,
+        GIORNALE_ENTRIES_KEY,
+        PREVENTIVI_KEY,
+        CHAT_MESSAGES_KEY,
+        PREZZARIO_CONFIG_KEY,
+        MASTER_DATA_KEY
+      ];
       const menuPanelIds = MENU_PERMISSION_ITEMS.map((item)=>item.panel);
       const DATA_HUB_CATEGORIES = [
         { key:'vehicles', label:'Mezzi', hint:'Gestisci i mezzi (da Firestore) con carburante, targa, stato e note.' },
@@ -7278,6 +7291,33 @@ out center tags;`;
         });
         return Array.from(mergedMap.values());
       }
+      function mergeUniqueRowsById(localRows = [], incomingRows = [], options = {}) {
+        const keyResolver = typeof options.keyResolver === 'function'
+          ? options.keyResolver
+          : (row = {}) => String(row?.id || '').trim();
+        const timestampResolver = typeof options.timestampResolver === 'function'
+          ? options.timestampResolver
+          : (row = {}) => String(row?.updated_at || row?.updatedAt || row?.createdAt || '').trim();
+        const map = new Map();
+        const feed = (rows = []) => {
+          (Array.isArray(rows) ? rows : []).forEach((row, idx) => {
+            const fallbackKey = `idx:${idx}:${JSON.stringify(row || {})}`;
+            const key = keyResolver(row, idx) || fallbackKey;
+            const current = map.get(key);
+            if (!current) {
+              map.set(key, row);
+              return;
+            }
+            const currentTs = timestampResolver(current);
+            const incomingTs = timestampResolver(row);
+            const shouldReplace = compareUpdatedAt(incomingTs, currentTs) >= 0;
+            map.set(key, shouldReplace ? row : current);
+          });
+        };
+        feed(localRows);
+        feed(incomingRows);
+        return Array.from(map.values());
+      }
       function applySharedAppPayload(payload = {}) {
         applyingSharedAppPayload = true;
         try {
@@ -7287,6 +7327,33 @@ out center tags;`;
               const localCommesse = readJSON(COMMESSE_KEY, []);
               const incomingCommesse = payload[key];
               localStorage.setItem(key, JSON.stringify(mergeCommesseByUpdatedAt(localCommesse, incomingCommesse)));
+              return;
+            }
+            if (key === CHAT_MESSAGES_KEY) {
+              const localRows = readJSON(CHAT_MESSAGES_KEY, []);
+              const mergedRows = mergeUniqueRowsById(localRows, payload[key], {
+                keyResolver: (row = {}) => String(row?.id || `${row?.sender || ''}|${row?.createdAt || ''}|${row?.message || ''}`).trim(),
+                timestampResolver: (row = {}) => String(row?.createdAt || row?.updatedAt || '')
+              }).sort((a, b)=>String(b?.createdAt || '').localeCompare(String(a?.createdAt || ''))).slice(0, 200);
+              localStorage.setItem(key, JSON.stringify(mergedRows));
+              return;
+            }
+            if (key === RECORDS_KEY) {
+              const localRows = readJSON(RECORDS_KEY, []);
+              const mergedRows = mergeUniqueRowsById(localRows, payload[key], {
+                keyResolver: (row = {}) => String(row?.id || `${row?.data || ''}|${row?.entrata || ''}|${row?.uscita || ''}|${row?.nome || ''}`).trim(),
+                timestampResolver: (row = {}) => String(row?.updatedAt || row?.updated_at || row?.createdAt || '')
+              }).sort((a, b)=>String(b?.data || '').localeCompare(String(a?.data || '')));
+              localStorage.setItem(key, JSON.stringify(mergedRows));
+              return;
+            }
+            if (key === GIORNALE_ENTRIES_KEY || key === PREVENTIVI_KEY || key === DOCUMENTS_KEY || key === APPOINTMENTS_KEY || key === TEAM_PROGRAMS_KEY) {
+              const localRows = readJSON(key, []);
+              const mergedRows = mergeUniqueRowsById(localRows, payload[key], {
+                keyResolver: (row = {}) => String(row?.id || row?.code || row?.date || row?.createdAt || JSON.stringify(row || {})).trim(),
+                timestampResolver: (row = {}) => String(row?.updatedAt || row?.updated_at || row?.createdAt || '')
+              });
+              localStorage.setItem(key, JSON.stringify(mergedRows));
               return;
             }
             localStorage.setItem(key, JSON.stringify(payload[key]));
@@ -7304,6 +7371,7 @@ out center tags;`;
           try { renderDocuments(); } catch (_) {}
           try { renderPreventiviList(); } catch (_) {}
           try { loadMyMonth(); } catch (_) {}
+          try { loadChatMessages(); } catch (_) {}
         } finally {
           applyingSharedAppPayload = false;
         }
