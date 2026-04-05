@@ -4806,13 +4806,13 @@ out center tags;`;
         const lon = Number(coords.lon);
         const sourceLabel = coords.source === 'gps' ? '' : ' (stima su Roma)';
         try {
-          return await fetchMetNoSummary(lat, lon, sourceLabel);
+          return await fetchOpenMeteoSummary(lat, lon, sourceLabel);
         } catch (error) {
-          console.error('Errore meteo MET Norway', error);
+          console.error('Errore meteo Open-Meteo', error);
           try {
-            return await fetchOpenMeteoSummary(lat, lon, sourceLabel);
+            return await fetchMetNoSummary(lat, lon, sourceLabel);
           } catch (fallbackError) {
-            console.error('Errore meteo Open-Meteo (fallback)', fallbackError);
+            console.error('Errore meteo MET Norway (fallback)', fallbackError);
             const fakeRows = Array.from({ length:7 }).map((_, idx)=>{
               const d = new Date();
               d.setDate(d.getDate() + idx);
