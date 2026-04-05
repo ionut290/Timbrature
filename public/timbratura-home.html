@@ -4714,59 +4714,19 @@ out center tags;`;
         const lat = Number(coords.lat);
         const lon = Number(coords.lon);
         const sourceLabel = coords.source === 'gps' ? '' : ' (stima su Roma)';
-        const providerBase = String(readJSON('timbrature.local.weather.3b.base_url', 'https://api.3bmeteo.com')).trim().replace(/\/$/, '');
-        const providerToken = String(readJSON('timbrature.local.weather.3b.token', '')).trim();
-        const providerPath = String(readJSON('timbrature.local.weather.3b.path', '/v2/meteo/point/daily')).trim() || '/v2/meteo/point/daily';
-        const query = new URLSearchParams({ lat:lat.toFixed(4), lon:lon.toFixed(4), lang:'it', unit:'metric', days:'7' });
-        if (providerToken) query.set('token', providerToken);
-        const url = `${providerBase}${providerPath.startsWith('/') ? providerPath : `/${providerPath}`}?${query.toString()}`;
         try {
-          const response = await fetch(url, { cache:'no-store' });
-          if (!response.ok) throw new Error(`weather_3b_fetch_failed_${response.status}`);
-          const data = await response.json();
-          const daysRaw = Array.isArray(data?.days) ? data.days : (Array.isArray(data?.forecast) ? data.forecast : (Array.isArray(data?.result?.days) ? data.result.days : []));
-          const days = daysRaw.slice(0, 7);
-          if (!days.length) throw new Error('weather_3b_empty_payload');
-          const currentRaw = data?.current || data?.now || data?.result?.current || {};
-          const currentTemp = Number(currentRaw?.temp ?? currentRaw?.temperature ?? days?.[0]?.temp ?? days?.[0]?.temperature);
-          const currentDesc = String(currentRaw?.description || currentRaw?.icon_desc || currentRaw?.condition || days?.[0]?.description || days?.[0]?.icon_desc || 'condizioni variabili').trim();
-          const minToday = Number(days?.[0]?.tmin ?? days?.[0]?.temp_min ?? days?.[0]?.min);
-          const maxToday = Number(days?.[0]?.tmax ?? days?.[0]?.temp_max ?? days?.[0]?.max);
-          const curLabel = Number.isFinite(currentTemp) ? `${Math.round(currentTemp)}°C` : '--';
-          const minLabel = Number.isFinite(minToday) ? `${Math.round(minToday)}°C` : '--';
-          const maxLabel = Number.isFinite(maxToday) ? `${Math.round(maxToday)}°C` : '--';
-          const ticker = `Meteo oggi (3B Meteo): ${currentDesc}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
-          const todaySummary = `${currentDesc}, ${curLabel} (min ${minLabel} / max ${maxLabel})${sourceLabel}`;
-          const weekRows = days.map((row, idx)=>{
-            const rawDate = String(row?.date || row?.datetime || row?.dt || '').slice(0, 10);
-            const dateIso = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
-              ? rawDate
-              : (()=>{
-                const d = new Date();
-                d.setDate(d.getDate() + idx);
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-              })();
-            const desc = String(row?.description || row?.icon_desc || row?.condition || row?.weather || 'variabile').trim();
-            const min = Number(row?.tmin ?? row?.temp_min ?? row?.min);
-            const max = Number(row?.tmax ?? row?.temp_max ?? row?.max);
-            const minOut = Number.isFinite(min) ? `${Math.round(min)}°C` : '--';
-            const maxOut = Number.isFinite(max) ? `${Math.round(max)}°C` : '--';
-            return `${formatWeekdayShort(dateIso)}: ${desc} (min ${minOut} / max ${maxOut})`;
-          });
-          return { ticker, todaySummary, weekRows };
-        } catch (_) {
-          try {
-            return await fetchOpenMeteoSummary(lat, lon, sourceLabel);
-          } catch (_) {}
+          return await fetchOpenMeteoSummary(lat, lon, sourceLabel);
+        } catch (error) {
+          console.error('Errore meteo Open-Meteo', error);
           const fakeRows = Array.from({ length:7 }).map((_, idx)=>{
             const d = new Date();
             d.setDate(d.getDate() + idx);
             const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            return `${formatWeekdayShort(iso)}: dati meteo 3B temporaneamente non disponibili`;
+            return `${formatWeekdayShort(iso)}: dati meteo temporaneamente non disponibili`;
           });
           return {
-            ticker:'Meteo oggi (3B Meteo): aggiornamento temporaneamente non disponibile.',
-            todaySummary:`Meteo 3B in aggiornamento${sourceLabel}`,
+            ticker:'Meteo oggi: aggiornamento temporaneamente non disponibile.',
+            todaySummary:`Meteo in aggiornamento${sourceLabel}`,
             weekRows:fakeRows
           };
         }
