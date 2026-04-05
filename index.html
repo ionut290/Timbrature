@@ -196,6 +196,40 @@
       .impianto-row-btn { width:100%; text-align:left; background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; font-weight:700; }
       .impianto-pill { border-radius:999px; font-size:18px; line-height:1; padding:6px 8px; background:#e2e8f0; }
       .impianto-pill.done { background:#dcfce7; }
+      .ticker-banner {
+        margin-top:10px;
+        border-radius:999px;
+        border:1px solid rgba(191, 219, 254, 0.95);
+        background:linear-gradient(90deg, rgba(59,130,246,0.28) 0%, rgba(139,92,246,0.32) 50%, rgba(16,185,129,0.28) 100%);
+        box-shadow:0 8px 20px rgba(30, 64, 175, 0.2);
+        height:42px;
+        overflow:hidden;
+        position:relative;
+      }
+      .ticker-track {
+        position:absolute;
+        inset:0;
+        display:inline-flex;
+        align-items:center;
+        gap:24px;
+        white-space:nowrap;
+        min-width:200%;
+        animation:ticker-right-to-left-loop 34s linear infinite;
+        padding:0 12px;
+      }
+      .ticker-text {
+        display:inline-block;
+        font-weight:800;
+        color:#020617;
+        text-shadow:none;
+      }
+      @keyframes ticker-right-to-left-loop {
+        from { transform:translateX(0%); }
+        to { transform:translateX(-50%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .ticker-track { animation:none; }
+      }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
       @media (max-width: 768px) {
@@ -591,6 +625,12 @@
             <p id="serviceCantiereTotals" class="service-subtotal force-hidden">Ore per cantiere: -</p>
             <p id="serviceDayEarnings" class="service-subtotal force-hidden">Guadagno giornata: € 0.00</p>
             <p id="serviceTotalEarnings" class="service-subtotal force-hidden">Fino adesso hai guadagnato circa: € 0.00</p>
+          </div>
+          <div class="ticker-banner" id="infoTickerBanner" aria-live="polite">
+            <div class="ticker-track" id="infoTickerTrack">
+              <span id="infoTickerText" class="ticker-text">Caricamento meteo e appuntamenti...</span>
+              <span id="infoTickerTextClone" class="ticker-text" aria-hidden="true">Caricamento meteo e appuntamenti...</span>
+            </div>
           </div>
 
           <div id="manualEditBox" class="hidden">
@@ -1064,6 +1104,8 @@
       const MONTHLY_EMAIL_SENT_KEY = 'timbrature.local.monthly.email.sent';
       const DOCUMENTS_KEY = 'timbrature.local.documents';
       const APPOINTMENTS_KEY = 'timbrature.local.appointments';
+      const WEATHER_TICKER_CACHE_KEY = 'timbrature.local.weather.ticker.cache';
+      const WORLD_NEWS_TICKER_CACHE_KEY = 'timbrature.local.world.news.ticker.cache';
       const NOTIFICATION_SETTINGS_KEY = 'timbrature.local.notifications.settings';
       const NOTIFICATION_SENT_KEY = 'timbrature.local.notifications.sent';
       const COMMESSE_KEY = 'timbrature.local.commesse';
@@ -1277,6 +1319,8 @@
       let menuOpen = false;
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
       let liveClockTimer = null;
+      let infoTickerTimer = null;
+      let lastWeatherTickerFetchAt = 0;
       let autoPunchTimer = null;
       let appAuth = null;
       let firebaseMainAppCheck = null;
@@ -4333,6 +4377,138 @@ out center tags;`;
         if (selectedMonthDay && String(selectedMonthDay).startsWith(month)) showDaySummary(selectedMonthDay);
         else id('selectedDaySummary').innerHTML = '<p class="small">Clicca su un giorno del calendario per vedere il riepilogo in colonna.</p>';
       }
+      function weatherCodeToText(code) {
+        const map = {
+          0:'sereno', 1:'prevalentemente sereno', 2:'parzialmente nuvoloso', 3:'coperto',
+          45:'nebbia', 48:'nebbia con brina',
+          51:'pioviggine debole', 53:'pioviggine', 55:'pioviggine intensa',
+          61:'pioggia debole', 63:'pioggia moderata', 65:'pioggia intensa',
+          71:'neve debole', 73:'neve', 75:'neve intensa',
+          80:'rovesci deboli', 81:'rovesci', 82:'rovesci intensi',
+          95:'temporale', 96:'temporale con grandine', 99:'temporale forte con grandine'
+        };
+        return map[Number(code)] || 'condizioni variabili';
+      }
+      function getWeekWindowDates(baseDate = nowDateISO()) {
+        const today = new Date(`${baseDate}T00:00:00`);
+        const jsDay = today.getDay();
+        const mondayOffset = jsDay === 0 ? -6 : 1 - jsDay;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + mondayOffset);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        const iso = (d)=>`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return { from:iso(monday), to:iso(sunday) };
+      }
+      function formatWeekAppointmentsSummary() {
+        const map = getAppointmentsMap();
+        const { from, to } = getWeekWindowDates();
+        const entries = Object.entries(map)
+          .filter(([date])=>date >= from && date <= to)
+          .sort((a,b)=>a[0] > b[0] ? 1 : -1);
+        if (!entries.length) return 'Appuntamenti settimana: nessuno inserito.';
+        const details = [];
+        entries.forEach(([date, rows])=>{
+          const safeRows = (Array.isArray(rows) ? rows : []).slice().sort((a,b)=>String(a.time || '').localeCompare(String(b.time || '')));
+          safeRows.forEach((row)=>{
+            const note = String(row.note || '').trim() || 'Appuntamento';
+            details.push(`${date}${row.time ? ` ${row.time}` : ''} — ${note}`.trim());
+          });
+        });
+        return `Appuntamenti settimana (${details.length}): ${details.join(' || ')}`;
+      }
+      function formatMonthlyHoursSummary() {
+        const month = currentMonthValueUTC();
+        const rows = getRecords().filter((r)=>String(r.data || '').startsWith(month));
+        const worked = rows.reduce((acc, row)=>acc + Number(row.ore || 0), 0);
+        const stra = rows.reduce((acc, row)=>acc + Number(row.stra || 0), 0);
+        return `Ore mese: ${worked.toFixed(2)}h (straordinari ${stra.toFixed(2)}h)`;
+      }
+      function setInfoTickerText(value='') {
+        const text = id('infoTickerText');
+        const clone = id('infoTickerTextClone');
+        if (!text) return;
+        const clean = String(value || '').trim() || 'Meteo e appuntamenti in aggiornamento.';
+        const continuous = `${clean} ✦ ${clean}`;
+        text.textContent = continuous;
+        if (clone) clone.textContent = continuous;
+      }
+      function getWeatherTickerCache() {
+        return readJSON(WEATHER_TICKER_CACHE_KEY, {});
+      }
+      function setWeatherTickerCache(cache={}) {
+        writeJSON(WEATHER_TICKER_CACHE_KEY, cache);
+      }
+      function getWorldNewsTickerCache() {
+        return readJSON(WORLD_NEWS_TICKER_CACHE_KEY, {});
+      }
+      function setWorldNewsTickerCache(cache={}) {
+        writeJSON(WORLD_NEWS_TICKER_CACHE_KEY, cache);
+      }
+      async function fetchWorldNewsSummary() {
+        const url = 'https://www.reddit.com/r/worldnews/top.json?limit=8&t=day';
+        const response = await fetch(url, { cache:'no-store' });
+        if (!response.ok) throw new Error('world_news_fetch_failed');
+        const data = await response.json();
+        const rows = Array.isArray(data?.data?.children) ? data.data.children : [];
+        const titles = rows.map((item)=>String(item?.data?.title || '').trim()).filter(Boolean);
+        if (!titles.length) return 'Notizie mondo: nessun aggiornamento disponibile.';
+        return `Notizie mondo: ${titles.join(' || ')}`;
+      }
+      async function fetchWeatherTickerSummary() {
+        if (!navigator.geolocation) return 'Meteo oggi: geolocalizzazione non disponibile.';
+        const position = await new Promise((resolve, reject)=>{
+          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:false, timeout:6000, maximumAge:60 * 60 * 1000 });
+        });
+        const lat = Number(position?.coords?.latitude);
+        const lon = Number(position?.coords?.longitude);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return 'Meteo oggi: posizione non valida.';
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`;
+        const response = await fetch(url, { cache:'no-store' });
+        if (!response.ok) throw new Error('weather_fetch_failed');
+        const data = await response.json();
+        const code = Number(data?.daily?.weather_code?.[0]);
+        const tMin = Number(data?.daily?.temperature_2m_min?.[0]);
+        const tMax = Number(data?.daily?.temperature_2m_max?.[0]);
+        const current = Number(data?.current?.temperature_2m);
+        const text = weatherCodeToText(code);
+        const curLabel = Number.isFinite(current) ? `${Math.round(current)}°C` : '--';
+        const minLabel = Number.isFinite(tMin) ? `${Math.round(tMin)}°C` : '--';
+        const maxLabel = Number.isFinite(tMax) ? `${Math.round(tMax)}°C` : '--';
+        return `Meteo oggi: ${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
+      }
+      async function refreshInfoTicker(forceWeather = false) {
+        const weatherCache = getWeatherTickerCache();
+        const newsCache = getWorldNewsTickerCache();
+        const nowTs = Date.now();
+        const maxAge = 45 * 60 * 1000;
+        let weatherSummary = String(weatherCache.summary || 'Meteo oggi: in aggiornamento...');
+        let worldNewsSummary = String(newsCache.summary || 'Notizie mondo: in aggiornamento...');
+        const shouldFetchWeather = forceWeather || !weatherCache.summary || !weatherCache.fetchedAt || (nowTs - Number(weatherCache.fetchedAt || 0) > maxAge);
+        const shouldFetchNews = forceWeather || !newsCache.summary || !newsCache.fetchedAt || (nowTs - Number(newsCache.fetchedAt || 0) > maxAge);
+        if (shouldFetchWeather && (nowTs - lastWeatherTickerFetchAt > 15000)) {
+          lastWeatherTickerFetchAt = nowTs;
+          try {
+            weatherSummary = await fetchWeatherTickerSummary();
+            setWeatherTickerCache({ summary:weatherSummary, fetchedAt:nowTs });
+          } catch (_) {
+            if (!weatherCache.summary) weatherSummary = 'Meteo oggi: non disponibile al momento.';
+          }
+        }
+        if (shouldFetchNews) {
+          try {
+            worldNewsSummary = await fetchWorldNewsSummary();
+            setWorldNewsTickerCache({ summary:worldNewsSummary, fetchedAt:nowTs });
+          } catch (_) {
+            if (!newsCache.summary) worldNewsSummary = 'Notizie mondo: non disponibili al momento.';
+          }
+        }
+        const weekSummary = formatWeekAppointmentsSummary();
+        const monthSummary = formatMonthlyHoursSummary();
+        const nowLabel = `Aggiornato alle ${new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}`;
+        setInfoTickerText(`${weatherSummary} ✦ ${weekSummary} ✦ ${worldNewsSummary} ✦ ${monthSummary} ✦ ${nowLabel}`);
+      }
+
       function showAgendaMsg(message='', type='ok') {
         id('agendaEsito').className = `msg ${type}`;
         id('agendaEsito').textContent = message;
@@ -4347,6 +4523,7 @@ out center tags;`;
           return;
         }
         list.innerHTML = rows.map((entry)=>`<li class="doc-row"><div class="doc-thumb-file">${escapeHtml(entry.time || '--')}</div><div class="small" style="flex:1;">${escapeHtml(entry.note || '')}</div></li>`).join('');
+        refreshInfoTicker(false);
       }
       function renderAgendaDayList() {
         const list = id('agendaDayList');
@@ -4412,6 +4589,7 @@ out center tags;`;
         renderAgendaCalendar();
         renderAgendaDayList();
         renderTodayAgendaWidget();
+        refreshInfoTicker(false);
         showAgendaMsg('Promemoria salvato.', 'ok');
       }
       function initAgendaCalendar() {
@@ -4422,6 +4600,7 @@ out center tags;`;
         renderAgendaCalendar();
         renderAgendaDayList();
         renderTodayAgendaWidget();
+        refreshInfoTicker(false);
       }
       function deleteTimbraturaByDate(dataRecord) {
         if (!window.confirm(`Confermi l'eliminazione della timbratura del ${dataRecord}?`)) return;
@@ -7393,6 +7572,9 @@ out center tags;`;
         if (prezzarioSyncTimer) clearInterval(prezzarioSyncTimer);
         prezzarioSyncTimer = window.setInterval(()=>{ syncPrezzarioSource(true); }, 5 * 60 * 1000);
         syncPrezzarioSource(true);
+        refreshInfoTicker(true);
+        if (infoTickerTimer) clearInterval(infoTickerTimer);
+        infoTickerTimer = window.setInterval(()=>{ refreshInfoTicker(false); }, 10 * 60 * 1000);
         applyStatusFromQueryParams();
       }
 
