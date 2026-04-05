@@ -7,20 +7,32 @@ import ListaImpianti from './ListaImpianti';
 import FormImpianto from './FormImpianto';
 
 const LOCAL_COMMESSE_KEY = 'timbrature.local.commesse';
+const MASTER_DATA_KEY = 'timbrature.local.master.data';
+
+function normalizeCommessaRows(rows = []) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => {
+      const nome = String(row?.nome || row?.name || '').trim();
+      const id = String(row?.id || nome).trim();
+      if (!id && !nome) return null;
+      return { id: id || nome, nome: nome || id };
+    })
+    .filter(Boolean);
+}
 
 function readLocalCommesse() {
   try {
-    const raw = localStorage.getItem(LOCAL_COMMESSE_KEY);
-    const rows = JSON.parse(raw || '[]');
-    if (!Array.isArray(rows)) return [];
-    return rows
-      .map((row) => {
-        const nome = String(row?.nome || '').trim();
-        const id = String(row?.id || nome).trim();
-        if (!id && !nome) return null;
-        return { id: id || nome, nome: nome || id };
-      })
-      .filter(Boolean);
+    const rawCommesse = localStorage.getItem(LOCAL_COMMESSE_KEY);
+    const rowsCommesse = JSON.parse(rawCommesse || '[]');
+
+    const rawMaster = localStorage.getItem(MASTER_DATA_KEY);
+    const masterData = JSON.parse(rawMaster || '{}');
+    const masterRows = Array.isArray(masterData?.commesse)
+      ? masterData.commesse.map((entry) => ({ id: entry?.id || entry?.name, nome: entry?.name || entry?.nome }))
+      : [];
+
+    return mergeCommesse(normalizeCommessaRows(rowsCommesse), normalizeCommessaRows(masterRows));
   } catch (error) {
     console.warn('Impossibile leggere le commesse locali', error);
     return [];
@@ -53,7 +65,7 @@ export default function GestioneImpiantiLive() {
     syncLocalCommesse();
 
     const onStorage = (event) => {
-      if (!event.key || event.key === LOCAL_COMMESSE_KEY) {
+      if (!event.key || event.key === LOCAL_COMMESSE_KEY || event.key === MASTER_DATA_KEY) {
         syncLocalCommesse();
       }
     };
