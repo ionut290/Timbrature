@@ -6,24 +6,76 @@ import MappaImpianti from './MappaImpianti';
 import ListaImpianti from './ListaImpianti';
 import FormImpianto from './FormImpianto';
 
+const LOCAL_COMMESSE_KEY = 'timbrature.local.commesse';
+
+function readLocalCommesse() {
+  try {
+    const raw = localStorage.getItem(LOCAL_COMMESSE_KEY);
+    const rows = JSON.parse(raw || '[]');
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((row) => {
+        const nome = String(row?.nome || '').trim();
+        const id = String(row?.id || nome).trim();
+        if (!id && !nome) return null;
+        return { id: id || nome, nome: nome || id };
+      })
+      .filter(Boolean);
+  } catch (error) {
+    console.warn('Impossibile leggere le commesse locali', error);
+    return [];
+  }
+}
+
+function mergeCommesse(localRows = [], firestoreRows = []) {
+  const map = new Map();
+  [...localRows, ...firestoreRows].forEach((row) => {
+    const id = String(row?.id || '').trim();
+    const nome = String(row?.nome || '').trim();
+    if (!id && !nome) return;
+    const key = id || nome;
+    map.set(key, { id: key, nome: nome || key });
+  });
+  return Array.from(map.values());
+}
+
 export default function GestioneImpiantiLive() {
   const [impianti, setImpianti] = useState([]);
-  const [commesse, setCommesse] = useState([]);
+  const [commesseFirestore, setCommesseFirestore] = useState([]);
+  const [commesseLocal, setCommesseLocal] = useState(() => readLocalCommesse());
   const [commessaIdFilter, setCommessaIdFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
+    const syncLocalCommesse = () => setCommesseLocal(readLocalCommesse());
+    syncLocalCommesse();
+
+    const onStorage = (event) => {
+      if (!event.key || event.key === LOCAL_COMMESSE_KEY) {
+        syncLocalCommesse();
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    const poll = window.setInterval(syncLocalCommesse, 4000);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.clearInterval(poll);
+    };
+  }, []);
+
+  useEffect(() => {
     const unsub = onSnapshot(
       collection(db, 'commesse'),
       (snap) => {
         const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setCommesse(rows);
+        setCommesseFirestore(rows);
       },
       (err) => {
         console.error('Errore lettura commesse', err);
-        setError('Errore nel caricamento commesse.');
       }
     );
 
@@ -57,11 +109,11 @@ export default function GestioneImpiantiLive() {
   }, [commessaIdFilter]);
 
   const commesseOptions = useMemo(() => {
-    return commesse.map((c) => ({
+    return mergeCommesse(commesseLocal, commesseFirestore).map((c) => ({
       value: c.id,
       label: c.nome ? `${c.nome} (${c.id})` : c.id,
     }));
-  }, [commesse]);
+  }, [commesseLocal, commesseFirestore]);
 
   return (
     <>
