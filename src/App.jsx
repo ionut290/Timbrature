@@ -26,8 +26,8 @@ export default function App() {
   }
 
   return (
-    <main className="page pageShell">
-      <header className="appTopbar">
+    <main className={activePage === PAGE_TIMBRATURA ? 'appRoot appRootTimbratura' : 'appRoot'}>
+      <div className="floatingMenu">
         <button
           type="button"
           className="kebabButton"
@@ -55,18 +55,18 @@ export default function App() {
             </button>
           </nav>
         ) : null}
-      </header>
+      </div>
 
       {activePage === PAGE_TIMBRATURA ? (
-        <section className="card timbraturaSection">
-          <iframe
-            title="Timbratura"
-            src="/timbratura-home.html"
-            className="timbraturaFrame"
-          />
-        </section>
+        <iframe
+          title="Timbratura"
+          src="/timbratura-home.html"
+          className="timbraturaFrameFull"
+        />
       ) : (
-        <GestioneImpiantiLive />
+        <section className="page pageShell">
+          <GestioneImpiantiLive />
+        </section>
       )}
     </main>
   );
