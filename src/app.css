@@ -247,3 +247,32 @@ button:disabled {
 .error {
   color: #b91c1c;
 }
+
+
+.inputModeCard {
+  margin-top: 14px;
+  border: 1px solid #dbeafe;
+  background: #f8fbff;
+}
+
+.inputModeCard h2 {
+  margin: 0 0 10px;
+}
+
+.inputModeActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inputModeImport {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.inputModeImport p {
+  margin: 0;
+  color: #334155;
+  font-size: 14px;
+}
