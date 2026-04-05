@@ -209,24 +209,26 @@
       .ticker-track {
         position:absolute;
         inset:0;
-        display:flex;
+        display:inline-flex;
         align-items:center;
+        gap:24px;
         white-space:nowrap;
+        min-width:200%;
+        animation:ticker-left-to-right-loop 22s linear infinite;
+        padding:0 12px;
       }
       .ticker-text {
         display:inline-block;
         font-weight:800;
-        color:#f8fafc;
-        text-shadow:0 1px 4px rgba(15, 23, 42, 0.45);
-        padding-left:100%;
-        animation:ticker-left-to-right 30s linear infinite;
+        color:#020617;
+        text-shadow:none;
       }
-      @keyframes ticker-left-to-right {
-        from { transform:translateX(-100%); }
-        to { transform:translateX(100%); }
+      @keyframes ticker-left-to-right-loop {
+        from { transform:translateX(-50%); }
+        to { transform:translateX(0%); }
       }
       @media (prefers-reduced-motion: reduce) {
-        .ticker-text { animation:none; padding-left:12px; }
+        .ticker-track { animation:none; }
       }
       @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
@@ -625,8 +627,9 @@
             <p id="serviceTotalEarnings" class="service-subtotal force-hidden">Fino adesso hai guadagnato circa: € 0.00</p>
           </div>
           <div class="ticker-banner" id="infoTickerBanner" aria-live="polite">
-            <div class="ticker-track">
+            <div class="ticker-track" id="infoTickerTrack">
               <span id="infoTickerText" class="ticker-text">Caricamento meteo e appuntamenti...</span>
+              <span id="infoTickerTextClone" class="ticker-text" aria-hidden="true">Caricamento meteo e appuntamenti...</span>
             </div>
           </div>
 
@@ -4423,8 +4426,12 @@ out center tags;`;
       }
       function setInfoTickerText(value='') {
         const text = id('infoTickerText');
+        const clone = id('infoTickerTextClone');
         if (!text) return;
-        text.textContent = value;
+        const clean = String(value || '').trim() || 'Meteo e appuntamenti in aggiornamento.';
+        const continuous = `${clean} ✦ ${clean}`;
+        text.textContent = continuous;
+        if (clone) clone.textContent = continuous;
       }
       function getWeatherTickerCache() {
         return readJSON(WEATHER_TICKER_CACHE_KEY, {});
