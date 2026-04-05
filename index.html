@@ -1914,8 +1914,47 @@
       function setMonthlyEmailSentMap(v) { writeJSON(MONTHLY_EMAIL_SENT_KEY, v); }
       function getDocuments() { return readJSON(DOCUMENTS_KEY, []); }
       function setDocuments(v) { writeJSON(DOCUMENTS_KEY, v); }
-      function getAppointmentsMap() { return readJSON(APPOINTMENTS_KEY, {}); }
-      function setAppointmentsMap(v) { writeJSON(APPOINTMENTS_KEY, v); }
+      function normalizeAppointmentsMap(value) {
+        if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+        if (Array.isArray(value)) {
+          return value.reduce((acc, entry)=>{
+            const dateValue = String(entry?.date || '').trim();
+            if (!dateValue) return acc;
+            const items = Array.isArray(entry?.items) ? entry.items : [];
+            if (!items.length) return acc;
+            acc[dateValue] = items.map((item)=>({
+              id: String(item?.id || `${Date.now()}-${Math.random().toString(36).slice(2,7)}`),
+              time: String(item?.time || '').slice(0,5),
+              note: String(item?.note || '').trim(),
+              createdAt: item?.createdAt || new Date().toISOString()
+            })).filter((item)=>item.note);
+            return acc;
+          }, {});
+        }
+        return {};
+      }
+      function getAppointmentsMap() {
+        const raw = readJSON(APPOINTMENTS_KEY, {});
+        const normalized = normalizeAppointmentsMap(raw);
+        if (JSON.stringify(raw) !== JSON.stringify(normalized)) writeJSON(APPOINTMENTS_KEY, normalized);
+        return normalized;
+      }
+      function setAppointmentsMap(v) { writeJSON(APPOINTMENTS_KEY, normalizeAppointmentsMap(v)); }
+      function getAppointments() {
+        const map = getAppointmentsMap();
+        return Object.keys(map)
+          .sort()
+          .map((date)=>({
+            date,
+            items: (Array.isArray(map[date]) ? map[date] : []).map((item)=>({
+              id: String(item?.id || ''),
+              time: String(item?.time || '').slice(0,5),
+              note: String(item?.note || '').trim(),
+              createdAt: item?.createdAt || ''
+            })).filter((item)=>item.note)
+          }))
+          .filter((entry)=>entry.items.length);
+      }
       function defaultTeamMembersList() { return [...new Set(DEFAULT_TEAM_MEMBERS_TEXT.split('|').map((v)=>v.trim()).filter(Boolean))]; }
       function defaultTeamVehiclesList() { return [...new Set(DEFAULT_TEAM_VEHICLES_TEXT.split('|').map((v)=>v.trim()).filter(Boolean))]; }
       function getTeamDirectory() { return readJSON(TEAM_DIRECTORY_KEY, { sheetUrl:FIXED_TEAM_SHEET_URL, members:defaultTeamMembersList(), vehicles:defaultTeamVehiclesList(), synced_at:'' }); }
@@ -4555,7 +4594,10 @@ out center tags;`;
         const time = String(id('agendaTimeInput').value || '').trim();
         const map = getAppointmentsMap();
         const rows = Array.isArray(map[selectedAgendaDate]) ? map[selectedAgendaDate] : [];
-        rows.push({ id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`, time, note, createdAt:new Date().toISOString() });
+        const normalizedTime = time.slice(0,5);
+        const hasTimeInNote = normalizedTime && new RegExp(`^\\s*${normalizedTime.replace(':', '\\:')}(\\b|\\s*[-–—])`).test(note);
+        const normalizedNote = normalizedTime && !hasTimeInNote ? `${normalizedTime} - ${note}` : note;
+        rows.push({ id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`, time:normalizedTime, note:normalizedNote, createdAt:new Date().toISOString() });
         map[selectedAgendaDate] = rows;
         setAppointmentsMap(map);
         id('agendaTimeInput').value = '';
@@ -6214,7 +6256,7 @@ out center tags;`;
           teamDirectory: readJSON(TEAM_DIRECTORY_KEY, {}),
           masterData: readJSON(MASTER_DATA_KEY, {}),
           documents: readJSON(DOCUMENTS_KEY, []),
-          appointments: readJSON(APPOINTMENTS_KEY, []),
+          appointments: getAppointments(),
           notifications: readJSON(NOTIFICATION_SETTINGS_KEY, {}),
           notificationSent: readJSON(NOTIFICATION_SENT_KEY, {}),
           autoPunchState: readJSON(AUTO_PUNCH_STATE_KEY, {}),
