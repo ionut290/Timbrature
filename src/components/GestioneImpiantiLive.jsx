@@ -135,8 +135,42 @@ function toImpiantoPayload(row = {}) {
 }
 
 
+async function loadXlsxLibrary() {
+  if (window.XLSX?.read) return window.XLSX;
+
+  try {
+    const mod = await import('https://cdn.sheetjs.com/xlsx-0.20.2/package/xlsx.mjs');
+    if (mod?.read) return mod;
+  } catch (_) {
+    // fallback su script UMD
+  }
+
+  const urls = [
+    'https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+  ];
+
+  for (const url of urls) {
+    try {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url;
+        script.async = true;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+      if (window.XLSX?.read) return window.XLSX;
+    } catch (_) {
+      // prova url successivo
+    }
+  }
+
+  throw new Error('Lettura Excel non disponibile nel browser corrente.');
+}
+
 async function parseSpreadsheetRows(file) {
-  const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.2/package/xlsx.mjs');
+  const XLSX = await loadXlsxLibrary();
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
   const firstSheetName = workbook.SheetNames?.[0];
@@ -303,7 +337,7 @@ export default function GestioneImpiantiLive() {
       setNotice(`Import completato: ${payloads.length} impianti creati/aggiornati.`);
     } catch (err) {
       console.error('Errore import file impianti', err);
-      setError(err.message || 'Errore durante import file impianti.');
+      setError(err.message || 'Errore durante import file impianti. Se usi Excel, prova anche in CSV UTF-8.');
     } finally {
       setImporting(false);
       event.target.value = '';
