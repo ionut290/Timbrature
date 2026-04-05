@@ -4569,32 +4569,66 @@ out center tags;`;
         const coords = await getWeatherCoordinates();
         const lat = Number(coords.lat);
         const lon = Number(coords.lon);
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,time&forecast_days=7&timezone=auto`;
-        const response = await fetch(url, { cache:'no-store' });
-        if (!response.ok) throw new Error('weather_fetch_failed');
-        const data = await response.json();
-        const code = Number(data?.daily?.weather_code?.[0]);
-        const tMin = Number(data?.daily?.temperature_2m_min?.[0]);
-        const tMax = Number(data?.daily?.temperature_2m_max?.[0]);
-        const current = Number(data?.current?.temperature_2m);
-        const text = weatherCodeToText(code);
-        const curLabel = Number.isFinite(current) ? `${Math.round(current)}°C` : '--';
-        const minLabel = Number.isFinite(tMin) ? `${Math.round(tMin)}°C` : '--';
-        const maxLabel = Number.isFinite(tMax) ? `${Math.round(tMax)}°C` : '--';
-        const ticker = `Meteo oggi: ${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
         const sourceLabel = coords.source === 'gps' ? '' : ' (stima su Roma)';
-        const todaySummary = `${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})${sourceLabel}`;
-        const days = Array.isArray(data?.daily?.time) ? data.daily.time : [];
-        const codes = Array.isArray(data?.daily?.weather_code) ? data.daily.weather_code : [];
-        const mins = Array.isArray(data?.daily?.temperature_2m_min) ? data.daily.temperature_2m_min : [];
-        const maxs = Array.isArray(data?.daily?.temperature_2m_max) ? data.daily.temperature_2m_max : [];
-        const weekRows = days.map((day, idx)=>{
-          const dayText = weatherCodeToText(Number(codes[idx]));
-          const min = Number.isFinite(Number(mins[idx])) ? `${Math.round(Number(mins[idx]))}°C` : '--';
-          const max = Number.isFinite(Number(maxs[idx])) ? `${Math.round(Number(maxs[idx]))}°C` : '--';
-          return `${formatWeekdayShort(day)}: ${dayText} (min ${min} / max ${max})`;
-        });
-        return { ticker, todaySummary, weekRows };
+        try {
+          const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,time&forecast_days=7&timezone=auto`;
+          const response = await fetch(url, { cache:'no-store' });
+          if (!response.ok) throw new Error('weather_fetch_failed');
+          const data = await response.json();
+          const code = Number(data?.daily?.weather_code?.[0]);
+          const tMin = Number(data?.daily?.temperature_2m_min?.[0]);
+          const tMax = Number(data?.daily?.temperature_2m_max?.[0]);
+          const current = Number(data?.current?.temperature_2m);
+          const text = weatherCodeToText(code);
+          const curLabel = Number.isFinite(current) ? `${Math.round(current)}°C` : '--';
+          const minLabel = Number.isFinite(tMin) ? `${Math.round(tMin)}°C` : '--';
+          const maxLabel = Number.isFinite(tMax) ? `${Math.round(tMax)}°C` : '--';
+          const ticker = `Meteo oggi: ${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
+          const todaySummary = `${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})${sourceLabel}`;
+          const days = Array.isArray(data?.daily?.time) ? data.daily.time : [];
+          const codes = Array.isArray(data?.daily?.weather_code) ? data.daily.weather_code : [];
+          const mins = Array.isArray(data?.daily?.temperature_2m_min) ? data.daily.temperature_2m_min : [];
+          const maxs = Array.isArray(data?.daily?.temperature_2m_max) ? data.daily.temperature_2m_max : [];
+          const weekRows = days.map((day, idx)=>{
+            const dayText = weatherCodeToText(Number(codes[idx]));
+            const min = Number.isFinite(Number(mins[idx])) ? `${Math.round(Number(mins[idx]))}°C` : '--';
+            const max = Number.isFinite(Number(maxs[idx])) ? `${Math.round(Number(maxs[idx]))}°C` : '--';
+            return `${formatWeekdayShort(day)}: ${dayText} (min ${min} / max ${max})`;
+          });
+          return { ticker, todaySummary, weekRows };
+        } catch (_) {
+          try {
+            const fallbackUrl = `https://wttr.in/${lat.toFixed(2)},${lon.toFixed(2)}?format=j1`;
+            const fallbackResp = await fetch(fallbackUrl, { cache:'no-store' });
+            if (!fallbackResp.ok) throw new Error('wttr_fetch_failed');
+            const fallbackData = await fallbackResp.json();
+            const current = Number(fallbackData?.current_condition?.[0]?.temp_C);
+            const desc = String(fallbackData?.current_condition?.[0]?.weatherDesc?.[0]?.value || 'variabile').trim();
+            const weekRows = (Array.isArray(fallbackData?.weather) ? fallbackData.weather : []).slice(0, 7).map((row)=>{
+              const day = String(row?.date || '');
+              const min = Number.isFinite(Number(row?.mintempC)) ? `${Math.round(Number(row.mintempC))}°C` : '--';
+              const max = Number.isFinite(Number(row?.maxtempC)) ? `${Math.round(Number(row.maxtempC))}°C` : '--';
+              const hourlyDesc = String(row?.hourly?.[4]?.weatherDesc?.[0]?.value || row?.hourly?.[0]?.weatherDesc?.[0]?.value || desc || 'variabile').trim();
+              return `${formatWeekdayShort(day)}: ${hourlyDesc} (min ${min} / max ${max})`;
+            });
+            const curLabel = Number.isFinite(current) ? `${Math.round(current)}°C` : '--';
+            const todaySummary = `${desc}, ${curLabel}${sourceLabel}`;
+            const ticker = `Meteo oggi: ${desc}, ${curLabel}`;
+            return { ticker, todaySummary, weekRows: weekRows.length ? weekRows : ['Previsioni non complete, riprova più tardi.'] };
+          } catch (_) {
+            const fakeRows = Array.from({ length:7 }).map((_, idx)=>{
+              const d = new Date();
+              d.setDate(d.getDate() + idx);
+              const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              return `${formatWeekdayShort(iso)}: dati meteo temporaneamente non disponibili`;
+            });
+            return {
+              ticker:'Meteo oggi: aggiornamento temporaneamente non disponibile.',
+              todaySummary:`Meteo in aggiornamento${sourceLabel}`,
+              weekRows:fakeRows
+            };
+          }
+        }
       }
 
       async function refreshInfoTicker(forceWeather = false) {
