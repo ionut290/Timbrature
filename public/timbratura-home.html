@@ -4769,51 +4769,30 @@ out center tags;`;
         });
         return { ticker, todaySummary, weekRows };
       }
-      async function fetchMetNoSummary(lat, lon, sourceLabel='') {
-        const query = new URLSearchParams({
-          lat:lat.toFixed(4),
-          lon:lon.toFixed(4)
-        });
-        const response = await fetch(`https://api.met.no/weatherapi/locationforecast/2.0/compact?${query.toString()}`, { cache:'no-store' });
-        if (!response.ok) throw new Error(`weather_met_no_fetch_failed_${response.status}`);
+      async function fetchWttrInSummary(lat, lon, sourceLabel='') {
+        const location = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+        const response = await fetch(`https://wttr.in/${encodeURIComponent(location)}?format=j1`, { cache:'no-store' });
+        if (!response.ok) throw new Error(`weather_wttr_fetch_failed_${response.status}`);
         const data = await response.json();
-        const timeseries = Array.isArray(data?.properties?.timeseries) ? data.properties.timeseries : [];
-        if (!timeseries.length) throw new Error('weather_met_no_empty_payload');
-        const currentRow = timeseries[0]?.data || {};
-        const currentTemp = Number(currentRow?.instant?.details?.air_temperature);
-        const currentSymbol = String(currentRow?.next_1_hours?.summary?.symbol_code || currentRow?.next_6_hours?.summary?.symbol_code || currentRow?.next_12_hours?.summary?.symbol_code || '');
-        const byDay = new Map();
-        timeseries.forEach((row)=>{
-          const iso = String(row?.time || '').slice(0, 10);
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
-          const details = row?.data?.instant?.details || {};
-          const temp = Number(details?.air_temperature);
-          const symbol = String(row?.data?.next_1_hours?.summary?.symbol_code || row?.data?.next_6_hours?.summary?.symbol_code || row?.data?.next_12_hours?.summary?.symbol_code || '');
-          if (!byDay.has(iso)) {
-            byDay.set(iso, { min:temp, max:temp, symbol });
-            return;
-          }
-          const day = byDay.get(iso);
-          if (Number.isFinite(temp)) {
-            day.min = Number.isFinite(day.min) ? Math.min(day.min, temp) : temp;
-            day.max = Number.isFinite(day.max) ? Math.max(day.max, temp) : temp;
-          }
-          if (!day.symbol && symbol) day.symbol = symbol;
-        });
-        const dates = Array.from(byDay.keys()).sort().slice(0, 7);
-        if (!dates.length) throw new Error('weather_met_no_days_missing');
-        const today = byDay.get(dates[0]) || {};
+        const currentRow = Array.isArray(data?.current_condition) ? data.current_condition[0] : null;
+        const daily = Array.isArray(data?.weather) ? data.weather.slice(0, 7) : [];
+        if (!currentRow || !daily.length) throw new Error('weather_wttr_empty_payload');
+        const currentTemp = Number(currentRow?.temp_C);
+        const currentDesc = String(currentRow?.weatherDesc?.[0]?.value || '').trim() || 'condizioni variabili';
+        const minToday = Number(daily?.[0]?.mintempC);
+        const maxToday = Number(daily?.[0]?.maxtempC);
         const curLabel = Number.isFinite(currentTemp) ? `${Math.round(currentTemp)}°C` : '--';
-        const minLabel = Number.isFinite(today.min) ? `${Math.round(today.min)}°C` : '--';
-        const maxLabel = Number.isFinite(today.max) ? `${Math.round(today.max)}°C` : '--';
-        const currentDesc = weatherSymbolToText(currentSymbol || today.symbol);
-        const ticker = `Meteo oggi (MET Norway): ${currentDesc}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
+        const minLabel = Number.isFinite(minToday) ? `${Math.round(minToday)}°C` : '--';
+        const maxLabel = Number.isFinite(maxToday) ? `${Math.round(maxToday)}°C` : '--';
+        const ticker = `Meteo oggi (wttr.in): ${currentDesc}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
         const todaySummary = `${currentDesc}, ${curLabel} (min ${minLabel} / max ${maxLabel})${sourceLabel}`;
-        const weekRows = dates.map((iso)=>{
-          const day = byDay.get(iso) || {};
-          const minOut = Number.isFinite(day.min) ? `${Math.round(day.min)}°C` : '--';
-          const maxOut = Number.isFinite(day.max) ? `${Math.round(day.max)}°C` : '--';
-          const desc = weatherSymbolToText(day.symbol);
+        const weekRows = daily.map((day)=>{
+          const iso = String(day?.date || '').slice(0, 10);
+          const min = Number(day?.mintempC);
+          const max = Number(day?.maxtempC);
+          const minOut = Number.isFinite(min) ? `${Math.round(min)}°C` : '--';
+          const maxOut = Number.isFinite(max) ? `${Math.round(max)}°C` : '--';
+          const desc = String(day?.hourly?.[0]?.weatherDesc?.[0]?.value || day?.astronomy?.[0]?.sunrise || 'condizioni variabili');
           return `${formatWeekdayShort(iso)}: ${desc} (min ${minOut} / max ${maxOut})`;
         });
         return { ticker, todaySummary, weekRows };
@@ -4828,9 +4807,9 @@ out center tags;`;
         } catch (error) {
           console.error('Errore meteo Open-Meteo', error);
           try {
-            return await fetchMetNoSummary(lat, lon, sourceLabel);
+            return await fetchWttrInSummary(lat, lon, sourceLabel);
           } catch (fallbackError) {
-            console.error('Errore meteo MET Norway (fallback)', fallbackError);
+            console.error('Errore meteo wttr.in (fallback)', fallbackError);
             const fakeRows = Array.from({ length:7 }).map((_, idx)=>{
               const d = new Date();
               d.setDate(d.getDate() + idx);
