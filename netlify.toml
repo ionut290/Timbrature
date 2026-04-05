@@ -1,6 +1,11 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  [build.environment]
+    # Netlify smart detection flags Firebase type placeholders ("AIza...")
+    # shipped inside upstream SDK declaration files under node_modules.
+    # This is not an exposed runtime key in this repository.
+    SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIza***"
 
 [[redirects]]
   from = "/*"

@@ -1173,21 +1173,24 @@
       const ACCESS_CONTROL_SCHEMA_VERSION = 2;
       const SHARED_APP_SYNC_META_KEY = 'timbrature.shared.app.sync.meta';
       const SHARED_APP_DATA_PATH = 'shared/global_app_data_v1';
-      const DEFAULT_FIREBASE_WEB_CONFIG = {
-        apiKey: 'AIzaSyDFF7gaDLCGmb-abDRutX_y0vf_MzM449E',
-        authDomain: 'timbrature-varga.firebaseapp.com',
-        projectId: 'timbrature-varga',
-        databaseURL: 'https://timbrature-varga-default-rtdb.europe-west1.firebasedatabase.app',
-        storageBucket: 'timbrature-varga.firebasestorage.app',
-        messagingSenderId: '68842798266',
-        appId: '1:68842798266:web:bb0df9bbdfe2d5980f9683',
-        measurementId: 'G-8N09DJ0P95',
-        appCheckEnabled: false,
-        appCheckSiteKey: '',
-        appCheckProvider: 'recaptcha_v3',
-        appCheckDebugToken: false,
-        email: ''
-      };
+      const DEFAULT_FIREBASE_WEB_CONFIG = (() => {
+        const runtime = window.__TIMBRATURE_FIREBASE_CONFIG__ || {};
+        return {
+          apiKey: String(runtime.apiKey || '').trim(),
+          authDomain: String(runtime.authDomain || '').trim(),
+          projectId: String(runtime.projectId || '').trim(),
+          databaseURL: String(runtime.databaseURL || '').trim(),
+          storageBucket: String(runtime.storageBucket || '').trim(),
+          messagingSenderId: String(runtime.messagingSenderId || '').trim(),
+          appId: String(runtime.appId || '').trim(),
+          measurementId: String(runtime.measurementId || '').trim(),
+          appCheckEnabled: Boolean(runtime.appCheckEnabled),
+          appCheckSiteKey: String(runtime.appCheckSiteKey || '').trim(),
+          appCheckProvider: String(runtime.appCheckProvider || 'recaptcha_v3').trim(),
+          appCheckDebugToken: Boolean(runtime.appCheckDebugToken),
+          email: String(runtime.email || '').trim()
+        };
+      })();
       const FIXED_TEAM_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1Yqdh-TxFa3LLlLEfhwcunus8fFW2zD9-gGL40d1nrCk/edit?gid=0#gid=0';
       const DEFAULT_TEAM_MEMBERS_TEXT = `CHIAPELLI PAOLO|PIZZIRANI MATTEO|PICCININI ROBERTO|VENTURI GRANDI ANGELA|GRANDI LORENZO|TURUKU FATOS|AZZARONI DAVIDE|RUSSO FEDERICO|BUJA DANIEL G.|SPISANI GIULIO|ROMAN LUYA ROLANDO|COJOCARU SERAFIM|POP CRISTIAN-ADRIAN|LAZAR RELU LUCIAN|BOLDRIN AMABILE|MAGGIORI FABIO|MASOTTI MASSIMO|CONTRERAS HENRRY|PEREZ PONCE CESAR OMAR|VARGA IONEL|ODURO ERNEST|TEAN ALEXANDR|ZAGNI DAVIDE|KHAN IMRAN|PIRRITANO PIETRO|LAZAR ALEXANDRU|JOITA ION|FIORENZA MARIO|PROVENZANO ANTONINO|GALATANU VALENTIN|PAFUNDI PIETRO|GHITIU EMILIAN CRISTIAN|MARANGON SILVANO|EGBONA SALOME HAFEDH BEN|BEJAOUI MOHAMED|ADAMES RAMIREZ FABIO|ALI IMURANA|AMOAH FRIMPONG JR ALBERT|BENDINI LUCA|BUDACA SIMONA PAULA|CENERINI CORRADO|COVALIOV IGOR|DAMANDE MICHEL|DJELAILI MUSTAPHA|ERRACHIDI ABDELMOULA|EYONULAGBA BELLO NOUHADINE|FERRARI MASSIMO|FRANCHINI PAOLO|GALVAGNI PIETRO|GERDAN GEORGETA|GOLINELLI FABIO|HOSEINI SEIED HEIDAR|JAURIGUE JOEY RITZ|LAMSSAOUI ABDELKERIM|LIMA VITO|MARTINO LUIGI ANTONIO|MENNA ADRIANO|MEREACRE VLADIMIR|MINELLI MARZIA|MOHAMMAD ASIF|MORRA AGOSTINO|MUHAMMAD AKRAM|MUHAMMAD KHAN|NANNI PIERO|NDAW MODOU|NUAOBASI EMMANUEL|OMORU FAITH|PACHECO RENE VINICIO|PAOLINI GIULIANO|PETIVA FRANCESCO|PIRRITANO SALVATORE|POZZI GIOVANNI|ROBLES OLVINES YOENIA|RUSSO PAOLO|SITZIA CRISTIAN|STEGANI BARBARA|SYLLA MOUSTAPHA|VALLOTTO VALTER|AAZIZ AZIZ|AJMAL MUHAMMAD|ANTEGHINI LORENZO|ARGINELLI FEDERICO|ARTUSO GIUSEPPE|BIGNARDI SIMONE|CHIRIAC DRAGOS NICOLAIE|COULIBALY ABOUBACAR|ED DAHRI CHERKAOUI|EFE ALUKHEGBE MOSES|FLOREA IOAN CIPRIAN|FRANCESCHELLI ALESSANDRO|GUL SUR|IACOVIELLO ANTONIO|KONE MAMADOU|KRYSKIV TARAS|MARTINENGO DAVIDE|MATEI MARIAN|MELIANI ELMOSTAFA|MUZZARINI LUCA|OHORE ROCKSON|OJEGA OSATO|OSAYI JENNIFER|OUCHARI CHAKER|PARZANESE MANUEL|SACCHI LORENZO|SAMB MAME MOR|SHABBIR HASSAN|STOICHINA GABI-CORNEL|VELAZQUEZ FERNANDEZ DARIEL|ZAMBELLI MICHELA|ZECCOLI SIMONE|ZORJANI IBRAHIM|YEBOAH JOHNSON|TAIWO OSAS|BARONE ANTONIO|SALAMI HELEN|LEGUIA HUAYANA ROBERT|KONATE YAYA|JAMES EMEKA MAHMOUD FATHI|ALI MOHAMED|CHAMBI ARAPA LUIS JUSTO|PODHRACZKY TAMAS MARIO|LONGHI MATHIAS|HANI SAMIR|EL GHANDOUR ABDELAZIM|BOUHCHICH RACHID|VACCHI STEFANO|MUHAMMAD BILAL|COCCA LORENZO|BALBONI TIZIANA|FARDOOS ARSLAN|JAVED MUBASHAR|AMA OKORIE PRINCE|IQBAL BILAWAL|LEONELLI SAMUELE|OKOSUN RAPHAEL|SAVORRI VASCO|LEVATO GIUSEPPE|SASSO ANTONIO|LKHIDER ABDERRAHIM|OSTI FRANCESCO|TADDEI TIZIANA|LAVEZZI RICKY|ZARRI ANDREEA|TARTARINI FEDERICO|PIZZIRANI LORENZO`;
       const DEFAULT_TEAM_VEHICLES_TEXT = `A119|A129|A94|A145|A137|A135|A155|A153|A141|A148|A143|A159|A164|MA114|R53|A75|A86|A95|A111|A114|A115|A117|A121|A132|A141|A153|A157|A158|A159|T6|T11|T13|T14|T15|R30|R34|R36|R40|R55|R56|A76|A96|R49|R50|R53|R57|R58|R59|R60|A113|R71`;
@@ -1411,6 +1414,7 @@
       let sharedAppDbRef = null;
       let sharedAppUnsubscribe = null;
       let sharedAppFirestoreUnsubscribe = null;
+      let sharedAppLegacyFirestoreUnsubscribe = null;
       let sharedAppPushTimer = null;
       let applyingSharedAppPayload = false;
       let sharedAppReady = false;
@@ -1421,6 +1425,7 @@
       let firebaseCloudAutoConnectInProgress = false;
       const SHARED_APP_FIRESTORE_COLLECTION = '_shared';
       const SHARED_APP_FIRESTORE_DOC = 'global_app_data_v1';
+      const SHARED_APP_LEGACY_FIRESTORE_COLLECTION = 'timbrature_sync';
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -6166,26 +6171,7 @@ out center tags;`;
         return merged;
       }
       function normalizeKnownFirebaseProjectConfig(input={}) {
-        const cfg = sanitizeFirebaseConfig(input);
-        const isKnownProject = cfg.projectId === DEFAULT_FIREBASE_WEB_CONFIG.projectId
-          || cfg.authDomain === DEFAULT_FIREBASE_WEB_CONFIG.authDomain
-          || cfg.appId === DEFAULT_FIREBASE_WEB_CONFIG.appId;
-        if (!isKnownProject) return cfg;
-        return {
-          ...cfg,
-          apiKey: DEFAULT_FIREBASE_WEB_CONFIG.apiKey,
-          authDomain: DEFAULT_FIREBASE_WEB_CONFIG.authDomain,
-          projectId: DEFAULT_FIREBASE_WEB_CONFIG.projectId,
-          databaseURL: DEFAULT_FIREBASE_WEB_CONFIG.databaseURL,
-          appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
-          storageBucket: DEFAULT_FIREBASE_WEB_CONFIG.storageBucket,
-          messagingSenderId: DEFAULT_FIREBASE_WEB_CONFIG.messagingSenderId,
-          measurementId: DEFAULT_FIREBASE_WEB_CONFIG.measurementId,
-          appCheckEnabled: DEFAULT_FIREBASE_WEB_CONFIG.appCheckEnabled,
-          appCheckSiteKey: DEFAULT_FIREBASE_WEB_CONFIG.appCheckSiteKey,
-          appCheckProvider: DEFAULT_FIREBASE_WEB_CONFIG.appCheckProvider,
-          appCheckDebugToken: DEFAULT_FIREBASE_WEB_CONFIG.appCheckDebugToken
-        };
+        return sanitizeFirebaseConfig(input);
       }
       function getFirebaseSyncState() {
         return readJSON(FIREBASE_SYNC_STATE_KEY, { connected:false, uid:'', email:'', liveSync:false, lastPushAt:'', lastPullAt:'' });
@@ -7337,6 +7323,27 @@ out center tags;`;
         const db = window.firebase.firestore(auth.app);
         return db.collection(SHARED_APP_FIRESTORE_COLLECTION).doc(SHARED_APP_FIRESTORE_DOC);
       }
+      async function ensureSharedAppLegacyFirestoreCollectionRef() {
+        const auth = await ensureMainAuthReady();
+        if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
+        const db = window.firebase.firestore(auth.app);
+        return db.collection(SHARED_APP_LEGACY_FIRESTORE_COLLECTION);
+      }
+      function normalizeLegacySharedEnvelope(data = {}, docId = '') {
+        const payload = data?.payload;
+        if (!payload || typeof payload !== 'object') return null;
+        const fallbackUpdatedAt = String(
+          data?.updated_at
+          || data?.updatedAt
+          || payload?.exportedAt
+          || ''
+        );
+        return {
+          payload,
+          updated_at: fallbackUpdatedAt,
+          updated_by: String(data?.updated_by || data?.updatedBy || data?.deviceId || docId || '')
+        };
+      }
       function applyIncomingSharedPayloadEnvelope(data = {}, source = 'unknown') {
         const payload = data?.payload;
         const updatedAt = String(data?.updated_at || '');
@@ -7375,6 +7382,10 @@ out center tags;`;
           try { sharedAppFirestoreUnsubscribe(); } catch (_) {}
           sharedAppFirestoreUnsubscribe = null;
         }
+        if (sharedAppLegacyFirestoreUnsubscribe) {
+          try { sharedAppLegacyFirestoreUnsubscribe(); } catch (_) {}
+          sharedAppLegacyFirestoreUnsubscribe = null;
+        }
       }
       async function pushSharedAppPayload(reason = 'manual') {
         if (!currentAuthUser) return;
@@ -7400,6 +7411,18 @@ out center tags;`;
             pushed = true;
           } catch (firestoreError) {
             console.warn('Sync condivisa Firestore fallback push fallita:', firestoreError);
+          }
+          try {
+            const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
+            await legacyCollection.doc(getDeviceId()).set({
+              ...envelope,
+              updatedAt: envelope.updated_at,
+              updatedBy: envelope.updated_by,
+              deviceId: getDeviceId()
+            }, { merge: true });
+            pushed = true;
+          } catch (legacyFirestoreError) {
+            console.warn('Sync condivisa Firestore legacy push fallita:', legacyFirestoreError);
           }
           if (!pushed) throw new Error('Nessun canale di sincronizzazione condivisa disponibile (RTDB/Firestore).');
           sharedAppLastPushedAt = pushedAt;
@@ -7433,6 +7456,24 @@ out center tags;`;
             applied = applyIncomingSharedPayloadEnvelope(data, `pull-firestore:${reason}`) || applied;
           } catch (firestoreError) {
             console.warn(`Pull snapshot Firestore fallback fallita (${reason}):`, firestoreError);
+          }
+          try {
+            const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
+            const snap = await legacyCollection.limit(20).get();
+            const docs = (snap?.docs || [])
+              .map((doc)=>({
+                docId: doc?.id || '',
+                normalized: normalizeLegacySharedEnvelope(doc?.data?.() || {}, doc?.id || '')
+              }))
+              .filter((entry)=>entry.normalized?.payload)
+              .sort((a, b)=>String(b.normalized?.updated_at || '').localeCompare(String(a.normalized?.updated_at || '')));
+            for (const entry of docs) {
+              const normalized = entry.normalized;
+              if (!normalized) continue;
+              applied = applyIncomingSharedPayloadEnvelope(normalized, `pull-firestore-legacy:${reason}`) || applied;
+            }
+          } catch (legacyFirestoreError) {
+            console.warn(`Pull snapshot Firestore legacy fallita (${reason}):`, legacyFirestoreError);
           }
           return applied;
         } catch (error) {
@@ -7474,6 +7515,25 @@ out center tags;`;
             });
           } catch (firestoreError) {
             console.warn('Sync condivisa Firestore fallback non disponibile:', firestoreError);
+          }
+          try {
+            const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
+            sharedAppLegacyFirestoreUnsubscribe = legacyCollection
+              .limit(20)
+              .onSnapshot((querySnap)=>{
+                const docs = (querySnap?.docs || [])
+                  .map((docSnap)=>normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, docSnap?.id || ''))
+                  .filter((entry)=>entry?.payload)
+                  .sort((a, b)=>String(b?.updated_at || '').localeCompare(String(a?.updated_at || '')));
+                docs.forEach((normalized)=>{
+                  if (!normalized) return;
+                  applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy');
+                });
+              }, (error)=>{
+                console.warn('Listener Firestore legacy non disponibile:', error);
+              });
+          } catch (legacyFirestoreError) {
+            console.warn('Sync condivisa Firestore legacy non disponibile:', legacyFirestoreError);
           }
           pullSharedAppPayloadOnce('start-sync');
         } catch (error) {
