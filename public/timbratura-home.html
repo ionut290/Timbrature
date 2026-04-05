@@ -4550,6 +4550,48 @@ out center tags;`;
         };
         return map[Number(code)] || 'condizioni variabili';
       }
+      function weatherSymbolToText(symbol='') {
+        const raw = String(symbol || '').toLowerCase();
+        const clean = raw.replace(/_(day|night|polartwilight)$/, '');
+        const map = {
+          clearsky:'sereno',
+          fair:'prevalentemente sereno',
+          partlycloudy:'parzialmente nuvoloso',
+          cloudy:'coperto',
+          lightrain:'pioggia debole',
+          rain:'pioggia',
+          heavyrain:'pioggia intensa',
+          lightsleet:'nevischio debole',
+          sleet:'nevischio',
+          heavysleet:'nevischio intenso',
+          lightsnow:'neve debole',
+          snow:'neve',
+          heavysnow:'neve intensa',
+          fog:'nebbia',
+          lightrainshowers:'rovesci deboli',
+          rainshowers:'rovesci',
+          heavyrainshowers:'rovesci intensi',
+          lightrainshowersandthunder:'temporale con pioggia debole',
+          rainshowersandthunder:'temporale',
+          heavyrainshowersandthunder:'temporale forte',
+          lightsleetshowers:'rovesci di nevischio deboli',
+          sleetshowers:'rovesci di nevischio',
+          heavysleetshowers:'rovesci di nevischio intensi',
+          lightsnowshowers:'rovesci di neve deboli',
+          snowshowers:'rovesci di neve',
+          heavysnowshowers:'rovesci di neve intensi',
+          lightrainandthunder:'temporale con pioggia debole',
+          rainandthunder:'temporale con pioggia',
+          heavyrainandthunder:'temporale forte con pioggia',
+          lightsleetandthunder:'temporale con nevischio debole',
+          sleetandthunder:'temporale con nevischio',
+          heavysleetandthunder:'temporale forte con nevischio',
+          lightsnowandthunder:'temporale con neve debole',
+          snowandthunder:'temporale con neve',
+          heavysnowandthunder:'temporale forte con neve'
+        };
+        return map[clean] || 'condizioni variabili';
+      }
       function getWeekWindowDates(baseDate = nowDateISO()) {
         const today = new Date(`${baseDate}T00:00:00`);
         const jsDay = today.getDay();
@@ -4709,66 +4751,80 @@ out center tags;`;
         });
         return { ticker, todaySummary, weekRows };
       }
+      async function fetchMetNoSummary(lat, lon, sourceLabel='') {
+        const query = new URLSearchParams({
+          lat:lat.toFixed(4),
+          lon:lon.toFixed(4)
+        });
+        const response = await fetch(`https://api.met.no/weatherapi/locationforecast/2.0/compact?${query.toString()}`, { cache:'no-store' });
+        if (!response.ok) throw new Error(`weather_met_no_fetch_failed_${response.status}`);
+        const data = await response.json();
+        const timeseries = Array.isArray(data?.properties?.timeseries) ? data.properties.timeseries : [];
+        if (!timeseries.length) throw new Error('weather_met_no_empty_payload');
+        const currentRow = timeseries[0]?.data || {};
+        const currentTemp = Number(currentRow?.instant?.details?.air_temperature);
+        const currentSymbol = String(currentRow?.next_1_hours?.summary?.symbol_code || currentRow?.next_6_hours?.summary?.symbol_code || currentRow?.next_12_hours?.summary?.symbol_code || '');
+        const byDay = new Map();
+        timeseries.forEach((row)=>{
+          const iso = String(row?.time || '').slice(0, 10);
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
+          const details = row?.data?.instant?.details || {};
+          const temp = Number(details?.air_temperature);
+          const symbol = String(row?.data?.next_1_hours?.summary?.symbol_code || row?.data?.next_6_hours?.summary?.symbol_code || row?.data?.next_12_hours?.summary?.symbol_code || '');
+          if (!byDay.has(iso)) {
+            byDay.set(iso, { min:temp, max:temp, symbol });
+            return;
+          }
+          const day = byDay.get(iso);
+          if (Number.isFinite(temp)) {
+            day.min = Number.isFinite(day.min) ? Math.min(day.min, temp) : temp;
+            day.max = Number.isFinite(day.max) ? Math.max(day.max, temp) : temp;
+          }
+          if (!day.symbol && symbol) day.symbol = symbol;
+        });
+        const dates = Array.from(byDay.keys()).sort().slice(0, 7);
+        if (!dates.length) throw new Error('weather_met_no_days_missing');
+        const today = byDay.get(dates[0]) || {};
+        const curLabel = Number.isFinite(currentTemp) ? `${Math.round(currentTemp)}°C` : '--';
+        const minLabel = Number.isFinite(today.min) ? `${Math.round(today.min)}°C` : '--';
+        const maxLabel = Number.isFinite(today.max) ? `${Math.round(today.max)}°C` : '--';
+        const currentDesc = weatherSymbolToText(currentSymbol || today.symbol);
+        const ticker = `Meteo oggi (MET Norway): ${currentDesc}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
+        const todaySummary = `${currentDesc}, ${curLabel} (min ${minLabel} / max ${maxLabel})${sourceLabel}`;
+        const weekRows = dates.map((iso)=>{
+          const day = byDay.get(iso) || {};
+          const minOut = Number.isFinite(day.min) ? `${Math.round(day.min)}°C` : '--';
+          const maxOut = Number.isFinite(day.max) ? `${Math.round(day.max)}°C` : '--';
+          const desc = weatherSymbolToText(day.symbol);
+          return `${formatWeekdayShort(iso)}: ${desc} (min ${minOut} / max ${maxOut})`;
+        });
+        return { ticker, todaySummary, weekRows };
+      }
       async function fetchWeatherTickerSummary() {
         const coords = await getWeatherCoordinates();
         const lat = Number(coords.lat);
         const lon = Number(coords.lon);
         const sourceLabel = coords.source === 'gps' ? '' : ' (stima su Roma)';
-        const providerBase = String(readJSON('timbrature.local.weather.3b.base_url', 'https://api.3bmeteo.com')).trim().replace(/\/$/, '');
-        const providerToken = String(readJSON('timbrature.local.weather.3b.token', '')).trim();
-        const providerPath = String(readJSON('timbrature.local.weather.3b.path', '/v2/meteo/point/daily')).trim() || '/v2/meteo/point/daily';
-        const query = new URLSearchParams({ lat:lat.toFixed(4), lon:lon.toFixed(4), lang:'it', unit:'metric', days:'7' });
-        if (providerToken) query.set('token', providerToken);
-        const url = `${providerBase}${providerPath.startsWith('/') ? providerPath : `/${providerPath}`}?${query.toString()}`;
         try {
-          const response = await fetch(url, { cache:'no-store' });
-          if (!response.ok) throw new Error(`weather_3b_fetch_failed_${response.status}`);
-          const data = await response.json();
-          const daysRaw = Array.isArray(data?.days) ? data.days : (Array.isArray(data?.forecast) ? data.forecast : (Array.isArray(data?.result?.days) ? data.result.days : []));
-          const days = daysRaw.slice(0, 7);
-          if (!days.length) throw new Error('weather_3b_empty_payload');
-          const currentRaw = data?.current || data?.now || data?.result?.current || {};
-          const currentTemp = Number(currentRaw?.temp ?? currentRaw?.temperature ?? days?.[0]?.temp ?? days?.[0]?.temperature);
-          const currentDesc = String(currentRaw?.description || currentRaw?.icon_desc || currentRaw?.condition || days?.[0]?.description || days?.[0]?.icon_desc || 'condizioni variabili').trim();
-          const minToday = Number(days?.[0]?.tmin ?? days?.[0]?.temp_min ?? days?.[0]?.min);
-          const maxToday = Number(days?.[0]?.tmax ?? days?.[0]?.temp_max ?? days?.[0]?.max);
-          const curLabel = Number.isFinite(currentTemp) ? `${Math.round(currentTemp)}°C` : '--';
-          const minLabel = Number.isFinite(minToday) ? `${Math.round(minToday)}°C` : '--';
-          const maxLabel = Number.isFinite(maxToday) ? `${Math.round(maxToday)}°C` : '--';
-          const ticker = `Meteo oggi (3B Meteo): ${currentDesc}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
-          const todaySummary = `${currentDesc}, ${curLabel} (min ${minLabel} / max ${maxLabel})${sourceLabel}`;
-          const weekRows = days.map((row, idx)=>{
-            const rawDate = String(row?.date || row?.datetime || row?.dt || '').slice(0, 10);
-            const dateIso = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
-              ? rawDate
-              : (()=>{
-                const d = new Date();
-                d.setDate(d.getDate() + idx);
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-              })();
-            const desc = String(row?.description || row?.icon_desc || row?.condition || row?.weather || 'variabile').trim();
-            const min = Number(row?.tmin ?? row?.temp_min ?? row?.min);
-            const max = Number(row?.tmax ?? row?.temp_max ?? row?.max);
-            const minOut = Number.isFinite(min) ? `${Math.round(min)}°C` : '--';
-            const maxOut = Number.isFinite(max) ? `${Math.round(max)}°C` : '--';
-            return `${formatWeekdayShort(dateIso)}: ${desc} (min ${minOut} / max ${maxOut})`;
-          });
-          return { ticker, todaySummary, weekRows };
-        } catch (_) {
+          return await fetchMetNoSummary(lat, lon, sourceLabel);
+        } catch (error) {
+          console.error('Errore meteo MET Norway', error);
           try {
             return await fetchOpenMeteoSummary(lat, lon, sourceLabel);
-          } catch (_) {}
-          const fakeRows = Array.from({ length:7 }).map((_, idx)=>{
-            const d = new Date();
-            d.setDate(d.getDate() + idx);
-            const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            return `${formatWeekdayShort(iso)}: dati meteo 3B temporaneamente non disponibili`;
-          });
-          return {
-            ticker:'Meteo oggi (3B Meteo): aggiornamento temporaneamente non disponibile.',
-            todaySummary:`Meteo 3B in aggiornamento${sourceLabel}`,
-            weekRows:fakeRows
-          };
+          } catch (fallbackError) {
+            console.error('Errore meteo Open-Meteo (fallback)', fallbackError);
+            const fakeRows = Array.from({ length:7 }).map((_, idx)=>{
+              const d = new Date();
+              d.setDate(d.getDate() + idx);
+              const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              return `${formatWeekdayShort(iso)}: dati meteo temporaneamente non disponibili`;
+            });
+            return {
+              ticker:'Meteo oggi: aggiornamento temporaneamente non disponibile.',
+              todaySummary:`Meteo in aggiornamento${sourceLabel}`,
+              weekRows:fakeRows
+            };
+          }
         }
       }
 
