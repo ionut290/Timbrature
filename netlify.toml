@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = "dist"
   [build.environment]
+    # Ensure build-time tooling from devDependencies (e.g. vite) is installed in CI.
+    NPM_FLAGS = "--include=dev"
+    NODE_VERSION = "20"
     # Netlify smart detection flags Firebase type placeholders ("AIza...")
     # shipped inside upstream SDK declaration files under node_modules.
     # This is not an exposed runtime key in this repository.
