@@ -1411,6 +1411,7 @@
       let sharedAppDbRef = null;
       let sharedAppUnsubscribe = null;
       let sharedAppFirestoreUnsubscribe = null;
+      let sharedAppLegacyFirestoreUnsubscribe = null;
       let sharedAppPushTimer = null;
       let applyingSharedAppPayload = false;
       let sharedAppReady = false;
@@ -1421,6 +1422,7 @@
       let firebaseCloudAutoConnectInProgress = false;
       const SHARED_APP_FIRESTORE_COLLECTION = '_shared';
       const SHARED_APP_FIRESTORE_DOC = 'global_app_data_v1';
+      const SHARED_APP_LEGACY_FIRESTORE_COLLECTION = 'timbrature_sync';
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
@@ -7337,6 +7339,27 @@ out center tags;`;
         const db = window.firebase.firestore(auth.app);
         return db.collection(SHARED_APP_FIRESTORE_COLLECTION).doc(SHARED_APP_FIRESTORE_DOC);
       }
+      async function ensureSharedAppLegacyFirestoreCollectionRef() {
+        const auth = await ensureMainAuthReady();
+        if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
+        const db = window.firebase.firestore(auth.app);
+        return db.collection(SHARED_APP_LEGACY_FIRESTORE_COLLECTION);
+      }
+      function normalizeLegacySharedEnvelope(data = {}, docId = '') {
+        const payload = data?.payload;
+        if (!payload || typeof payload !== 'object') return null;
+        const fallbackUpdatedAt = String(
+          data?.updated_at
+          || data?.updatedAt
+          || payload?.exportedAt
+          || ''
+        );
+        return {
+          payload,
+          updated_at: fallbackUpdatedAt,
+          updated_by: String(data?.updated_by || data?.updatedBy || data?.deviceId || docId || '')
+        };
+      }
       function applyIncomingSharedPayloadEnvelope(data = {}, source = 'unknown') {
         const payload = data?.payload;
         const updatedAt = String(data?.updated_at || '');
@@ -7375,6 +7398,10 @@ out center tags;`;
           try { sharedAppFirestoreUnsubscribe(); } catch (_) {}
           sharedAppFirestoreUnsubscribe = null;
         }
+        if (sharedAppLegacyFirestoreUnsubscribe) {
+          try { sharedAppLegacyFirestoreUnsubscribe(); } catch (_) {}
+          sharedAppLegacyFirestoreUnsubscribe = null;
+        }
       }
       async function pushSharedAppPayload(reason = 'manual') {
         if (!currentAuthUser) return;
@@ -7400,6 +7427,18 @@ out center tags;`;
             pushed = true;
           } catch (firestoreError) {
             console.warn('Sync condivisa Firestore fallback push fallita:', firestoreError);
+          }
+          try {
+            const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
+            await legacyCollection.doc(getDeviceId()).set({
+              ...envelope,
+              updatedAt: envelope.updated_at,
+              updatedBy: envelope.updated_by,
+              deviceId: getDeviceId()
+            }, { merge: true });
+            pushed = true;
+          } catch (legacyFirestoreError) {
+            console.warn('Sync condivisa Firestore legacy push fallita:', legacyFirestoreError);
           }
           if (!pushed) throw new Error('Nessun canale di sincronizzazione condivisa disponibile (RTDB/Firestore).');
           sharedAppLastPushedAt = pushedAt;
@@ -7433,6 +7472,24 @@ out center tags;`;
             applied = applyIncomingSharedPayloadEnvelope(data, `pull-firestore:${reason}`) || applied;
           } catch (firestoreError) {
             console.warn(`Pull snapshot Firestore fallback fallita (${reason}):`, firestoreError);
+          }
+          try {
+            const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
+            const snap = await legacyCollection.limit(20).get();
+            const docs = (snap?.docs || [])
+              .map((doc)=>({
+                docId: doc?.id || '',
+                normalized: normalizeLegacySharedEnvelope(doc?.data?.() || {}, doc?.id || '')
+              }))
+              .filter((entry)=>entry.normalized?.payload)
+              .sort((a, b)=>String(b.normalized?.updated_at || '').localeCompare(String(a.normalized?.updated_at || '')));
+            for (const entry of docs) {
+              const normalized = entry.normalized;
+              if (!normalized) continue;
+              applied = applyIncomingSharedPayloadEnvelope(normalized, `pull-firestore-legacy:${reason}`) || applied;
+            }
+          } catch (legacyFirestoreError) {
+            console.warn(`Pull snapshot Firestore legacy fallita (${reason}):`, legacyFirestoreError);
           }
           return applied;
         } catch (error) {
@@ -7474,6 +7531,25 @@ out center tags;`;
             });
           } catch (firestoreError) {
             console.warn('Sync condivisa Firestore fallback non disponibile:', firestoreError);
+          }
+          try {
+            const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
+            sharedAppLegacyFirestoreUnsubscribe = legacyCollection
+              .limit(20)
+              .onSnapshot((querySnap)=>{
+                const docs = (querySnap?.docs || [])
+                  .map((docSnap)=>normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, docSnap?.id || ''))
+                  .filter((entry)=>entry?.payload)
+                  .sort((a, b)=>String(b?.updated_at || '').localeCompare(String(a?.updated_at || '')));
+                docs.forEach((normalized)=>{
+                  if (!normalized) return;
+                  applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy');
+                });
+              }, (error)=>{
+                console.warn('Listener Firestore legacy non disponibile:', error);
+              });
+          } catch (legacyFirestoreError) {
+            console.warn('Sync condivisa Firestore legacy non disponibile:', legacyFirestoreError);
           }
           pullSharedAppPayloadOnce('start-sync');
         } catch (error) {
