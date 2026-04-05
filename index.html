@@ -4504,17 +4504,29 @@ out center tags;`;
       function setWorldNewsTickerCache(cache={}) {
         writeJSON(WORLD_NEWS_TICKER_CACHE_KEY, cache);
       }
-      async function fetchWorldNewsSummary() {
-        const rssUrl = 'https://www.ansa.it/sito/ansait_rss.xml';
+      async function fetchRssTitlesFromUrl(rssUrl='') {
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`;
         const response = await fetch(proxyUrl, { cache:'no-store' });
-        if (!response.ok) throw new Error('italian_news_fetch_failed');
+        if (!response.ok) throw new Error('rss_fetch_failed');
         const xmlText = await response.text();
         const parser = new DOMParser();
         const xml = parser.parseFromString(xmlText, 'application/xml');
-        const titles = Array.from(xml.querySelectorAll('item > title')).map((node)=>String(node.textContent || '').trim()).filter(Boolean);
-        if (!titles.length) return 'Notizie Italia/Mondo: nessun aggiornamento disponibile.';
-        return `Notizie Italia/Mondo: ${titles.slice(0, 10).join(' || ')}`;
+        if (xml.querySelector('parsererror')) throw new Error('rss_parse_failed');
+        return Array.from(xml.querySelectorAll('item > title')).map((node)=>String(node.textContent || '').trim()).filter(Boolean);
+      }
+      async function fetchWorldNewsSummary() {
+        const feeds = [
+          'https://www.ansa.it/sito/ansait_rss.xml',
+          'https://www.rainews.it/rss/rainews/cronaca/rss2.0.xml',
+          'https://news.google.com/rss?hl=it&gl=IT&ceid=IT:it'
+        ];
+        for (const rssUrl of feeds) {
+          try {
+            const titles = await fetchRssTitlesFromUrl(rssUrl);
+            if (titles.length) return `Notizie Italia/Mondo: ${titles.slice(0, 10).join(' || ')}`;
+          } catch (_) {}
+        }
+        return 'Notizie Italia/Mondo: aggiornamenti non disponibili al momento.';
       }
       function getWeatherForecastCache() {
         return readJSON(WEATHER_FORECAST_CACHE_KEY, {});
@@ -4535,19 +4547,28 @@ out center tags;`;
         }
         listEl.innerHTML = rows.map((line)=>`<li>${escapeHtml(line)}</li>`).join('');
       }
+      async function getWeatherCoordinates() {
+        if (navigator.geolocation) {
+          try {
+            const position = await new Promise((resolve, reject)=>{
+              navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:false, timeout:6000, maximumAge:60 * 60 * 1000 });
+            });
+            const lat = Number(position?.coords?.latitude);
+            const lon = Number(position?.coords?.longitude);
+            if (Number.isFinite(lat) && Number.isFinite(lon)) return { lat, lon, source:'gps' };
+          } catch (_) {}
+        }
+        return { lat:41.9028, lon:12.4964, source:'fallback_roma' };
+      }
       function formatWeekdayShort(isoDate='') {
         const d = new Date(`${isoDate}T00:00:00`);
         if (Number.isNaN(d.getTime())) return isoDate;
         return d.toLocaleDateString('it-IT', { weekday:'short', day:'2-digit', month:'2-digit' });
       }
       async function fetchWeatherTickerSummary() {
-        if (!navigator.geolocation) return { ticker:'Meteo oggi: geolocalizzazione non disponibile.', todaySummary:'Meteo non disponibile.', weekRows:[] };
-        const position = await new Promise((resolve, reject)=>{
-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:false, timeout:6000, maximumAge:60 * 60 * 1000 });
-        });
-        const lat = Number(position?.coords?.latitude);
-        const lon = Number(position?.coords?.longitude);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { ticker:'Meteo oggi: posizione non valida.', todaySummary:'Meteo non disponibile.', weekRows:[] };
+        const coords = await getWeatherCoordinates();
+        const lat = Number(coords.lat);
+        const lon = Number(coords.lon);
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m&daily=weather_code,temperature_2m_max,temperature_2m_min,time&forecast_days=7&timezone=auto`;
         const response = await fetch(url, { cache:'no-store' });
         if (!response.ok) throw new Error('weather_fetch_failed');
@@ -4561,7 +4582,8 @@ out center tags;`;
         const minLabel = Number.isFinite(tMin) ? `${Math.round(tMin)}°C` : '--';
         const maxLabel = Number.isFinite(tMax) ? `${Math.round(tMax)}°C` : '--';
         const ticker = `Meteo oggi: ${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
-        const todaySummary = `${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
+        const sourceLabel = coords.source === 'gps' ? '' : ' (stima su Roma)';
+        const todaySummary = `${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})${sourceLabel}`;
         const days = Array.isArray(data?.daily?.time) ? data.daily.time : [];
         const codes = Array.isArray(data?.daily?.weather_code) ? data.daily.weather_code : [];
         const mins = Array.isArray(data?.daily?.temperature_2m_min) ? data.daily.temperature_2m_min : [];
@@ -4583,9 +4605,10 @@ out center tags;`;
         let weatherSummary = String(weatherCache.summary || 'Meteo oggi: in aggiornamento...');
         const forecastCache = getWeatherForecastCache();
         renderWeatherMiniWidget(forecastCache);
-        let worldNewsSummary = String(newsCache.summary || 'Notizie mondo: in aggiornamento...');
+        let worldNewsSummary = String(newsCache.summary || 'Notizie Italia/Mondo: in aggiornamento...');
         const shouldFetchWeather = forceWeather || !weatherCache.summary || !weatherCache.fetchedAt || (nowTs - Number(weatherCache.fetchedAt || 0) > maxAge);
-        const shouldFetchNews = forceWeather || !newsCache.summary || !newsCache.fetchedAt || (nowTs - Number(newsCache.fetchedAt || 0) > maxAge);
+        const cacheLooksLegacy = /Notizie mondo:/i.test(String(newsCache.summary || ''));
+        const shouldFetchNews = forceWeather || cacheLooksLegacy || !newsCache.summary || !newsCache.fetchedAt || (nowTs - Number(newsCache.fetchedAt || 0) > maxAge);
         if (shouldFetchWeather && (nowTs - lastWeatherTickerFetchAt > 15000)) {
           lastWeatherTickerFetchAt = nowTs;
           try {
@@ -4604,7 +4627,7 @@ out center tags;`;
             worldNewsSummary = await fetchWorldNewsSummary();
             setWorldNewsTickerCache({ summary:worldNewsSummary, fetchedAt:nowTs });
           } catch (_) {
-            if (!newsCache.summary) worldNewsSummary = 'Notizie mondo: non disponibili al momento.';
+            if (!newsCache.summary) worldNewsSummary = 'Notizie Italia/Mondo: aggiornamenti non disponibili al momento.';
           }
         }
         const weekSummary = formatWeekAppointmentsSummary();
