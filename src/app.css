@@ -21,11 +21,85 @@ body {
   gap: 16px;
 }
 
+.pageShell {
+  min-height: 100vh;
+}
+
 .card {
   background: #fff;
   border-radius: 12px;
   padding: 16px;
   border: 1px solid #e5e7eb;
+}
+
+.appHeader {
+  display: grid;
+  gap: 12px;
+}
+
+.appHeader h1 {
+  margin: 0;
+}
+
+.menuTabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.menuTab {
+  min-width: 140px;
+  background: #e2e8f0;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+}
+
+.menuTab.active {
+  background: #0f172a;
+  color: #fff;
+}
+
+.timbraturaSection {
+  padding: 0;
+  overflow: hidden;
+}
+
+
+.timbraturaHint {
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f8fafc;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.timbraturaHint p {
+  margin: 0;
+  color: #334155;
+}
+
+.openTimbraturaLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  border: 1px solid #cbd5e1;
+  background: #0f172a;
+  color: #fff;
+  font-size: 14px;
+}
+
+.timbraturaFrame {
+  width: 100%;
+  min-height: calc(100vh - 220px);
+  border: 0;
+  display: block;
 }
 
 .toolbar {
