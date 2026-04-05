@@ -1229,7 +1229,6 @@
       ];
       const SHARED_APP_KEYS = [
         RECORDS_KEY,
-        PROGRAMS_KEY,
         TEAM_KEY,
         TEAM_PROGRAMS_KEY,
         TEAM_DIRECTORY_KEY,
@@ -1240,8 +1239,7 @@
         PREVENTIVI_KEY,
         CHAT_MESSAGES_KEY,
         PREZZARIO_CONFIG_KEY,
-        MASTER_DATA_KEY,
-        ACCESS_CONTROL_KEY
+        MASTER_DATA_KEY
       ];
       const menuPanelIds = MENU_PERMISSION_ITEMS.map((item)=>item.panel);
       const DATA_HUB_CATEGORIES = [
@@ -7613,16 +7611,34 @@ out center tags;`;
       async function ensureMainAuthReady() {
         if (appAuth) return appAuth;
         if (!window.firebase?.initializeApp) throw new Error('Firebase Auth non disponibile.');
-        const appName = 'timbrature-auth-app';
-        const existing = window.firebase.apps?.find((entry)=>entry?.name === appName);
-        const app = existing || window.firebase.initializeApp({
-          apiKey: DEFAULT_FIREBASE_WEB_CONFIG.apiKey,
-          authDomain: DEFAULT_FIREBASE_WEB_CONFIG.authDomain,
-          projectId: DEFAULT_FIREBASE_WEB_CONFIG.projectId,
-          appId: DEFAULT_FIREBASE_WEB_CONFIG.appId,
-          databaseURL: DEFAULT_FIREBASE_WEB_CONFIG.databaseURL
-        }, appName);
         const cfg = sanitizeFirebaseConfig(getFirebaseConfigState());
+        if (!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) {
+          throw new Error('Configurazione Firebase mancante: apri Impostazioni cloud e inserisci API key, Auth domain, Project ID e App ID.');
+        }
+        const appName = 'timbrature-auth-app';
+        let existing = window.firebase.apps?.find((entry)=>entry?.name === appName) || null;
+        if (existing) {
+          const existingCfg = sanitizeFirebaseConfig(existing.options || {});
+          const needsReset = existingCfg.apiKey !== cfg.apiKey
+            || existingCfg.authDomain !== cfg.authDomain
+            || existingCfg.projectId !== cfg.projectId
+            || existingCfg.appId !== cfg.appId
+            || existingCfg.databaseURL !== cfg.databaseURL;
+          if (needsReset) {
+            try { await existing.delete(); } catch (_) {}
+            existing = null;
+          }
+        }
+        const app = existing || window.firebase.initializeApp({
+          apiKey: cfg.apiKey,
+          authDomain: cfg.authDomain,
+          projectId: cfg.projectId,
+          appId: cfg.appId,
+          databaseURL: cfg.databaseURL || undefined,
+          storageBucket: cfg.storageBucket || undefined,
+          messagingSenderId: cfg.messagingSenderId || undefined,
+          measurementId: cfg.measurementId || undefined
+        }, appName);
         if (window.firebase?.appCheck) {
           try {
             if (cfg.appCheckDebugToken) window.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
@@ -7681,6 +7697,9 @@ out center tags;`;
       }
       function friendlyAuthErrorMessage(error) {
         const code = String(error?.code || error?.message || '').toLowerCase();
+        if (code.includes('auth/invalid-api-key')) {
+          return 'API key Firebase non valida. Vai in Impostazioni cloud e aggiorna i parametri Firebase del progetto corretto.';
+        }
         if (code.includes('firebase-app-check-token-is-invalid')) {
           return 'Token App Check non valido. Disattiva temporaneamente "Abilita App Check" nelle impostazioni app oppure in Firebase Console imposta Authentication su Monitoraggio e verifica site key/provider.';
         }
