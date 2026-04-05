@@ -214,7 +214,7 @@
         gap:24px;
         white-space:nowrap;
         min-width:200%;
-        animation:ticker-left-to-right-loop 22s linear infinite;
+        animation:ticker-right-to-left-loop 34s linear infinite;
         padding:0 12px;
       }
       .ticker-text {
@@ -223,9 +223,9 @@
         color:#020617;
         text-shadow:none;
       }
-      @keyframes ticker-left-to-right-loop {
-        from { transform:translateX(-50%); }
-        to { transform:translateX(0%); }
+      @keyframes ticker-right-to-left-loop {
+        from { transform:translateX(0%); }
+        to { transform:translateX(-50%); }
       }
       @media (prefers-reduced-motion: reduce) {
         .ticker-track { animation:none; }
@@ -1105,6 +1105,7 @@
       const DOCUMENTS_KEY = 'timbrature.local.documents';
       const APPOINTMENTS_KEY = 'timbrature.local.appointments';
       const WEATHER_TICKER_CACHE_KEY = 'timbrature.local.weather.ticker.cache';
+      const WORLD_NEWS_TICKER_CACHE_KEY = 'timbrature.local.world.news.ticker.cache';
       const NOTIFICATION_SETTINGS_KEY = 'timbrature.local.notifications.settings';
       const NOTIFICATION_SENT_KEY = 'timbrature.local.notifications.sent';
       const COMMESSE_KEY = 'timbrature.local.commesse';
@@ -4445,17 +4446,15 @@ out center tags;`;
           .filter(([date])=>date >= from && date <= to)
           .sort((a,b)=>a[0] > b[0] ? 1 : -1);
         if (!entries.length) return 'Appuntamenti settimana: nessuno inserito.';
-        const total = entries.reduce((acc, [, rows])=>acc + (Array.isArray(rows) ? rows.length : 0), 0);
-        const preview = [];
+        const details = [];
         entries.forEach(([date, rows])=>{
           const safeRows = (Array.isArray(rows) ? rows : []).slice().sort((a,b)=>String(a.time || '').localeCompare(String(b.time || '')));
-          safeRows.slice(0, 2).forEach((row)=>{
+          safeRows.forEach((row)=>{
             const note = String(row.note || '').trim() || 'Appuntamento';
-            const shortNote = note.length > 70 ? `${note.slice(0, 70)}…` : note;
-            preview.push(`${date}${row.time ? ` ${row.time}` : ''} ${shortNote}`.trim());
+            details.push(`${date}${row.time ? ` ${row.time}` : ''} — ${note}`.trim());
           });
         });
-        return `Appuntamenti settimana: ${total}. Testi: ${preview.slice(0, 5).join(' | ')}`;
+        return `Appuntamenti settimana (${details.length}): ${details.join(' || ')}`;
       }
       function formatMonthlyHoursSummary() {
         const month = currentMonthValueUTC();
@@ -4478,6 +4477,22 @@ out center tags;`;
       }
       function setWeatherTickerCache(cache={}) {
         writeJSON(WEATHER_TICKER_CACHE_KEY, cache);
+      }
+      function getWorldNewsTickerCache() {
+        return readJSON(WORLD_NEWS_TICKER_CACHE_KEY, {});
+      }
+      function setWorldNewsTickerCache(cache={}) {
+        writeJSON(WORLD_NEWS_TICKER_CACHE_KEY, cache);
+      }
+      async function fetchWorldNewsSummary() {
+        const url = 'https://www.reddit.com/r/worldnews/top.json?limit=8&t=day';
+        const response = await fetch(url, { cache:'no-store' });
+        if (!response.ok) throw new Error('world_news_fetch_failed');
+        const data = await response.json();
+        const rows = Array.isArray(data?.data?.children) ? data.data.children : [];
+        const titles = rows.map((item)=>String(item?.data?.title || '').trim()).filter(Boolean);
+        if (!titles.length) return 'Notizie mondo: nessun aggiornamento disponibile.';
+        return `Notizie mondo: ${titles.join(' || ')}`;
       }
       async function fetchWeatherTickerSummary() {
         if (!navigator.geolocation) return 'Meteo oggi: geolocalizzazione non disponibile.';
@@ -4502,24 +4517,35 @@ out center tags;`;
         return `Meteo oggi: ${text}, ${curLabel} (min ${minLabel} / max ${maxLabel})`;
       }
       async function refreshInfoTicker(forceWeather = false) {
-        const cache = getWeatherTickerCache();
+        const weatherCache = getWeatherTickerCache();
+        const newsCache = getWorldNewsTickerCache();
         const nowTs = Date.now();
         const maxAge = 45 * 60 * 1000;
-        let weatherSummary = String(cache.summary || 'Meteo oggi: in aggiornamento...');
-        const shouldFetch = forceWeather || !cache.summary || !cache.fetchedAt || (nowTs - Number(cache.fetchedAt || 0) > maxAge);
-        if (shouldFetch && (nowTs - lastWeatherTickerFetchAt > 15000)) {
+        let weatherSummary = String(weatherCache.summary || 'Meteo oggi: in aggiornamento...');
+        let worldNewsSummary = String(newsCache.summary || 'Notizie mondo: in aggiornamento...');
+        const shouldFetchWeather = forceWeather || !weatherCache.summary || !weatherCache.fetchedAt || (nowTs - Number(weatherCache.fetchedAt || 0) > maxAge);
+        const shouldFetchNews = forceWeather || !newsCache.summary || !newsCache.fetchedAt || (nowTs - Number(newsCache.fetchedAt || 0) > maxAge);
+        if (shouldFetchWeather && (nowTs - lastWeatherTickerFetchAt > 15000)) {
           lastWeatherTickerFetchAt = nowTs;
           try {
             weatherSummary = await fetchWeatherTickerSummary();
             setWeatherTickerCache({ summary:weatherSummary, fetchedAt:nowTs });
           } catch (_) {
-            if (!cache.summary) weatherSummary = 'Meteo oggi: non disponibile al momento.';
+            if (!weatherCache.summary) weatherSummary = 'Meteo oggi: non disponibile al momento.';
+          }
+        }
+        if (shouldFetchNews) {
+          try {
+            worldNewsSummary = await fetchWorldNewsSummary();
+            setWorldNewsTickerCache({ summary:worldNewsSummary, fetchedAt:nowTs });
+          } catch (_) {
+            if (!newsCache.summary) worldNewsSummary = 'Notizie mondo: non disponibili al momento.';
           }
         }
         const weekSummary = formatWeekAppointmentsSummary();
         const monthSummary = formatMonthlyHoursSummary();
         const nowLabel = `Aggiornato alle ${new Date().toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' })}`;
-        setInfoTickerText(`${weatherSummary} ✦ ${weekSummary} ✦ ${monthSummary} ✦ ${nowLabel}`);
+        setInfoTickerText(`${weatherSummary} ✦ ${weekSummary} ✦ ${worldNewsSummary} ✦ ${monthSummary} ✦ ${nowLabel}`);
       }
 
       function showAgendaMsg(message='', type='ok') {
