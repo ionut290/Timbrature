@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, onSnapshot, query, serverTimestamp, where } from 'firebase/firestore';
+import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import 'leaflet/dist/leaflet.css';
 import { db } from '../firebase';
 import MappaImpianti from './MappaImpianti';
@@ -36,6 +36,10 @@ function mergeCommesse(localRows = [], firestoreRows = []) {
 function toNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function normalizeDocId(value = '') {
+  return String(value).trim().replaceAll('/', '_');
 }
 
 function readLocalData() {
@@ -107,24 +111,24 @@ function parseDelimitedText(text, delimiter = ',') {
 
 function toImpiantoPayload(row = {}) {
   const payload = {
-    commessaId: String(
-      row.commessaId || row.commessaid || row.commessa || ''
-    ).trim(),
+    idSap: normalizeDocId(String(row.idSap || row.idsap || row['ID SAP'] || row['id sap'] || '').trim()),
+    commessaId: '',
     distretto: String(row.distretto || row.Distretto || row['distretto'] || '').trim(),
-    idSap: String(row.idSap || row.idsap || row['ID SAP'] || row['id sap'] || '').trim(),
     nome: String(row.nome || row.name || row['Denominazione Impianto'] || row['denominazione impianto'] || '').trim(),
     comune: String(row.comune || row.city || row['Comune ubicazione Impianto'] || row['comune ubicazione impianto'] || '').trim(),
     indirizzo: String(row.indirizzo || row.address || row['Via e civico di ubicazione Impianto'] || row['via e civico di ubicazione impianto'] || '').trim(),
     lat: Number(row.lat ?? row.latitude ?? row['Coordinate GPS(Y)'] ?? row['coordinate gps(y)']),
     lng: Number(row.lng ?? row.lon ?? row.longitude ?? row['Coordinate GPS(X)'] ?? row['coordinate gps(x)']),
-    stato: String(row.stato || 'da_fare').trim() || 'da_fare',
-    priorita: String(row.priorita || row.priority || 'media').trim() || 'media',
-    fotoCount: Number(row.fotoCount ?? row.fotocount ?? row.foto_count ?? 0),
+    stato: 'da_fare',
+    priorita: 'media',
+    fotoCount: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
 
-  if (!payload.nome || !payload.comune) return null;
+  payload.commessaId = payload.idSap;
+
+  if (!payload.idSap || !payload.nome || !payload.comune) return null;
   if (!Number.isFinite(payload.lat) || !Number.isFinite(payload.lng)) return null;
   if (!Number.isFinite(payload.fotoCount)) payload.fotoCount = 0;
   return payload;
@@ -283,11 +287,20 @@ export default function GestioneImpiantiLive() {
 
       const payloads = rows.map(toImpiantoPayload).filter(Boolean);
       if (!payloads.length) {
-        throw new Error('Nessuna riga valida trovata nel file (campi minimi: commessaId, nome, comune, lat, lng).');
+        throw new Error('Nessuna riga valida trovata nel file (campi minimi: ID SAP, Denominazione Impianto, Comune, Coordinate GPS(Y), Coordinate GPS(X)).');
       }
 
-      await Promise.all(payloads.map((payload) => addDoc(collection(db, 'impianti'), payload)));
-      setNotice(`Import completato: ${payloads.length} impianti caricati.`);
+      await Promise.all(
+        payloads.map(async (payload) => {
+          await setDoc(doc(db, 'impianti', payload.idSap), payload, { merge: true });
+          await setDoc(
+            doc(db, 'commesse', payload.commessaId),
+            { id: payload.commessaId, nome: payload.commessaId, updatedAt: serverTimestamp() },
+            { merge: true }
+          );
+        })
+      );
+      setNotice(`Import completato: ${payloads.length} impianti creati/aggiornati.`);
     } catch (err) {
       console.error('Errore import file impianti', err);
       setError(err.message || 'Errore durante import file impianti.');

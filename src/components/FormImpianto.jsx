@@ -1,10 +1,9 @@
 import React from "react";
 import { useState } from 'react';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const initialState = {
-  commessaId: '',
   distretto: '',
   idSap: '',
   nome: '',
@@ -16,6 +15,10 @@ const initialState = {
   priorita: 'media',
   fotoCount: '0',
 };
+
+function normalizeDocId(value = '') {
+  return String(value).trim().replaceAll('/', '_');
+}
 
 export default function FormImpianto({ onError, onActionDone }) {
   const [form, setForm] = useState(initialState);
@@ -31,22 +34,26 @@ export default function FormImpianto({ onError, onActionDone }) {
     setSaving(true);
 
     try {
+      const idSap = normalizeDocId(form.idSap);
       const payload = {
-        commessaId: form.commessaId.trim() || '',
+        idSap,
+        commessaId: idSap,
         distretto: form.distretto.trim() || '',
-        idSap: form.idSap.trim() || '',
         nome: form.nome.trim(),
         comune: form.comune.trim(),
         indirizzo: form.indirizzo.trim(),
         lat: Number(form.lat),
         lng: Number(form.lng),
-        stato: form.stato,
-        priorita: form.priorita,
+        stato: form.stato || 'da_fare',
+        priorita: form.priorita || 'media',
         fotoCount: Number(form.fotoCount || 0),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
+      if (!payload.idSap) {
+        throw new Error('ID SAP obbligatorio.');
+      }
       if (!payload.nome || !payload.comune) {
         throw new Error('Compila almeno Denominazione impianto e Comune.');
       }
@@ -54,9 +61,20 @@ export default function FormImpianto({ onError, onActionDone }) {
         throw new Error('Latitudine e longitudine non valide.');
       }
 
-      await addDoc(collection(db, 'impianti'), payload);
+      await setDoc(doc(db, 'impianti', payload.idSap), payload, { merge: true });
+
+      await setDoc(
+        doc(db, 'commesse', payload.commessaId),
+        {
+          id: payload.commessaId,
+          nome: payload.commessaId,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
       setForm(initialState);
-      onActionDone?.('Nuovo impianto creato con successo.');
+      onActionDone?.('Impianto creato/aggiornato con successo.');
     } catch (error) {
       console.error('Errore creazione impianto', error);
       onError?.(error.message || 'Errore nel salvataggio impianto.');
@@ -70,18 +88,13 @@ export default function FormImpianto({ onError, onActionDone }) {
       <h2>Nuovo impianto</h2>
       <form onSubmit={handleSubmit} className="formGrid">
         <label>
-          Commessa ID (opzionale)
-          <input name="commessaId" value={form.commessaId} onChange={handleChange} />
-        </label>
-
-        <label>
           Distretto
           <input name="distretto" value={form.distretto} onChange={handleChange} />
         </label>
 
         <label>
           ID SAP
-          <input name="idSap" value={form.idSap} onChange={handleChange} />
+          <input name="idSap" value={form.idSap} onChange={handleChange} required />
         </label>
 
         <label>
