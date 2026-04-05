@@ -12,7 +12,6 @@ function getPageFromHash() {
 
 export default function App() {
   const [activePage, setActivePage] = useState(getPageFromHash());
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const onHashChange = () => setActivePage(getPageFromHash());
@@ -20,43 +19,8 @@ export default function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  function goTo(page) {
-    window.location.hash = page;
-    setMenuOpen(false);
-  }
-
   return (
     <main className={activePage === PAGE_TIMBRATURA ? 'appRoot appRootTimbratura' : 'appRoot'}>
-      <div className="floatingMenu">
-        <button
-          type="button"
-          className="kebabButton"
-          aria-label="Apri menu"
-          onClick={() => setMenuOpen((prev) => !prev)}
-        >
-          ⋮
-        </button>
-
-        {menuOpen ? (
-          <nav className="kebabMenu" aria-label="Menu principale">
-            <button
-              type="button"
-              className={activePage === PAGE_TIMBRATURA ? 'kebabItem active' : 'kebabItem'}
-              onClick={() => goTo(PAGE_TIMBRATURA)}
-            >
-              Timbratura
-            </button>
-            <button
-              type="button"
-              className={activePage === PAGE_IMPIANTI ? 'kebabItem active' : 'kebabItem'}
-              onClick={() => goTo(PAGE_IMPIANTI)}
-            >
-              Impianti
-            </button>
-          </nav>
-        ) : null}
-      </div>
-
       {activePage === PAGE_TIMBRATURA ? (
         <iframe
           title="Timbratura"
