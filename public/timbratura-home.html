@@ -4624,18 +4624,23 @@ out center tags;`;
         return Array.from(xml.querySelectorAll('item > title')).map((node)=>String(node.textContent || '').trim()).filter(Boolean);
       }
       async function fetchWorldNewsSummary() {
-        const feeds = [
-          'https://www.ansa.it/sito/ansait_rss.xml',
-          'https://www.rainews.it/rss/rainews/cronaca/rss2.0.xml',
-          'https://news.google.com/rss?hl=it&gl=IT&ceid=IT:it'
+        const tgcomFeeds = [
+          'https://www.tgcom24.mediaset.it/rss/homepage.xml',
+          'https://www.tgcom24.mediaset.it/rss/cronaca.xml',
+          'https://www.tgcom24.mediaset.it/rss/mondo.xml',
+          'https://www.tgcom24.mediaset.it/rss/politica.xml',
+          'https://www.tgcom24.mediaset.it/rss/economia.xml'
         ];
-        for (const rssUrl of feeds) {
+        const allTitles = [];
+        for (const rssUrl of tgcomFeeds) {
           try {
             const titles = await fetchRssTitlesFromUrl(rssUrl);
-            if (titles.length) return `Notizie Italia/Mondo: ${titles.slice(0, 10).join(' || ')}`;
+            if (titles.length) allTitles.push(...titles);
           } catch (_) {}
         }
-        return 'Notizie Italia/Mondo: aggiornamenti non disponibili al momento.';
+        const uniqueTitles = Array.from(new Set(allTitles.map((t)=>String(t || '').trim()).filter(Boolean)));
+        if (uniqueTitles.length) return `Notizie TGCOM24 live: ${uniqueTitles.join(' || ')}`;
+        return 'Notizie TGCOM24 live: aggiornamenti non disponibili al momento.';
       }
       function getWeatherForecastCache() {
         return readJSON(WEATHER_FORECAST_CACHE_KEY, {});
@@ -7868,7 +7873,7 @@ out center tags;`;
         if (prezzarioSyncTimer) clearInterval(prezzarioSyncTimer);
         prezzarioSyncTimer = window.setInterval(()=>{ syncPrezzarioSource(true); }, 5 * 60 * 1000);
         syncPrezzarioSource(true);
-        setInfoTickerText('Caricamento notizie, meteo, appuntamenti e aggiornamenti utili in corso...');
+        setInfoTickerText('Caricamento notizie TGCOM24, meteo, appuntamenti e aggiornamenti utili in corso...');
         renderWeatherMiniWidget({ todaySummary:'Meteo in caricamento...', weekRows:['Attendi: recupero previsioni settimanali in corso...'] });
         refreshInfoTicker(true);
         if (infoTickerTimer) clearInterval(infoTickerTimer);
