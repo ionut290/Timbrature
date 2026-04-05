@@ -126,6 +126,30 @@ function toImpiantoPayload(row = {}) {
   return payload;
 }
 
+
+async function parseSpreadsheetRows(file) {
+  const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.2/package/xlsx.mjs');
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const firstSheetName = workbook.SheetNames?.[0];
+  if (!firstSheetName) return [];
+  const sheet = workbook.Sheets[firstSheetName];
+  return XLSX.utils.sheet_to_json(sheet, { defval: '' });
+}
+
+function parseXmlRows(text = '') {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(text, 'application/xml');
+  const rows = Array.from(doc.querySelectorAll('row, item, impianto'));
+  return rows.map((node) => {
+    const out = {};
+    Array.from(node.children).forEach((child) => {
+      out[String(child.nodeName || '').toLowerCase()] = child.textContent || '';
+    });
+    return out;
+  });
+}
+
 export default function GestioneImpiantiLive() {
   const initialLocalData = useMemo(() => readLocalData(), []);
 
@@ -204,8 +228,14 @@ export default function GestioneImpiantiLive() {
         });
 
         setImpianti(fallback);
-        setNotice('Firestore non accessibile: mostrati i cantieri/impianti locali da Dati app.');
-        setError('');
+        const code = err?.code ? ` [${err.code}]` : '';
+        const message = err?.message ? ` ${err.message}` : '';
+        setError(`Errore Firestore impianti${code}.${message}`.trim());
+        if (fallback.length) {
+          setNotice('Mostrati anche impianti locali da Dati app come fallback.');
+        } else {
+          setNotice('');
+        }
         setLoading(false);
       }
     );
@@ -239,8 +269,12 @@ export default function GestioneImpiantiLive() {
         rows = parseDelimitedText(text, ',');
       } else if (fileName.endsWith('.tsv') || fileName.endsWith('.txt')) {
         rows = parseDelimitedText(text, '\t');
+      } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.ods')) {
+        rows = await parseSpreadsheetRows(file);
+      } else if (fileName.endsWith('.xml')) {
+        rows = parseXmlRows(text);
       } else {
-        throw new Error('Formato non supportato direttamente. Usa CSV, TSV/TXT o JSON.');
+        throw new Error('Formato non supportato. Usa CSV, TSV, TXT, JSON, XLSX, XLS, ODS o XML.');
       }
 
       const payloads = rows.map(toImpiantoPayload).filter(Boolean);
@@ -291,7 +325,7 @@ export default function GestioneImpiantiLive() {
           {inputMode === 'import' ? (
             <div className="inputModeImport">
               <p>
-                Formati accettati: CSV, TSV, TXT, JSON. Formati selezionabili per upload: .csv, .tsv, .txt, .json, .xlsx, .xls, .ods, .xml.
+                Formati accettati: CSV, TSV, TXT, JSON, XLSX, XLS, ODS, XML.
               </p>
               <input
                 type="file"
