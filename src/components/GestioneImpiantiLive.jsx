@@ -21,24 +21,6 @@ function normalizeCommessaRows(rows = []) {
     .filter(Boolean);
 }
 
-function readLocalCommesse() {
-  try {
-    const rawCommesse = localStorage.getItem(LOCAL_COMMESSE_KEY);
-    const rowsCommesse = JSON.parse(rawCommesse || '[]');
-
-    const rawMaster = localStorage.getItem(MASTER_DATA_KEY);
-    const masterData = JSON.parse(rawMaster || '{}');
-    const masterRows = Array.isArray(masterData?.commesse)
-      ? masterData.commesse.map((entry) => ({ id: entry?.id || entry?.name, nome: entry?.name || entry?.nome }))
-      : [];
-
-    return mergeCommesse(normalizeCommessaRows(rowsCommesse), normalizeCommessaRows(masterRows));
-  } catch (error) {
-    console.warn('Impossibile leggere le commesse locali', error);
-    return [];
-  }
-}
-
 function mergeCommesse(localRows = [], firestoreRows = []) {
   const map = new Map();
   [...localRows, ...firestoreRows].forEach((row) => {
@@ -51,27 +33,87 @@ function mergeCommesse(localRows = [], firestoreRows = []) {
   return Array.from(map.values());
 }
 
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function readLocalData() {
+  try {
+    const rawCommesse = localStorage.getItem(LOCAL_COMMESSE_KEY);
+    const rowsCommesse = JSON.parse(rawCommesse || '[]');
+
+    const rawMaster = localStorage.getItem(MASTER_DATA_KEY);
+    const masterData = JSON.parse(rawMaster || '{}');
+    const masterRows = Array.isArray(masterData?.commesse)
+      ? masterData.commesse.map((entry) => ({ id: entry?.id || entry?.name, nome: entry?.name || entry?.nome }))
+      : [];
+
+    const localCommesse = mergeCommesse(normalizeCommessaRows(rowsCommesse), normalizeCommessaRows(masterRows));
+
+    const localImpianti = (Array.isArray(rowsCommesse) ? rowsCommesse : []).flatMap((commessa) => {
+      const commessaId = String(commessa?.id || commessa?.nome || '').trim();
+      const commessaNome = String(commessa?.nome || '').trim();
+      const cantieri = Array.isArray(commessa?.cantieri) ? commessa.cantieri : [];
+
+      return cantieri
+        .map((cantiere, idx) => {
+          const lat = toNumber(cantiere?.lat ?? cantiere?.latitude ?? cantiere?.gps?.lat);
+          const lng = toNumber(cantiere?.lng ?? cantiere?.lon ?? cantiere?.longitude ?? cantiere?.gps?.lng);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+          return {
+            id: String(cantiere?.id || `${commessaId}-${idx}`),
+            commessaId,
+            commessaNome,
+            nome: String(cantiere?.name || cantiere?.nome || cantiere?.title || 'Impianto locale'),
+            comune: String(cantiere?.comune || cantiere?.city || ''),
+            indirizzo: String(cantiere?.address || cantiere?.indirizzo || ''),
+            lat,
+            lng,
+            stato: String(cantiere?.stato || 'da_fare'),
+            priorita: String(cantiere?.priorita || 'media'),
+            source: 'local',
+          };
+        })
+        .filter(Boolean);
+    });
+
+    return { localCommesse, localImpianti };
+  } catch (error) {
+    console.warn('Impossibile leggere i dati locali', error);
+    return { localCommesse: [], localImpianti: [] };
+  }
+}
+
 export default function GestioneImpiantiLive() {
+  const initialLocalData = useMemo(() => readLocalData(), []);
+
   const [impianti, setImpianti] = useState([]);
   const [commesseFirestore, setCommesseFirestore] = useState([]);
-  const [commesseLocal, setCommesseLocal] = useState(() => readLocalCommesse());
+  const [commesseLocal, setCommesseLocal] = useState(initialLocalData.localCommesse);
+  const [impiantiLocal, setImpiantiLocal] = useState(initialLocalData.localImpianti);
   const [commessaIdFilter, setCommessaIdFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
-    const syncLocalCommesse = () => setCommesseLocal(readLocalCommesse());
-    syncLocalCommesse();
+    const syncLocalData = () => {
+      const next = readLocalData();
+      setCommesseLocal(next.localCommesse);
+      setImpiantiLocal(next.localImpianti);
+    };
+    syncLocalData();
 
     const onStorage = (event) => {
       if (!event.key || event.key === LOCAL_COMMESSE_KEY || event.key === MASTER_DATA_KEY) {
-        syncLocalCommesse();
+        syncLocalData();
       }
     };
 
     window.addEventListener('storage', onStorage);
-    const poll = window.setInterval(syncLocalCommesse, 4000);
+    const poll = window.setInterval(syncLocalData, 4000);
 
     return () => {
       window.removeEventListener('storage', onStorage);
@@ -108,17 +150,26 @@ export default function GestioneImpiantiLive() {
       (snap) => {
         const rows = snap.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
         setImpianti(rows);
+        setNotice('');
         setLoading(false);
       },
       (err) => {
         console.error('Errore lettura impianti', err);
-        setError('Errore nel caricamento impianti. Controlla regole Firestore/permessi.');
+
+        const fallback = impiantiLocal.filter((row) => {
+          if (!commessaIdFilter) return true;
+          return row.commessaId === commessaIdFilter || row.commessaNome === commessaIdFilter;
+        });
+
+        setImpianti(fallback);
+        setNotice('Firestore non accessibile: mostrati i cantieri/impianti locali da Dati app.');
+        setError('');
         setLoading(false);
       }
     );
 
     return () => unsub();
-  }, [commessaIdFilter]);
+  }, [commessaIdFilter, impiantiLocal]);
 
   const commesseOptions = useMemo(() => {
     return mergeCommesse(commesseLocal, commesseFirestore).map((c) => ({
