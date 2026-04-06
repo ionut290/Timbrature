@@ -6335,8 +6335,6 @@ out center tags;`;
           appId: cfg.appId,
           measurementId: cfg.measurementId || undefined
         };
-        console.log('[Firebase][debug] Config usata realmente:', firebaseConfig);
-
         firebaseCloudApp = existingApp || window.firebase.initializeApp(firebaseConfig, appName);
         firebaseCloudAuth = window.firebase.auth(firebaseCloudApp);
         firebaseCloudDb = window.firebase.firestore(firebaseCloudApp);
