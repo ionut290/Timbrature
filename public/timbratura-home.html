@@ -1447,6 +1447,8 @@
       let sharedAppLastAppliedAt = '';
       let sharedAppLastPushedAt = '';
       let sharedAppPullInProgress = false;
+      let sharedAppAccessSyncInProgress = false;
+      let sharedAppLastAccessSyncAt = 0;
       let firebaseCloudAutoConnectInProgress = false;
       let mainSyncStatusTicker = null;
       const SHARED_APP_LEGACY_FIRESTORE_COLLECTION = 'timbrature_sync';
@@ -1486,10 +1488,15 @@
         return `${SHARED_APP_DATA_PATH_ROOT}/${getSharedScopeKey()}/${SHARED_APP_FIRESTORE_DOC_BASENAME}`;
       }
       function writeJSON(k, v) {
-        localStorage.setItem(k, JSON.stringify(v));
+        let nextValue = v;
+        if (k === SHARED_APP_SYNC_META_KEY) {
+          const prevMeta = readJSON(SHARED_APP_SYNC_META_KEY, {});
+          nextValue = { ...(prevMeta || {}), ...(v || {}) };
+        }
+        localStorage.setItem(k, JSON.stringify(nextValue));
         if (k === SHARED_APP_SYNC_META_KEY) updateMainSyncStatusUI();
         if (SHARED_DATA_HUB_KEYS.includes(k) && currentAuthUser) {
-          syncDataHubKeyToCloud(k, v).catch((error)=>{
+          syncDataHubKeyToCloud(k, nextValue).catch((error)=>{
             console.warn(`Sync cloud immediata fallita (${k}):`, error);
           });
           if (getFirebaseSyncState().connected && firebaseCloudAuth?.currentUser && firebaseCloudRtdb) {
@@ -1507,6 +1514,22 @@
             scheduleSharedAppPush(`writeJSON:${k}`);
           }
         }
+      }
+      function promiseWithTimeout(promise, timeoutMs = 12000, timeoutMessage = 'Operazione scaduta.') {
+        return new Promise((resolve, reject)=>{
+          const timer = setTimeout(()=>{
+            reject(new Error(timeoutMessage));
+          }, timeoutMs);
+          Promise.resolve(promise)
+            .then((value)=>{
+              clearTimeout(timer);
+              resolve(value);
+            })
+            .catch((error)=>{
+              clearTimeout(timer);
+              reject(error);
+            });
+        });
       }
       async function syncDataHubKeyToCloud(key, value) {
         if (!currentAuthUser) return;
@@ -6782,10 +6805,24 @@ out center tags;`;
           showMsg('Effettua prima il login per sincronizzare.', 'err');
           return;
         }
+        const syncBtn = id('forceSharedSyncBtn');
+        if (syncBtn) {
+          syncBtn.disabled = true;
+          syncBtn.dataset.prevLabel = syncBtn.textContent || '🔄 Sync adesso';
+          syncBtn.textContent = '⏳ Sync in corso...';
+        }
         try {
           const syncedAt = new Date().toISOString();
-          await pushSharedAppPayload('manual-force-button', { throwOnFailure:true });
-          await pullSharedAppPayloadOnce('manual-force-button');
+          await promiseWithTimeout(
+            pushSharedAppPayload('manual-force-button', { throwOnFailure:true }),
+            15000,
+            'Timeout durante il push dati condivisi.'
+          );
+          await promiseWithTimeout(
+            pullSharedAppPayloadOnce('manual-force-button'),
+            15000,
+            'Timeout durante il pull dati condivisi.'
+          );
           setFirebaseSyncState({ connected:true, lastPushAt: syncedAt, lastPullAt: syncedAt });
           writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: syncedAt, last_pull_at: syncedAt });
           showMsg('Sincronizzazione condivisa completata.', 'ok');
@@ -6809,6 +6846,12 @@ out center tags;`;
             return;
           }
           showMsg(error?.message || 'Sync manuale non riuscita.', 'err');
+        } finally {
+          if (syncBtn) {
+            syncBtn.disabled = false;
+            syncBtn.textContent = syncBtn.dataset.prevLabel || '🔄 Sync adesso';
+            delete syncBtn.dataset.prevLabel;
+          }
         }
       }
       function buildBackupPayload() {
@@ -7828,10 +7871,12 @@ out center tags;`;
         sharedAppPullInProgress = true;
         try {
           let applied = false;
+          let checkedAnyChannel = false;
           try {
             const ref = await ensureSharedAppDbRef();
             const snap = await ref.get();
             const data = snap?.val?.() || null;
+            checkedAnyChannel = true;
             applied = applyIncomingSharedPayloadEnvelope(data, `pull-rtdb:${reason}`) || applied;
           } catch (rtdbError) {
             console.warn(`Pull snapshot RTDB fallita (${reason}):`, rtdbError);
@@ -7840,6 +7885,7 @@ out center tags;`;
             const docRef = await ensureSharedAppFirestoreDocRef();
             const doc = await docRef.get();
             const data = doc?.data?.() || null;
+            checkedAnyChannel = true;
             applied = applyIncomingSharedPayloadEnvelope(data, `pull-firestore:${reason}`) || applied;
           } catch (firestoreError) {
             console.warn(`Pull snapshot Firestore fallback fallita (${reason}):`, firestoreError);
@@ -7848,6 +7894,7 @@ out center tags;`;
             const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
             const doc = await legacyDocRef.get();
             const normalized = normalizeLegacySharedEnvelope(doc?.data?.() || {}, SHARED_APP_FIRESTORE_DOC_BASENAME);
+            checkedAnyChannel = true;
             if (normalized?.payload) {
               applied = applyIncomingSharedPayloadEnvelope(normalized, `pull-firestore-legacy-doc:${reason}`) || applied;
             }
@@ -7857,6 +7904,7 @@ out center tags;`;
           try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
             const snap = await legacyCollection.orderBy('updated_at', 'desc').limit(20).get();
+            checkedAnyChannel = true;
             const docs = (snap?.docs || [])
               .map((doc)=>({
                 docId: doc?.id || '',
@@ -7872,6 +7920,12 @@ out center tags;`;
             }
           } catch (legacyFirestoreError) {
             console.warn(`Pull snapshot Firestore legacy fallita (${reason}):`, legacyFirestoreError);
+          }
+          if (checkedAnyChannel) {
+            const pulledAt = new Date().toISOString();
+            const syncMeta = readJSON(SHARED_APP_SYNC_META_KEY, {});
+            writeJSON(SHARED_APP_SYNC_META_KEY, { ...syncMeta, last_pull_at: pulledAt });
+            setFirebaseSyncState({ lastPullAt: pulledAt });
           }
           return applied;
         } catch (error) {
@@ -8022,6 +8076,21 @@ out center tags;`;
           pullSharedAppPayloadOnce('start-sync');
         } catch (error) {
           console.warn('Sync condivisa non disponibile:', error);
+        }
+      }
+      async function syncOnAppAccess(reason = 'app-access') {
+        if (!currentAuthUser || sharedAppAccessSyncInProgress) return;
+        const now = Date.now();
+        if (now - sharedAppLastAccessSyncAt < 15000) return;
+        sharedAppAccessSyncInProgress = true;
+        try {
+          await pullSharedAppPayloadOnce(`access:${reason}`);
+        } catch (error) {
+          console.warn(`Sync accesso app fallita (${reason}):`, error);
+        } finally {
+          sharedAppLastAccessSyncAt = Date.now();
+          sharedAppAccessSyncInProgress = false;
+          updateMainSyncStatusUI();
         }
       }
       async function ensureMainAuthReady() {
@@ -8175,6 +8244,7 @@ out center tags;`;
           }
           showAuthMsg('Login effettuato con successo.', 'ok');
           setAppLocked(false);
+          syncOnAppAccess('auth-state').catch(()=>{});
         });
         authReady = true;
       }
@@ -8311,6 +8381,11 @@ out center tags;`;
         if (id('leftMenu')) id('leftMenu').addEventListener('click', (e)=>e.stopPropagation());
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
+        document.addEventListener('visibilitychange', ()=>{
+          if (document.visibilityState === 'visible') {
+            syncOnAppAccess('app-visible').catch(()=>{});
+          }
+        });
         document.querySelectorAll('[data-menu-action]').forEach((btn)=>btn.addEventListener('click', ()=>{
           const action = String(btn.dataset.menuAction || '');
           if (action === 'go-app-impianti') { navigateParentApp('impianti'); return; }
