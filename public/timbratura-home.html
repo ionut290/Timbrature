@@ -1184,12 +1184,18 @@
 
         <div class="card hidden" id="pastiCard">
           <h2>Pranzo e colazione</h2>
-          <p class="small">Trova ristoranti o bar vicini che accettano buoni pasto Day, ordinati dal più vicino al più lontano.</p>
+          <p class="small">Trova ristoranti o bar vicini ordinati dal più vicino al più lontano, con filtro buoni pasto Day opzionale.</p>
           <div class="grid">
             <label>Servizio
               <select id="mealServiceType">
                 <option value="pranzo">Pranzo (solo ristoranti)</option>
                 <option value="colazione">Colazione (ristoranti + bar)</option>
+              </select>
+            </label>
+            <label>Filtro buono pasto
+              <select id="mealVoucherFilter">
+                <option value="day-only">Solo locali con buoni Day</option>
+                <option value="all">Tutti i locali (anche senza buoni Day)</option>
               </select>
             </label>
             <label>Raggio ricerca (km)
@@ -2464,8 +2470,9 @@ out center tags;`;
         ) return true;
         return false;
       }
-      async function fetchNearbyMealPlaces(lat, lon, radiusKm=8, serviceType='pranzo') {
+      async function fetchNearbyMealPlaces(lat, lon, radiusKm=8, serviceType='pranzo', voucherFilter='day-only') {
         const radiusM = Math.max(1000, Math.min(Number(radiusKm || 8) * 1000, 25000));
+        const dayOnly = voucherFilter !== 'all';
         const query = `
 [out:json][timeout:25];
 (
@@ -2534,7 +2541,7 @@ out center tags;`;
           })
           .filter(Boolean)
           .filter((row)=>amenityAllowedForMeal(row.tags, serviceType))
-          .filter((row)=>acceptsDayMealVoucher(row.tags))
+          .filter((row)=>!dayOnly || acceptsDayMealVoucher(row.tags))
           .sort((a,b)=>a.distanceKm - b.distanceKm)
           .slice(0, 30);
       }
@@ -2850,11 +2857,14 @@ out center tags;`;
           mealMarkersLayer.addLayer(marker);
         });
       }
-      function renderMealPlacesList(places = []) {
+      function renderMealPlacesList(places = [], voucherFilter='day-only') {
         const list = id('mealPlacesList');
         if (!list) return;
+        const dayOnly = voucherFilter !== 'all';
         if (!places.length) {
-          list.innerHTML = '<li class="small">Nessun locale compatibile trovato (buoni pasto Day) nel raggio indicato.</li>';
+          list.innerHTML = dayOnly
+            ? '<li class="small">Nessun locale compatibile trovato (buoni pasto Day) nel raggio indicato.</li>'
+            : '<li class="small">Nessun locale trovato nel raggio indicato.</li>';
           return;
         }
         list.innerHTML = places.map((place)=>`
@@ -2877,16 +2887,25 @@ out center tags;`;
       }
       async function findNearbyMealPlaces() {
         const serviceType = id('mealServiceType')?.value || 'pranzo';
+        const voucherFilter = id('mealVoucherFilter')?.value || 'day-only';
+        const dayOnly = voucherFilter !== 'all';
         const radiusKm = Number(id('mealRadiusKm')?.value || 8);
-        showMealMsg(`Ricerca ${serviceType} con buoni Day in corso...`, 'ok');
+        showMealMsg(dayOnly
+          ? `Ricerca ${serviceType} con buoni Day in corso...`
+          : `Ricerca ${serviceType} (tutti i locali) in corso...`, 'ok');
         try {
           const position = await getCurrentPositionSafe();
           const { lat, lon } = extractLatLon(position);
           await ensureLeafletLoaded();
-          const places = await fetchNearbyMealPlaces(lat, lon, radiusKm, serviceType);
+          const places = await fetchNearbyMealPlaces(lat, lon, radiusKm, serviceType, voucherFilter);
           renderMealPlacesMap(lat, lon, places);
-          renderMealPlacesList(places);
-          showMealMsg(`Trovati ${places.length} locali compatibili ordinati dal più vicino al più lontano.`, places.length ? 'ok' : 'err');
+          renderMealPlacesList(places, voucherFilter);
+          showMealMsg(
+            dayOnly
+              ? `Trovati ${places.length} locali compatibili con buoni Day ordinati dal più vicino al più lontano.`
+              : `Trovati ${places.length} locali ordinati dal più vicino al più lontano.`,
+            places.length ? 'ok' : 'err'
+          );
         } catch (error) {
           const geoCode = Number(error?.code);
           if (geoCode === 1) showMealMsg('Permesso posizione negato. Consenti la geolocalizzazione e riprova.', 'err');
