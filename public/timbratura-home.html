@@ -1724,6 +1724,21 @@
       function getSharedAppRtdbPath() {
         return `${SHARED_APP_DATA_PATH_ROOT}/${getSharedScopeKey()}/${SHARED_APP_FIRESTORE_DOC_BASENAME}`;
       }
+      function getSharedSyncIdentity() {
+        return currentAuthUser || firebaseCloudAuth?.currentUser || null;
+      }
+      async function resolveSharedSyncFirebaseApp() {
+        const auth = await ensureMainAuthReady();
+        if (authMode === 'firebase' && auth?.app) return auth.app;
+        if (firebaseCloudAuth?.currentUser && firebaseCloudApp) return firebaseCloudApp;
+        if (window.firebase?.apps?.length) {
+          const fallback = window.firebase.apps.find((entry)=>entry?.name === 'timbrature-cloud-app')
+            || window.firebase.apps.find((entry)=>entry?.name === 'timbrature-auth-app')
+            || window.firebase.apps[0];
+          if (fallback) return fallback;
+        }
+        throw new Error('Nessuna app Firebase disponibile per sync condivisa.');
+      }
       function writeJSON(k, v) {
         let nextValue = v;
         if (k === SHARED_APP_SYNC_META_KEY) {
@@ -8227,19 +8242,19 @@ out center tags;`;
         }
       }
       async function ensureSharedAppDbRef() {
-        const auth = await ensureMainAuthReady();
+        const app = await resolveSharedSyncFirebaseApp();
         if (!window.firebase?.database) throw new Error('Realtime Database non disponibile.');
         refreshSharedScopeCache();
         if (!sharedAppDbRef) {
-          const db = window.firebase.database(auth.app);
+          const db = window.firebase.database(app);
           sharedAppDbRef = db.ref(getSharedAppRtdbPath());
         }
         return sharedAppDbRef;
       }
       async function ensureSharedAppFirestoreDocRef() {
-        const auth = await ensureMainAuthReady();
+        const app = await resolveSharedSyncFirebaseApp();
         if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
-        const db = window.firebase.firestore(auth.app);
+        const db = window.firebase.firestore(app);
         return db
           .collection(SHARED_APP_FIRESTORE_SCOPES_COLLECTION)
           .doc(getSharedScopeKey())
@@ -8247,18 +8262,18 @@ out center tags;`;
           .doc(SHARED_APP_FIRESTORE_DOC_BASENAME);
       }
       async function ensureSharedCommesseFirestoreCollectionRef() {
-        const auth = await ensureMainAuthReady();
+        const app = await resolveSharedSyncFirebaseApp();
         if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
-        const db = window.firebase.firestore(auth.app);
+        const db = window.firebase.firestore(app);
         return db
           .collection(SHARED_APP_FIRESTORE_SCOPES_COLLECTION)
           .doc(getSharedScopeKey())
           .collection('commesse');
       }
       async function ensureSharedAppLegacyFirestoreCollectionRef() {
-        const auth = await ensureMainAuthReady();
+        const app = await resolveSharedSyncFirebaseApp();
         if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
-        const db = window.firebase.firestore(auth.app);
+        const db = window.firebase.firestore(app);
         return db
           .collection(SHARED_APP_FIRESTORE_SCOPES_COLLECTION)
           .doc(getSharedScopeKey())
@@ -8340,13 +8355,14 @@ out center tags;`;
         sharedCommesseRealtimeSyncTimer = null;
       }
       async function pushSharedAppPayload(reason = 'manual', options = {}) {
-        if (!currentAuthUser) return;
+        const syncIdentity = getSharedSyncIdentity();
+        if (!syncIdentity) return;
         const throwOnFailure = Boolean(options?.throwOnFailure);
         try {
           const pushedAt = new Date().toISOString();
           const envelope = {
             updated_at: pushedAt,
-            updated_by: currentAuthUser.email || currentAuthUser.uid || '',
+            updated_by: syncIdentity.email || syncIdentity.uid || '',
             reason,
             payload: buildSharedAppPayload()
           };
@@ -8371,7 +8387,7 @@ out center tags;`;
               ...envelope,
               updatedAt: envelope.updated_at,
               updatedBy: envelope.updated_by,
-              uid: currentAuthUser?.uid || '',
+              uid: syncIdentity?.uid || '',
               deviceId: getDeviceId()
             }, { merge: true });
             pushed = true;
@@ -8384,7 +8400,7 @@ out center tags;`;
               ...envelope,
               updatedAt: envelope.updated_at,
               updatedBy: envelope.updated_by,
-              uid: currentAuthUser?.uid || '',
+              uid: syncIdentity?.uid || '',
               deviceId: getDeviceId()
             }, { merge: true });
             pushed = true;
@@ -8404,12 +8420,13 @@ out center tags;`;
         }
       }
       async function pushSharedCommesseRealtime(reason = 'commesse-update') {
-        if (!currentAuthUser) return;
+        const syncIdentity = getSharedSyncIdentity();
+        if (!syncIdentity) return;
         try {
           const collectionRef = await ensureSharedCommesseFirestoreCollectionRef();
           const rows = getCommesse();
           const batch = collectionRef.firestore.batch();
-          const marker = String(currentAuthUser?.email || currentAuthUser?.uid || 'unknown');
+          const marker = String(syncIdentity?.email || syncIdentity?.uid || 'unknown');
           rows.forEach((row) => {
             const normalized = normalizeCommessa(row);
             const docId = String(normalized.id || normalized.nome || '').trim();
