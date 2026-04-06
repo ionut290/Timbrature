@@ -214,19 +214,23 @@
         align-items:center;
         justify-content:flex-start;
         white-space:nowrap;
+        width:max-content;
         min-width:100%;
-        animation:ticker-right-to-left-loop var(--ticker-duration, 34s) linear infinite;
+        animation:ticker-right-to-left-loop var(--ticker-duration, 48s) linear infinite;
         padding:0 12px;
+        gap:24px;
+        will-change:transform;
       }
       .ticker-text {
         display:inline-block;
+        flex:0 0 auto;
         font-weight:800;
         color:#020617;
         text-shadow:none;
       }
       @keyframes ticker-right-to-left-loop {
-        from { transform:translateX(100%); }
-        to { transform:translateX(-100%); }
+        from { transform:translateX(0); }
+        to { transform:translateX(calc(-50% - 12px)); }
       }
       @media (prefers-reduced-motion: reduce) {
         .ticker-track { animation:none; }
@@ -4769,14 +4773,15 @@ out center tags;`;
         const clone = id('infoTickerTextClone');
         if (!text || !track || !banner) return;
         const clean = String(value || '').trim() || 'Meteo e appuntamenti in aggiornamento.';
-        text.textContent = clean;
-        if (clone) clone.textContent = '';
+        const separator = ' ✦ ';
+        text.textContent = `${clean}${separator}`;
+        if (clone) clone.textContent = `${clean}${separator}`;
         requestAnimationFrame(()=>{
           const textWidth = Number(text.scrollWidth || 0);
           const bannerWidth = Number(banner.clientWidth || 0);
-          const distancePx = Math.max(textWidth + bannerWidth, bannerWidth * 1.4);
+          const cycleWidth = Math.max(textWidth, bannerWidth);
           const pixelsPerSecond = 70;
-          const durationSec = Math.max(18, Math.ceil(distancePx / pixelsPerSecond));
+          const durationSec = Math.max(22, Math.ceil(cycleWidth / pixelsPerSecond));
           track.style.setProperty('--ticker-duration', `${durationSec}s`);
           track.style.animation = 'none';
           void track.offsetWidth;
