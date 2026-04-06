@@ -3158,6 +3158,19 @@ out center tags;`;
         const ref = firebaseCloudDb.collection('mezzi');
         mezziRealtimeUnsubscribe = ref.onSnapshot((snap)=>{
           mezziRealtimeRows = (snap?.docs || []).map((doc)=>normalizeMezzoFirestoreRow({ id: doc.id, ...(doc.data() || {}) })).filter((row)=>row.name);
+          try {
+            const masterData = getMasterData();
+            const nextVehicles = mezziRealtimeRows.map((row)=>({
+              name: String(row?.name || '').trim(),
+              fuel_type: String(row?.fuel_type || '').trim(),
+              targa: String(row?.targa || '').trim(),
+              stato: String(row?.stato || '').trim(),
+              note: String(row?.note || '').trim()
+            })).filter((row)=>row.name);
+            if (JSON.stringify(masterData.vehicles || []) !== JSON.stringify(nextVehicles)) {
+              setMasterData({ ...masterData, vehicles: nextVehicles });
+            }
+          } catch (_) {}
           mezziRealtimeLoading = false;
           mezziRealtimeError = '';
           renderTeamDirectorySelects();
@@ -3189,11 +3202,31 @@ out center tags;`;
           note: row.note || '',
           updated_at: new Date().toISOString()
         }, { merge:true });
+        try {
+          const masterData = getMasterData();
+          const vehicles = Array.isArray(masterData?.vehicles) ? [...masterData.vehicles] : [];
+          const idx = vehicles.findIndex((entry)=>String(entry?.name || '').toLowerCase() === row.name.toLowerCase() && String(entry?.targa || '').toLowerCase() === String(row.targa || '').toLowerCase());
+          const nextRow = { name: row.name, fuel_type: row.fuel_type || '', targa: row.targa || '', stato: row.stato || '', note: row.note || '' };
+          if (idx >= 0) vehicles[idx] = nextRow;
+          else vehicles.push(nextRow);
+          setMasterData({ ...masterData, vehicles });
+        } catch (_) {}
       }
       async function deleteVehicleFromFirestoreById(vehicleId='') {
         if (!vehicleId) throw new Error('ID mezzo non valido.');
         if (!firebaseCloudDb || !firebaseCloudAuth?.currentUser) throw new Error('Connetti prima Firebase cloud.');
+        const deleted = getVehiclesSourceRows().find((row)=>row.id === vehicleId);
         await firebaseCloudDb.collection('mezzi').doc(vehicleId).delete();
+        try {
+          const masterData = getMasterData();
+          const deletedKey = `${String(deleted?.name || '').trim().toLowerCase()}|${String(deleted?.targa || '').trim().toLowerCase()}`;
+          if (!deletedKey || deletedKey === '|') return;
+          const vehicles = (Array.isArray(masterData?.vehicles) ? masterData.vehicles : []).filter((entry)=>{
+            const key = `${String(entry?.name || '').trim().toLowerCase()}|${String(entry?.targa || '').trim().toLowerCase()}`;
+            return key !== deletedKey;
+          });
+          setMasterData({ ...masterData, vehicles });
+        } catch (_) {}
       }
       async function saveCatalogEntry() {
         const category = selectedDataHubCategory || 'vehicles';
@@ -3230,6 +3263,7 @@ out center tags;`;
         if (id('catalogVehiclePlate')) id('catalogVehiclePlate').value = '';
         if (id('catalogVehicleStatus')) id('catalogVehicleStatus').value = '';
         if (id('catalogVehicleNotes')) id('catalogVehicleNotes').value = '';
+        await syncDataHubCatalogChanges(`save:${category}`);
         renderCatalogDataUI();
         renderTeamDirectorySelects();
       }
@@ -3250,8 +3284,21 @@ out center tags;`;
           renderCommesseList();
           renderGlobalCommesseSelect();
         }
+        await syncDataHubCatalogChanges(`delete:${category}`);
         renderCatalogDataUI();
         renderTeamDirectorySelects();
+      }
+      async function syncDataHubCatalogChanges(reason = 'manual') {
+        if (!currentAuthUser) return;
+        try {
+          await Promise.all([
+            syncDataHubKeyToCloud(MASTER_DATA_KEY, getMasterData()),
+            syncDataHubKeyToCloud(COMMESSE_KEY, getCommesse())
+          ]);
+          await pullSharedAppPayloadOnce(`catalog-${reason}`);
+        } catch (error) {
+          console.warn(`Sync catalogo condiviso fallita (${reason}):`, error);
+        }
       }
       
       function renderCatalogDataUI() {
@@ -6649,8 +6696,11 @@ out center tags;`;
           return;
         }
         try {
+          const syncedAt = new Date().toISOString();
           await pushSharedAppPayload('manual-force-button');
           await pullSharedAppPayloadOnce('manual-force-button');
+          setFirebaseSyncState({ connected:true, lastPushAt: syncedAt, lastPullAt: syncedAt });
+          writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: syncedAt, last_pull_at: syncedAt });
           showMsg('Sincronizzazione condivisa completata.', 'ok');
           updateMainSyncStatusUI();
         } catch (error) {
