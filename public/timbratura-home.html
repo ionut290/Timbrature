@@ -265,6 +265,7 @@
     <div class="container">
       <h1>Timbrature Varga</h1>
       <p class="pill">Accesso protetto: registrazione/login obbligatori</p>
+      <p id="mainSyncStatusLine" class="status-line status-neutral">Account: non autenticato • Firebase: non connesso • Sync live: OFF</p>
 
       <div class="card auth-shell" id="authGateCard">
         <h2>Accesso all'app</h2>
@@ -1446,6 +1447,7 @@
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
       function writeJSON(k, v) {
         localStorage.setItem(k, JSON.stringify(v));
+        if (k === SHARED_APP_SYNC_META_KEY) updateMainSyncStatusUI();
         scheduleFirebaseAutoPush(`writeJSON:${k}`);
         if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) {
           if (!sharedAppReady) sharedAppPendingPush = true;
@@ -1645,6 +1647,7 @@
         if (biometricBtn) biometricBtn.classList.toggle('hidden', !hasUser || !hasBiometric);
         const userLine = id('authUserLine');
         if (userLine) userLine.textContent = hasUser ? `Utente: ${currentAuthUser.email || currentAuthUser.uid} • Ruolo: ${currentUserRole}` : 'Non autenticato.';
+        updateMainSyncStatusUI();
       }
       async function unlockWithBiometrics() {
         if (!window.PublicKeyCredential) throw new Error('Biometria non supportata su questo dispositivo/browser.');
@@ -6301,6 +6304,20 @@ out center tags;`;
           el.textContent = 'Cloud Firebase non connesso.';
         }
         if (liveBtn) liveBtn.textContent = state.liveSync ? 'Disattiva sync live' : 'Attiva sync live';
+        updateMainSyncStatusUI();
+      }
+      function updateMainSyncStatusUI() {
+        const el = id('mainSyncStatusLine');
+        if (!el) return;
+        const syncState = getFirebaseSyncState();
+        const syncMeta = readJSON(SHARED_APP_SYNC_META_KEY, {});
+        const account = currentAuthUser?.email || currentAuthUser?.uid || 'non autenticato';
+        const firebaseStatus = syncState.connected ? 'connesso' : 'non connesso';
+        const liveStatus = syncState.liveSync ? 'ON' : 'OFF';
+        const lastSync = String(syncMeta?.last_pull_at || syncState?.lastPullAt || syncState?.lastPushAt || '');
+        const when = lastSync ? ` • ultimo sync: ${new Date(lastSync).toLocaleString('it-IT')}` : '';
+        el.className = `status-line ${syncState.connected && currentAuthUser ? 'status-ok' : 'status-neutral'}`;
+        el.textContent = `Account: ${account} • Firebase: ${firebaseStatus} • Sync live: ${liveStatus}${when}`;
       }
       async function ensureFirebaseCloudReady(options={}) {
         if (!window.firebase?.apps) throw new Error('SDK Firebase non disponibile. Ricarica la pagina.');
