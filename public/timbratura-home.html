@@ -1439,6 +1439,7 @@
       let sharedAppLastPushedAt = '';
       let sharedAppPullInProgress = false;
       let firebaseCloudAutoConnectInProgress = false;
+      let mainSyncStatusTicker = null;
       const SHARED_APP_FIRESTORE_COLLECTION = '_shared';
       const SHARED_APP_FIRESTORE_DOC = 'global_app_data_v1';
       const SHARED_APP_LEGACY_FIRESTORE_COLLECTION = 'timbrature_sync';
@@ -6306,7 +6307,29 @@ out center tags;`;
         if (liveBtn) liveBtn.textContent = state.liveSync ? 'Disattiva sync live' : 'Attiva sync live';
         updateMainSyncStatusUI();
       }
+      function ensureMainSyncStatusTicker() {
+        if (mainSyncStatusTicker) return;
+        mainSyncStatusTicker = window.setInterval(()=>{
+          updateMainSyncStatusUI();
+        }, 1000);
+      }
+      function formatElapsedSince(isoValue = '') {
+        const ts = Date.parse(String(isoValue || ''));
+        if (!Number.isFinite(ts)) return '';
+        const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+        if (diffSec < 60) return `${diffSec}s fa`;
+        const diffMin = Math.floor(diffSec / 60);
+        const remSec = diffSec % 60;
+        if (diffMin < 60) return `${diffMin}m ${remSec}s fa`;
+        const diffHours = Math.floor(diffMin / 60);
+        const remMin = diffMin % 60;
+        if (diffHours < 24) return `${diffHours}h ${remMin}m fa`;
+        const diffDays = Math.floor(diffHours / 24);
+        const remHours = diffHours % 24;
+        return `${diffDays}g ${remHours}h fa`;
+      }
       function updateMainSyncStatusUI() {
+        ensureMainSyncStatusTicker();
         const el = id('mainSyncStatusLine');
         if (!el) return;
         const syncState = getFirebaseSyncState();
@@ -6315,7 +6338,8 @@ out center tags;`;
         const firebaseStatus = syncState.connected ? 'connesso' : 'non connesso';
         const liveStatus = syncState.liveSync ? 'ON' : 'OFF';
         const lastSync = String(syncMeta?.last_pull_at || syncState?.lastPullAt || syncState?.lastPushAt || '');
-        const when = lastSync ? ` • ultimo sync: ${new Date(lastSync).toLocaleString('it-IT')}` : '';
+        const elapsed = formatElapsedSince(lastSync);
+        const when = elapsed ? ` • ultimo sync: ${elapsed}` : '';
         el.className = `status-line ${syncState.connected && currentAuthUser ? 'status-ok' : 'status-neutral'}`;
         el.textContent = `Account: ${account} • Firebase: ${firebaseStatus} • Sync live: ${liveStatus}${when}`;
       }
