@@ -7374,6 +7374,9 @@ out center tags;`;
         const db = window.firebase.firestore(auth.app);
         return db.collection(SHARED_APP_LEGACY_FIRESTORE_COLLECTION);
       }
+      function getSharedLegacyDocId() {
+        return String(currentAuthUser?.uid || getDeviceId() || '').trim() || 'anonymous';
+      }
       function normalizeLegacySharedEnvelope(data = {}, docId = '') {
         const payload = data?.payload;
         if (!payload || typeof payload !== 'object') return null;
@@ -7459,10 +7462,11 @@ out center tags;`;
           }
           try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
-            await legacyCollection.doc(getDeviceId()).set({
+            await legacyCollection.doc(getSharedLegacyDocId()).set({
               ...envelope,
               updatedAt: envelope.updated_at,
               updatedBy: envelope.updated_by,
+              uid: currentAuthUser?.uid || '',
               deviceId: getDeviceId()
             }, { merge: true });
             pushed = true;
@@ -7504,18 +7508,18 @@ out center tags;`;
           }
           try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
-            const snap = await legacyCollection.limit(20).get();
+            const snap = await legacyCollection.orderBy('updated_at', 'desc').limit(20).get();
             const docs = (snap?.docs || [])
               .map((doc)=>({
                 docId: doc?.id || '',
                 normalized: normalizeLegacySharedEnvelope(doc?.data?.() || {}, doc?.id || '')
               }))
-              .filter((entry)=>entry.normalized?.payload)
-              .sort((a, b)=>String(b.normalized?.updated_at || '').localeCompare(String(a.normalized?.updated_at || '')));
+              .filter((entry)=>entry.normalized?.payload);
             for (const entry of docs) {
               const normalized = entry.normalized;
               if (!normalized) continue;
               applied = applyIncomingSharedPayloadEnvelope(normalized, `pull-firestore-legacy:${reason}`) || applied;
+              if (applied) break;
             }
           } catch (legacyFirestoreError) {
             console.warn(`Pull snapshot Firestore legacy fallita (${reason}):`, legacyFirestoreError);
@@ -7564,16 +7568,16 @@ out center tags;`;
           try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
             sharedAppLegacyFirestoreUnsubscribe = legacyCollection
+              .orderBy('updated_at', 'desc')
               .limit(20)
               .onSnapshot((querySnap)=>{
                 const docs = (querySnap?.docs || [])
                   .map((docSnap)=>normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, docSnap?.id || ''))
-                  .filter((entry)=>entry?.payload)
-                  .sort((a, b)=>String(b?.updated_at || '').localeCompare(String(a?.updated_at || '')));
-                docs.forEach((normalized)=>{
-                  if (!normalized) return;
-                  applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy');
-                });
+                  .filter((entry)=>entry?.payload);
+                for (const normalized of docs) {
+                  if (!normalized) continue;
+                  if (applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy')) break;
+                }
               }, (error)=>{
                 console.warn('Listener Firestore legacy non disponibile:', error);
               });
