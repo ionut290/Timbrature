@@ -332,6 +332,7 @@
                   <button type="button" class="menu-link" data-menu-target="chatCard">Chat interna</button>
                   <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
                   <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
+                  <button type="button" class="menu-link" data-menu-target="pastiCard">Colazione / pausa pranzo</button>
                 </div>
               </details>
 
@@ -1249,7 +1250,7 @@
       const DEVICE_ID_KEY = 'timbrature.local.device.id';
       const BIOMETRIC_CREDENTIAL_KEY = 'timbrature.local.auth.biometric.credential';
       const ACCESS_CONTROL_KEY = 'timbrature.local.access.control';
-      const ACCESS_CONTROL_SCHEMA_VERSION = 2;
+      const ACCESS_CONTROL_SCHEMA_VERSION = 3;
       const SHARED_APP_SYNC_META_KEY = 'timbrature.shared.app.sync.meta';
       const SHARED_APP_SCOPE_DEFAULT = 'globale-condiviso';
       const SHARED_APP_DATA_PATH_ROOT = 'shared_scopes';
@@ -1294,7 +1295,7 @@
         { panel:'prezzarioCard', label:'Prezzario' },
         { panel:'createPreventivoCard', label:'Crea preventivo' },
         { panel:'carburanteCard', label:'Carburante' },
-        { panel:'pastiCard', label:'Pranzo / colazione' },
+        { panel:'pastiCard', label:'Colazione / pausa pranzo' },
         { panel:'dataHubCard', label:'Dati app' },
         { panel:'backupCard', label:'Backup Google Drive' },
         { panel:'userBox', label:'Profilo' },
@@ -1726,16 +1727,21 @@
           statusEl.textContent = `Accesso consentito${currentAuthUser?.email ? ` (${currentAuthUser.email})` : ''}.`;
         }
       }
+      function applyRolePermissionMigrations(savedState = {}) {
+        const rolePermissions = { ...DEFAULT_ROLE_PERMISSIONS, ...(savedState.rolePermissions || {}) };
+        ROLE_DEFS.forEach((role)=>{
+          const current = new Set(rolePermissions[role.key] || []);
+          const defaults = new Set(DEFAULT_ROLE_PERMISSIONS[role.key] || []);
+          if (defaults.has('lavoroCard')) current.add('lavoroCard');
+          if (defaults.has('pastiCard')) current.add('pastiCard');
+          rolePermissions[role.key] = Array.from(current).filter((panelId)=>menuPanelIds.includes(panelId));
+        });
+        return rolePermissions;
+      }
       function getAccessControlState() {
         const saved = readJSON(ACCESS_CONTROL_KEY, {});
-        const rolePermissions = { ...DEFAULT_ROLE_PERMISSIONS, ...(saved.rolePermissions || {}) };
+        const rolePermissions = applyRolePermissionMigrations(saved);
         if (Number(saved.schemaVersion || 0) < ACCESS_CONTROL_SCHEMA_VERSION) {
-          ROLE_DEFS.forEach((role)=>{
-            if (!DEFAULT_ROLE_PERMISSIONS[role.key]?.includes('lavoroCard')) return;
-            const allowed = new Set(rolePermissions[role.key] || []);
-            allowed.add('lavoroCard');
-            rolePermissions[role.key] = Array.from(allowed);
-          });
           writeJSON(ACCESS_CONTROL_KEY, {
             userRolesByEmail: saved.userRolesByEmail || {},
             rolePermissions,
