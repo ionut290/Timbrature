@@ -1454,6 +1454,11 @@
           syncDataHubKeyToCloud(k, v).catch((error)=>{
             console.warn(`Sync cloud immediata fallita (${k}):`, error);
           });
+          if (getFirebaseSyncState().connected && firebaseCloudAuth?.currentUser && firebaseCloudRtdb) {
+            pushFirebaseSnapshot().catch((error)=>{
+              console.warn(`Push Firebase Cloud immediata fallita (${k}):`, error);
+            });
+          }
         }
         scheduleFirebaseAutoPush(`writeJSON:${k}`);
         if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) {
