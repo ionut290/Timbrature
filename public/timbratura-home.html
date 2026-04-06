@@ -1684,7 +1684,12 @@
             const normalizedPassword = String(password || '');
             const rows = getLocalAuthUsers();
             const found = rows.find((row)=>row.email === normalizedEmail);
-            if (!found || found.password !== normalizedPassword) {
+            if (!found) {
+              const err = new Error('Account non trovato su questo dispositivo.');
+              err.code = 'auth/user-not-found';
+              throw err;
+            }
+            if (found.password !== normalizedPassword) {
               const err = new Error('Email o password non corretti.');
               err.code = 'auth/invalid-credential';
               throw err;
@@ -8931,6 +8936,9 @@ ${JSON.stringify(context)}`;
         if (code.includes('auth/invalid-credential')) {
           return 'Credenziali non valide. Controlla email e password.';
         }
+        if (code.includes('auth/user-not-found')) {
+          return 'Account non trovato su questo dispositivo. Premi Login con nome/email/password per crearlo automaticamente.';
+        }
         if (code.includes('auth/email-already-in-use')) {
           return 'Esiste già un account con questa email.';
         }
@@ -8943,11 +8951,32 @@ ${JSON.stringify(context)}`;
         return error?.message || 'Operazione autenticazione non riuscita.';
       }
       async function loginWithEmailPassword() {
+        const fullName = (id('authFullNameInput')?.value || '').trim();
         const email = (id('authEmailInput')?.value || '').trim();
         const password = (id('authPasswordInput')?.value || '').trim();
         if (!email || !password) throw new Error('Inserisci email e password.');
         const auth = await ensureMainAuthReady();
-        await runAuthWithAppCheckRetry(()=>auth.signInWithEmailAndPassword(email, password));
+        try {
+          await runAuthWithAppCheckRetry(()=>auth.signInWithEmailAndPassword(email, password));
+        } catch (error) {
+          if (authMode !== 'local') throw error;
+          const code = String(error?.code || '').toLowerCase();
+          if (code !== 'auth/user-not-found') throw error;
+          if (password.length < 6) throw new Error('Password minima 6 caratteri per creare il primo account locale.');
+          const cred = await auth.createUserWithEmailAndPassword(email, password);
+          const fallbackName = fullName || String(email).split('@')[0] || 'Utente';
+          if (cred?.user?.updateProfile) {
+            try { await cred.user.updateProfile({ displayName:fallbackName }); } catch (_) {}
+          }
+          const existing = getProfile();
+          setProfile({
+            ...existing,
+            nome: fallbackName,
+            email: email || existing.email || ''
+          });
+          loadProfileUI();
+          showAuthMsg('Primo accesso locale: account creato automaticamente su questo dispositivo.', 'ok');
+        }
       }
       async function registerWithEmailPassword() {
         const fullName = (id('authFullNameInput')?.value || '').trim();
