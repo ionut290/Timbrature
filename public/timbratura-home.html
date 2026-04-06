@@ -5337,16 +5337,38 @@ out center tags;`;
         const profile = getProfile();
         return String(profile.nome || profile.fullName || currentAuthUser?.displayName || currentAuthUser?.email || 'Utente').trim();
       }
+      function resolveChatCloudContext() {
+        if (!window.firebase?.firestore) return null;
+        const authUser = appAuth?.currentUser || firebaseCloudAuth?.currentUser || null;
+        if (!authUser) return null;
+        let db = null;
+        try {
+          if (appAuth?.app) db = window.firebase.firestore(appAuth.app);
+        } catch (_) {}
+        if (!db && firebaseCloudDb) db = firebaseCloudDb;
+        if (!db) {
+          try {
+            if (firebaseCloudApp) db = window.firebase.firestore(firebaseCloudApp);
+          } catch (_) {}
+        }
+        if (!db) {
+          try {
+            const fallbackApp = window.firebase?.apps?.[0];
+            if (fallbackApp) db = window.firebase.firestore(fallbackApp);
+          } catch (_) {}
+        }
+        return db ? { db, authUser } : null;
+      }
       async function loadChatMessages() {
         renderChatMessages(getChatMessagesLocal());
-        if (!window.firebase?.firestore || !appAuth?.currentUser) {
+        const cloud = resolveChatCloudContext();
+        if (!cloud) {
           showChatMsg('Chat locale attiva (Firebase non connesso).', 'ok');
           return;
         }
         try {
           if (chatRealtimeUnsubscribe) { try { chatRealtimeUnsubscribe(); } catch (_) {} chatRealtimeUnsubscribe = null; }
-          const db = window.firebase.firestore(appAuth.app);
-          const ref = db.collection('internal_chat_messages').orderBy('createdAt', 'desc').limit(120);
+          const ref = cloud.db.collection('internal_chat_messages').orderBy('createdAt', 'desc').limit(120);
           chatRealtimeUnsubscribe = ref.onSnapshot((snap)=>{
             const rows = (snap?.docs || []).map((doc)=>({ id:doc.id, ...(doc.data() || {}) }));
             setChatMessagesLocal(rows);
@@ -5369,13 +5391,13 @@ out center tags;`;
         setChatMessagesLocal(localRows);
         renderChatMessages(localRows);
         input.value = '';
-        if (!window.firebase?.firestore || !appAuth?.currentUser) {
+        const cloud = resolveChatCloudContext();
+        if (!cloud) {
           showChatMsg('Messaggio salvato in locale (connetti Firebase per chat multiutente).', 'ok');
           return;
         }
         try {
-          const db = window.firebase.firestore(appAuth.app);
-          await db.collection('internal_chat_messages').add(payload);
+          await cloud.db.collection('internal_chat_messages').add(payload);
           showChatMsg('Messaggio inviato alla chat interna.', 'ok');
         } catch (_) {
           showChatMsg('Invio cloud non riuscito. Messaggio salvato in locale.', 'err');
