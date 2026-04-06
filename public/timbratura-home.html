@@ -332,7 +332,6 @@
                   <button type="button" class="menu-link" data-menu-target="chatCard">Chat interna</button>
                   <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
                   <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
-                  <button type="button" class="menu-link" data-menu-target="pastiCard">Pranzo / colazione</button>
                 </div>
               </details>
 
@@ -430,6 +429,21 @@
 
         <div class="card hidden" id="programCard">
           <h2>Impostazioni contratto</h2>
+          <div class="simple-shift" id="pauseSettingsBox">
+            <h3>Pausa pranzo e colazione</h3>
+            <p class="small">Gestisci i minuti standard delle pause usate come riferimento nelle timbrature.</p>
+            <div class="grid">
+              <label>Pause abilitate nel contratto?
+                <select id="programBreakEnabled"><option value="true">Sì</option><option value="false">No</option></select>
+              </label>
+              <label>Pausa pranzo standard (minuti)
+                <input type="number" id="programBreakMinutes" min="0" value="0" />
+              </label>
+              <label>Pausa colazione standard (minuti)
+                <input type="number" id="programBreakfastMinutes" min="0" value="0" />
+              </label>
+            </div>
+          </div>
           <div class="contract-meta">
             <p class="contract-meta-title">Contratto settimanale</p>
             <div class="grid">
@@ -452,12 +466,6 @@
             <p id="contractMetaHint" class="small">Se lasci 0, la paga oraria viene calcolata dal contratto scelto.</p>
           </div>
           <div class="grid">
-            <label>Pause abilitate nel contratto?
-              <select id="programBreakEnabled"><option value="true">Sì</option><option value="false">No</option></select>
-            </label>
-            <label>Pausa standard (fallback, minuti)
-              <input type="number" id="programBreakMinutes" min="0" value="0" />
-            </label>
             <label>Maggiorazione notturno (%)
               <input type="number" id="nightBonusPercent" min="0" step="0.1" value="0" />
             </label>
@@ -2962,6 +2970,7 @@ out center tags;`;
           contract_employment_type: id('contractEmploymentType').value,
           break_enabled: id('programBreakEnabled').value,
           break_minutes: id('programBreakMinutes').value,
+          breakfast_break_minutes: id('programBreakfastMinutes').value,
           night_bonus_percent: id('nightBonusPercent').value,
           overtime_bonus_percent: id('overtimeBonusPercent').value,
           worksite_lat: id('worksiteLat').value,
@@ -2985,6 +2994,7 @@ out center tags;`;
         if (draft.contract_employment_type) id('contractEmploymentType').value = draft.contract_employment_type;
         if (draft.break_enabled) id('programBreakEnabled').value = draft.break_enabled;
         if (draft.break_minutes != null) id('programBreakMinutes').value = draft.break_minutes;
+        if (draft.breakfast_break_minutes != null) id('programBreakfastMinutes').value = draft.breakfast_break_minutes;
         if (draft.night_bonus_percent != null) id('nightBonusPercent').value = draft.night_bonus_percent;
         if (draft.overtime_bonus_percent != null) id('overtimeBonusPercent').value = draft.overtime_bonus_percent;
         if (draft.worksite_lat != null) id('worksiteLat').value = draft.worksite_lat;
@@ -4076,6 +4086,11 @@ out center tags;`;
         if (!id('teamRequestDate').value) id('teamRequestDate').value = tomorrowDateISO();
         saveTeamRequestDraft();
       }
+      function openPauseSettings() {
+        setMenuSection('programCard');
+        const panel = id('pauseSettingsBox');
+        if (panel?.scrollIntoView) panel.scrollIntoView({ behavior:'smooth', block:'start' });
+      }
 
       function collectProgramPayload() {
         applySimpleWeeklyPlan();
@@ -4089,6 +4104,7 @@ out center tags;`;
           contract_employment_type: id('contractEmploymentType').value || 'IND',
           break_enabled: id('programBreakEnabled').value==='true',
           break_minutes:Number(id('programBreakMinutes').value||0),
+          breakfast_break_minutes:Number(id('programBreakfastMinutes').value||0),
           holidays_non_working: false,
           prefestive_non_working: false,
           hourly_rate: manualHourly,
@@ -4116,6 +4132,7 @@ out center tags;`;
         id('contractLevel').value = p.contract_level || id('contractLevel').value;
         id('contractEmploymentType').value = p.contract_employment_type || 'IND';
         id('programBreakEnabled').value = String(Boolean(p.break_enabled)); id('programBreakMinutes').value = Number(p.break_minutes||0);
+        id('programBreakfastMinutes').value = Number(p.breakfast_break_minutes||0);
         id('hourlyRate').value = Number(p.hourly_rate || 0);
         id('nightBonusPercent').value = Number(p.night_bonus_percent || 0);
         id('overtimeBonusPercent').value = Number(p.overtime_bonus_percent || 0);
@@ -8702,6 +8719,7 @@ out center tags;`;
           const action = String(btn.dataset.menuAction || '');
           if (action === 'go-app-impianti') { navigateParentApp('impianti'); return; }
           if (action === 'go-app-timbratura') { navigateParentApp('timbratura'); return; }
+          if (action === 'go-pause-settings') { openPauseSettings(); return; }
         }));
         id('calendarMonthPicker').addEventListener('change', ()=>{ renderAgendaCalendar(); renderAgendaDayList(); });
         id('calendarTodayBtn').addEventListener('click', ()=>{
