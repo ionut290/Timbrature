@@ -286,6 +286,8 @@
       .chat-msg strong { color:#1e3a8a; font-size:12px; }
       .chat-msg p { margin:4px 0 0; font-size:13px; color:#0f172a; white-space:pre-wrap; }
       .chat-meta { margin-top:4px; font-size:11px; color:#64748b; }
+      .ai-response-box { margin-top:10px; border:1px solid #bfdbfe; border-radius:10px; background:#f8fbff; padding:10px; font-size:13px; color:#0f172a; white-space:pre-wrap; }
+      .ai-config-box { margin-top:10px; border:1px dashed #93c5fd; border-radius:10px; background:#fff; padding:10px; }
       @media (max-width: 860px) {
         .actions { grid-template-columns:1fr; }
         .inline-actions input,.inline-actions button { width:100%; }
@@ -349,6 +351,7 @@
                   <button type="button" class="menu-link" data-menu-target="lavoroCard">Lavoro e commesse</button>
                   <button type="button" class="menu-link" data-menu-target="teamCard">Caposquadra / squadra</button>
                   <button type="button" class="menu-link" data-menu-target="chatCard">Chat interna</button>
+                  <button type="button" class="menu-link" data-menu-target="aiAssistantCard">Assistente AI</button>
                   <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
                   <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
                   <button type="button" class="menu-link" data-menu-target="pastiCard">Colazione / pausa pranzo</button>
@@ -836,6 +839,41 @@
           <p id="chatEsito" class="msg"></p>
         </div>
 
+
+        <div class="card hidden" id="aiAssistantCard">
+          <h2>Assistente AI</h2>
+          <p class="small">Analizza le tue timbrature e chiedi suggerimenti operativi. L'API key resta salvata solo su questo dispositivo.</p>
+          <div class="grid">
+            <label>Richiesta
+              <textarea id="aiPromptInput" rows="4" placeholder="Es. Riassumi la mia settimana e dimmi dove sto facendo più straordinari"></textarea>
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="runAiAssistantBtn">Genera risposta AI</button>
+            <button type="button" class="secondary" id="prefillAiPromptBtn">Prompt rapido</button>
+          </div>
+          <div id="aiAssistantResponse" class="ai-response-box">Nessuna risposta generata.</div>
+          <p id="aiAssistantEsito" class="msg"></p>
+          <details class="ai-config-box">
+            <summary>Configurazione provider AI (OpenAI compatibile)</summary>
+            <div class="grid" style="margin-top:8px;">
+              <label>API Key
+                <input type="password" id="aiApiKeyInput" placeholder="sk-..." autocomplete="off" />
+              </label>
+              <label>Modello
+                <input type="text" id="aiModelInput" placeholder="gpt-4o-mini" />
+              </label>
+              <label>Endpoint chat
+                <input type="text" id="aiEndpointInput" placeholder="https://api.openai.com/v1/chat/completions" />
+              </label>
+            </div>
+            <div class="inline-actions">
+              <button type="button" id="saveAiConfigBtn">Salva configurazione AI</button>
+              <button type="button" class="secondary" id="clearAiConfigBtn">Cancella API key</button>
+            </div>
+          </details>
+        </div>
+
         <div class="card hidden" id="giornaleCard">
           <h2>Giornale Cantiere</h2>
           <div id="giornaleListView">
@@ -1265,6 +1303,7 @@
       const GIORNALE_ENTRIES_KEY = 'timbrature.local.giornale.entries';
       const PREVENTIVI_KEY = 'timbrature.local.preventivi';
       const CHAT_MESSAGES_KEY = 'timbrature.local.chat.messages';
+      const AI_ASSISTANT_CONFIG_KEY = 'timbrature.local.ai.assistant.config';
       const PREZZARIO_CONFIG_KEY = 'timbrature.local.prezzario.config';
       const MASTER_DATA_KEY = 'timbrature.local.master.data';
       const DRIVE_BACKUP_STATE_KEY = 'timbrature.local.drive.backup.state';
@@ -1316,6 +1355,7 @@
         { panel:'storicoCard', label:'Storico mese' },
         { panel:'calendarioCard', label:'Calendario' },
         { panel:'chatCard', label:'Chat interna' },
+        { panel:'aiAssistantCard', label:'Assistente AI' },
         { panel:'documentiCard', label:'Documenti' },
         { panel:'prezzarioCard', label:'Prezzario' },
         { panel:'createPreventivoCard', label:'Crea preventivo' },
@@ -1328,9 +1368,9 @@
       ];
       const DEFAULT_ROLE_PERMISSIONS = {
         ADMIN: MENU_PERMISSION_ITEMS.map((item)=>item.panel),
-        CAPOSQUADRA: ['timbratureCard', 'lavoroCard', 'teamCard', 'storicoCard', 'calendarioCard', 'chatCard', 'documentiCard', 'carburanteCard', 'pastiCard', 'userBox'],
-        OPERATORE: ['timbratureCard', 'lavoroCard', 'storicoCard', 'calendarioCard', 'chatCard', 'documentiCard', 'carburanteCard', 'pastiCard', 'userBox'],
-        BACKOFFICE: ['lavoroCard', 'storicoCard', 'calendarioCard', 'chatCard', 'documentiCard', 'prezzarioCard', 'createPreventivoCard', 'dataHubCard', 'backupCard', 'userBox']
+        CAPOSQUADRA: ['timbratureCard', 'lavoroCard', 'teamCard', 'storicoCard', 'calendarioCard', 'chatCard', 'aiAssistantCard', 'documentiCard', 'carburanteCard', 'pastiCard', 'userBox'],
+        OPERATORE: ['timbratureCard', 'lavoroCard', 'storicoCard', 'calendarioCard', 'chatCard', 'aiAssistantCard', 'documentiCard', 'carburanteCard', 'pastiCard', 'userBox'],
+        BACKOFFICE: ['lavoroCard', 'storicoCard', 'calendarioCard', 'chatCard', 'aiAssistantCard', 'documentiCard', 'prezzarioCard', 'createPreventivoCard', 'dataHubCard', 'backupCard', 'userBox']
       };
       const SHARED_DATA_HUB_KEYS = [
         COMMESSE_KEY,
@@ -5138,6 +5178,132 @@ out center tags;`;
         }
       }
 
+      function showAiAssistantMsg(message='', type='ok') {
+        const box = id('aiAssistantEsito');
+        if (!box) return;
+        box.className = `msg ${type}`;
+        box.textContent = message;
+      }
+      function getAiAssistantConfig() {
+        const raw = readJSON(AI_ASSISTANT_CONFIG_KEY, {});
+        return {
+          apiKey: String(raw?.apiKey || ''),
+          model: String(raw?.model || 'gpt-4o-mini').trim() || 'gpt-4o-mini',
+          endpoint: String(raw?.endpoint || 'https://api.openai.com/v1/chat/completions').trim() || 'https://api.openai.com/v1/chat/completions'
+        };
+      }
+      function setAiAssistantConfig(config={}) {
+        const next = {
+          apiKey: String(config?.apiKey || ''),
+          model: String(config?.model || 'gpt-4o-mini').trim() || 'gpt-4o-mini',
+          endpoint: String(config?.endpoint || 'https://api.openai.com/v1/chat/completions').trim() || 'https://api.openai.com/v1/chat/completions'
+        };
+        writeJSON(AI_ASSISTANT_CONFIG_KEY, next);
+        return next;
+      }
+      function renderAiAssistantConfigUI() {
+        const cfg = getAiAssistantConfig();
+        if (id('aiApiKeyInput')) id('aiApiKeyInput').value = cfg.apiKey;
+        if (id('aiModelInput')) id('aiModelInput').value = cfg.model;
+        if (id('aiEndpointInput')) id('aiEndpointInput').value = cfg.endpoint;
+      }
+      function saveAiAssistantConfigFromUI(clearApiKey=false) {
+        const current = getAiAssistantConfig();
+        const saved = setAiAssistantConfig({
+          apiKey: clearApiKey ? '' : String(id('aiApiKeyInput')?.value || current.apiKey || '').trim(),
+          model: String(id('aiModelInput')?.value || current.model || 'gpt-4o-mini').trim(),
+          endpoint: String(id('aiEndpointInput')?.value || current.endpoint || 'https://api.openai.com/v1/chat/completions').trim()
+        });
+        renderAiAssistantConfigUI();
+        if (clearApiKey) showAiAssistantMsg('API key rimossa da questo dispositivo.', 'ok');
+        else showAiAssistantMsg('Configurazione AI salvata in locale.', 'ok');
+        return saved;
+      }
+      function buildAiContextSnapshot() {
+        const rows = getRecords().slice().sort((a,b)=>String(b.data || '').localeCompare(String(a.data || ''))).slice(0, 21);
+        const totals = rows.reduce((acc, row)=>{
+          acc.hours += Number(row?.ore || 0);
+          acc.ordinary += Number(row?.ord || 0);
+          acc.overtime += Number(row?.stra || 0);
+          return acc;
+        }, { hours:0, ordinary:0, overtime:0 });
+        const recent = rows.slice(0, 10).map((row)=>({
+          data: String(row?.data || ''),
+          cantiere: String(row?.cantiere || '-'),
+          causale: String(row?.causale || '-'),
+          ore: Number(row?.ore || 0),
+          ord: Number(row?.ord || 0),
+          stra: Number(row?.stra || 0),
+          stato: String(row?.stato || '-')
+        }));
+        const profile = getProfile() || {};
+        return {
+          nome: String(profile?.nome || profile?.fullName || ''),
+          azienda: String(profile?.azienda || ''),
+          totalRowsConsidered: rows.length,
+          totals,
+          recent
+        };
+      }
+      function prefillAiPrompt() {
+        const snapshot = buildAiContextSnapshot();
+        const text = 'Analizza le ultime timbrature e dammi: 1) riepilogo ore, 2) giorni con più straordinario, 3) 3 consigli pratici per ridurre errori in timbratura. Rispondi in italiano in modo operativo.';
+        if (id('aiPromptInput')) id('aiPromptInput').value = text;
+        if (id('aiAssistantResponse')) id('aiAssistantResponse').textContent = `Contesto pronto: ${snapshot.totalRowsConsidered} giornate analizzabili.`;
+        showAiAssistantMsg('Prompt rapido inserito.', 'ok');
+      }
+      async function runAiAssistant() {
+        const prompt = String(id('aiPromptInput')?.value || '').trim();
+        if (!prompt) {
+          showAiAssistantMsg('Scrivi una richiesta per l'assistente AI.', 'err');
+          return;
+        }
+        const cfg = getAiAssistantConfig();
+        if (!cfg.apiKey) {
+          showAiAssistantMsg('Configura API key nel riquadro impostazioni AI.', 'err');
+          return;
+        }
+        const responseBox = id('aiAssistantResponse');
+        if (responseBox) responseBox.textContent = 'Elaborazione AI in corso...';
+        showAiAssistantMsg('Richiesta inviata al provider AI...', 'ok');
+        try {
+          const context = buildAiContextSnapshot();
+          const systemPrompt = 'Sei un assistente per app timbrature. Dai risposte concrete, sintetiche e in italiano. Se mancano dati dillo chiaramente.';
+          const userPrompt = `Richiesta utente:
+${prompt}
+
+Contesto app timbrature (JSON):
+${JSON.stringify(context)}`;
+          const res = await fetch(cfg.endpoint, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${cfg.apiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: cfg.model,
+              temperature: 0.2,
+              messages: [
+                { role:'system', content: systemPrompt },
+                { role:'user', content: userPrompt }
+              ]
+            })
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(`Errore provider AI (${res.status}): ${String(errText || '').slice(0, 220)}`);
+          }
+          const data = await res.json();
+          const answer = String(data?.choices?.[0]?.message?.content || '').trim();
+          if (!answer) throw new Error('Il provider AI non ha restituito testo.');
+          if (responseBox) responseBox.textContent = answer;
+          showAiAssistantMsg('Risposta AI generata con successo.', 'ok');
+        } catch (error) {
+          if (responseBox) responseBox.textContent = 'Errore AI: impossibile completare la richiesta.';
+          showAiAssistantMsg(error?.message || 'Errore durante la richiesta AI.', 'err');
+        }
+      }
+
       function weatherCodeToText(code) {
         const map = {
           0:'sereno', 1:'prevalentemente sereno', 2:'parzialmente nuvoloso', 3:'coperto',
@@ -8829,6 +8995,7 @@ out center tags;`;
         buildContractTemplateOptions();
         buildContractLevelsOptions();
         loadProgramDraftUI();
+        renderAiAssistantConfigUI();
         if (id('programBreakEnabled').value === 'true' && Number(id('programBreakMinutes').value || 0) <= 0) id('programBreakMinutes').value = 60;
         if (!id('customGroupsContainer').children.length) setCustomGroups([{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
         applySimpleWeeklyPlan();
@@ -8859,6 +9026,10 @@ out center tags;`;
         id('agendaSaveBtn').addEventListener('click', saveAgendaEntry);
         if (id('sendChatMessageBtn')) id('sendChatMessageBtn').addEventListener('click', sendChatMessage);
         if (id('refreshChatBtn')) id('refreshChatBtn').addEventListener('click', loadChatMessages);
+        if (id('runAiAssistantBtn')) id('runAiAssistantBtn').addEventListener('click', runAiAssistant);
+        if (id('prefillAiPromptBtn')) id('prefillAiPromptBtn').addEventListener('click', prefillAiPrompt);
+        if (id('saveAiConfigBtn')) id('saveAiConfigBtn').addEventListener('click', ()=>saveAiAssistantConfigFromUI(false));
+        if (id('clearAiConfigBtn')) id('clearAiConfigBtn').addEventListener('click', ()=>saveAiAssistantConfigFromUI(true));
         id('todayAgendaWidget').addEventListener('click', ()=>setMenuSection('calendarioCard'));
         const toggleWeatherForecast = ()=>{
           const panel = id('weatherMiniForecast');
