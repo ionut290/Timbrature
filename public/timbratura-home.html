@@ -2549,6 +2549,49 @@ out center tags;`;
         const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}&travelmode=driving`;
         window.open(url, '_blank', 'noopener,noreferrer');
       }
+      function buildGooglePlaceSearchUrl(place = {}) {
+        const queryParts = [
+          place?.name,
+          place?.address,
+          place?.tags?.['addr:city'],
+          place?.tags?.['addr:postcode']
+        ].filter(Boolean);
+        const fallback = `${place?.lat || ''},${place?.lon || ''}`;
+        const query = queryParts.length ? queryParts.join(' ') : fallback;
+        return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+      }
+      function renderMealPlaceDetailsHtml(place = {}) {
+        const tags = place?.tags || {};
+        const summaryDetails = [
+          ['Nome', place?.name || '-'],
+          ['Tipologia', place?.amenity || '-'],
+          ['Indirizzo', place?.address || '-'],
+          ['Distanza', Number.isFinite(Number(place?.distanceKm)) ? `${Number(place.distanceKm).toFixed(2)} km` : '-'],
+          ['Telefono', tags.phone || tags['contact:phone'] || '-'],
+          ['Sito web', tags.website || tags['contact:website'] || '-'],
+          ['Orari', tags.opening_hours || '-'],
+          ['Cucina', tags.cuisine || '-'],
+          ['Consegna', tags.delivery || '-'],
+          ['Asporto', tags.takeaway || '-'],
+          ['Prenotazione', tags.reservation || tags['reservation:required'] || '-'],
+          ['Coordinate', (Number.isFinite(Number(place?.lat)) && Number.isFinite(Number(place?.lon))) ? `${Number(place.lat).toFixed(6)}, ${Number(place.lon).toFixed(6)}` : '-']
+        ];
+        const summaryHtml = summaryDetails.map(([label, value])=>`<li><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(value || '-'))}</li>`).join('');
+        const allTagEntries = Object.entries(tags).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+        const allTagsHtml = allTagEntries.length
+          ? allTagEntries.map(([key, value])=>`<li><strong>${escapeHtml(String(key))}:</strong> ${escapeHtml(String(value))}</li>`).join('')
+          : '<li>Nessun tag OSM aggiuntivo disponibile.</li>';
+        return `
+          <div class="small">
+            <p><strong>Dettagli principali</strong></p>
+            <ul>${summaryHtml}</ul>
+            <details>
+              <summary>Tutti i dettagli disponibili (tag OSM)</summary>
+              <ul>${allTagsHtml}</ul>
+            </details>
+          </div>
+        `;
+      }
       function setLavoroTab(view = 'external') {
         const isCommesse = view === 'commesse';
         if (id('lavoroExternalTabBtn')) id('lavoroExternalTabBtn').classList.toggle('active', !isCommesse);
@@ -2805,7 +2848,7 @@ out center tags;`;
           return;
         }
         list.innerHTML = stations.map((st)=>`
-          <li class="fuel-item">
+          <li class="fuel-item" data-meal-row="${escapeHtml(place.id)}">
             <div>
               <h4>${escapeHtml(st.name)} ${st.brand ? `(${escapeHtml(st.brand)})` : ''}</h4>
               <p>${escapeHtml(st.address || 'Indirizzo non disponibile')}</p>
@@ -2851,8 +2894,14 @@ out center tags;`;
         });
         mealMarkersLayer.addLayer(window.L.marker([userLat, userLon], { icon: userIcon }).bindPopup('La tua posizione (operatore)'));
         places.forEach((place)=>{
+          const googleUrl = buildGooglePlaceSearchUrl(place);
           const marker = window.L.marker([place.lat, place.lon], { icon: placeIcon });
-          marker.bindPopup(`<strong>${escapeHtml(place.name)}</strong><br>Tipo: ${escapeHtml(place.amenity || '-')}`);
+          marker.bindPopup(`
+            <strong>${escapeHtml(place.name)}</strong><br>
+            Tipo: ${escapeHtml(place.amenity || '-')}<br>
+            Distanza: ${escapeHtml(place.distanceKm.toFixed(2))} km<br>
+            <a href="${escapeHtml(googleUrl)}" target="_blank" rel="noopener noreferrer">Apri pagina Google</a>
+          `);
           marker.on('click', ()=>openGoogleMapsNavigation(place.lat, place.lon));
           mealMarkersLayer.addLayer(marker);
         });
@@ -2868,13 +2917,20 @@ out center tags;`;
           return;
         }
         list.innerHTML = places.map((place)=>`
-          <li class="fuel-item">
+          <li class="fuel-item" data-meal-row="${escapeHtml(place.id)}">
             <div>
               <h4>${escapeHtml(place.name)}</h4>
               <p>${escapeHtml(place.address || 'Indirizzo non disponibile')}</p>
               <p>Tipo: ${escapeHtml(place.amenity || '-')} • Distanza: ${place.distanceKm.toFixed(2)} km</p>
             </div>
-            <button type="button" class="btn-small" data-meal-nav="${escapeHtml(place.id)}">Naviga</button>
+            <div class="inline-actions">
+              <button type="button" class="btn-small" data-meal-nav="${escapeHtml(place.id)}">Naviga</button>
+              <button type="button" class="secondary btn-small" data-meal-google="${escapeHtml(place.id)}">Google</button>
+              <button type="button" class="secondary btn-small" data-meal-details-toggle="${escapeHtml(place.id)}">Dettagli</button>
+            </div>
+            <div class="hidden" data-meal-details-panel="${escapeHtml(place.id)}">
+              ${renderMealPlaceDetailsHtml(place)}
+            </div>
           </li>
         `).join('');
         list.querySelectorAll('[data-meal-nav]').forEach((btn)=>{
@@ -2882,6 +2938,34 @@ out center tags;`;
             const target = places.find((place)=>place.id === btn.dataset.mealNav);
             if (!target) return;
             openGoogleMapsNavigation(target.lat, target.lon);
+          });
+        });
+        list.querySelectorAll('[data-meal-google]').forEach((btn)=>{
+          btn.addEventListener('click', ()=>{
+            const target = places.find((place)=>place.id === btn.dataset.mealGoogle);
+            if (!target) return;
+            window.open(buildGooglePlaceSearchUrl(target), '_blank', 'noopener,noreferrer');
+          });
+        });
+        list.querySelectorAll('[data-meal-details-toggle]').forEach((btn)=>{
+          btn.addEventListener('click', ()=>{
+            const placeId = btn.dataset.mealDetailsToggle || '';
+            if (!placeId) return;
+            const panel = Array.from(list.querySelectorAll('[data-meal-details-panel]'))
+              .find((node)=>node.getAttribute('data-meal-details-panel') === placeId);
+            if (!panel) return;
+            const isHidden = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden', !isHidden);
+            btn.textContent = isHidden ? 'Nascondi dettagli' : 'Dettagli';
+          });
+        });
+        list.querySelectorAll('[data-meal-row]').forEach((row)=>{
+          row.addEventListener('click', (event)=>{
+            if (event.target.closest('button, a, details, summary')) return;
+            const placeId = row.getAttribute('data-meal-row') || '';
+            if (!placeId) return;
+            const toggleBtn = list.querySelector(`[data-meal-details-toggle="${placeId}"]`);
+            if (toggleBtn) toggleBtn.click();
           });
         });
       }
