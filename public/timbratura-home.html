@@ -1439,6 +1439,7 @@
       let sharedAppLegacyFirestoreDocUnsubscribe = null;
       let sharedAppLegacyFirestoreUnsubscribe = null;
       let sharedCommesseFirestoreUnsubscribe = null;
+      let sharedCommesseRealtimeSyncTimer = null;
       let sharedAppPushTimer = null;
       let applyingSharedAppPayload = false;
       let sharedAppReady = false;
@@ -5406,11 +5407,12 @@ out center tags;`;
         const raw = readJSON(COMMESSE_KEY, []);
         return mergeCommesseWithMasterRows(raw);
       }
-      function setCommesse(rows=[]) {
+      function setCommesse(rows = [], options = {}) {
         const normalized = mergeCommesseWithMasterRows(rows);
         writeJSON(COMMESSE_KEY, normalized);
         syncMasterCommesseFromRows(normalized);
         triggerImmediateSharedBroadcast('commesse-update');
+        if (!options?.skipRealtimeSync) scheduleSharedCommesseRealtimeSync('set-commesse');
         try { renderLavoroCommesseUI(); } catch (_) {}
       }
       function getGiornaleEntries() { return readJSON(GIORNALE_ENTRIES_KEY, []); }
@@ -7628,6 +7630,15 @@ out center tags;`;
           .collection('_shared')
           .doc(SHARED_APP_FIRESTORE_DOC_BASENAME);
       }
+      async function ensureSharedCommesseFirestoreCollectionRef() {
+        const auth = await ensureMainAuthReady();
+        if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
+        const db = window.firebase.firestore(auth.app);
+        return db
+          .collection(SHARED_APP_FIRESTORE_SCOPES_COLLECTION)
+          .doc(getSharedScopeKey())
+          .collection('commesse');
+      }
       async function ensureSharedAppLegacyFirestoreCollectionRef() {
         const auth = await ensureMainAuthReady();
         if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
@@ -7709,6 +7720,8 @@ out center tags;`;
           try { sharedCommesseFirestoreUnsubscribe(); } catch (_) {}
           sharedCommesseFirestoreUnsubscribe = null;
         }
+        if (sharedCommesseRealtimeSyncTimer) clearTimeout(sharedCommesseRealtimeSyncTimer);
+        sharedCommesseRealtimeSyncTimer = null;
       }
       async function pushSharedAppPayload(reason = 'manual', options = {}) {
         if (!currentAuthUser) return;
@@ -7773,6 +7786,38 @@ out center tags;`;
           console.warn('Sync condivisa push fallita:', error);
           if (throwOnFailure) throw error;
         }
+      }
+      async function pushSharedCommesseRealtime(reason = 'commesse-update') {
+        if (!currentAuthUser) return;
+        try {
+          const collectionRef = await ensureSharedCommesseFirestoreCollectionRef();
+          const rows = getCommesse();
+          const batch = collectionRef.firestore.batch();
+          const marker = String(currentAuthUser?.email || currentAuthUser?.uid || 'unknown');
+          rows.forEach((row) => {
+            const normalized = normalizeCommessa(row);
+            const docId = String(normalized.id || normalized.nome || '').trim();
+            if (!docId) return;
+            batch.set(collectionRef.doc(docId), {
+              id: docId,
+              nome: String(normalized.nome || docId).trim(),
+              cantieri: Array.isArray(normalized.cantieri) ? normalized.cantieri : [],
+              updated_at: String(normalized.updated_at || new Date().toISOString()),
+              updated_by: marker,
+              reason
+            }, { merge: true });
+          });
+          await batch.commit();
+        } catch (error) {
+          console.warn('Sync realtime collection commesse fallita:', error);
+        }
+      }
+      function scheduleSharedCommesseRealtimeSync(reason = 'commesse-update') {
+        if (!currentAuthUser || applyingSharedAppPayload) return;
+        if (sharedCommesseRealtimeSyncTimer) clearTimeout(sharedCommesseRealtimeSyncTimer);
+        sharedCommesseRealtimeSyncTimer = setTimeout(() => {
+          pushSharedCommesseRealtime(reason);
+        }, 80);
       }
       function scheduleSharedAppPush(reason = 'auto') {
         if (!currentAuthUser || applyingSharedAppPayload || !sharedAppReady) return;
@@ -7966,7 +8011,7 @@ out center tags;`;
                 const localRows = getCommesse();
                 const mergedRows = mergeCommesseByUpdatedAt(localRows, incomingRows);
                 if (JSON.stringify(localRows) !== JSON.stringify(mergedRows)) {
-                  setCommesse(mergedRows);
+                  setCommesse(mergedRows, { skipRealtimeSync: true });
                 }
               }, (error)=>{
                 console.warn('Listener Firestore commesse non disponibile:', error);
