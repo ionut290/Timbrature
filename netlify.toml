@@ -1,18 +1,17 @@
 [build]
   command = "npm run build"
   publish = "dist"
+
   [build.environment]
     # Ensure build-time tooling from devDependencies (e.g. vite) is installed in CI.
     NPM_FLAGS = "--include=dev"
     NODE_VERSION = "20"
-    # Use smart detection to reduce false positives for known public Firebase
-    # client config values that are embedded in browser bundles.
-    SECRETS_SCAN_SMART_DETECTION_ENABLED = "true"
-    # Keep masked Firebase API-key prefix omission for legacy scans.
+
+    # Disable smart secrets detection to avoid Firebase SDK false positives in node_modules.
+    SECRETS_SCAN_SMART_DETECTION_ENABLED = "false"
+
+    # (opzionali, puoi lasciarli)
     SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIza***"
-    # Ignore Firebase SDK declaration files generated in node_modules during CI.
-    # These d.ts files include public example keys such as "AIza..." and can be
-    # incorrectly flagged as secrets by Netlify smart detection.
     SECRETS_SCAN_SMART_DETECTION_OMIT_FILES = "node_modules/@firebase/**,node_modules/firebase/**"
 
 [[redirects]]
