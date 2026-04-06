@@ -287,6 +287,40 @@
       .chat-msg strong { color:#1e3a8a; font-size:12px; }
       .chat-msg p { margin:4px 0 0; font-size:13px; color:#0f172a; white-space:pre-wrap; }
       .chat-meta { margin-top:4px; font-size:11px; color:#64748b; }
+      .chat-fab {
+        position:fixed;
+        right:16px;
+        bottom:16px;
+        z-index:120;
+        pointer-events:auto;
+        min-height:54px;
+        min-width:54px;
+        border-radius:999px;
+        background:#1d4ed8;
+        box-shadow:0 12px 28px rgba(15, 23, 42, 0.35);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        font-size:24px;
+      }
+      .chat-fab-badge {
+        position:absolute;
+        top:-6px;
+        right:-4px;
+        min-width:22px;
+        min-height:22px;
+        border-radius:999px;
+        border:2px solid #fff;
+        background:#dc2626;
+        color:#fff;
+        font-size:11px;
+        font-weight:800;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:0 5px;
+      }
+      .chat-fab-badge.hidden { display:none; }
       @media (max-width: 860px) {
         .actions { grid-template-columns:1fr; }
         .inline-actions input,.inline-actions button { width:100%; }
@@ -335,6 +369,10 @@
       </div>
 
       <div class="app-shell hidden" id="appShell">
+        <button type="button" id="chatFabBtn" class="chat-fab" aria-label="Apri chat interna" onclick="openChatFromFab(event)">
+          💬
+          <span id="chatFabBadge" class="chat-fab-badge hidden">0</span>
+        </button>
         <div class="top-menu" id="topMenuBar">
           <button type="button" class="kebab-btn" id="menuToggleBtn" aria-label="Apri menu" aria-expanded="false">⋮</button>
           <aside class="card left-menu hidden" id="leftMenu" style="display:none;" aria-hidden="true">
@@ -1266,6 +1304,8 @@
       const GIORNALE_ENTRIES_KEY = 'timbrature.local.giornale.entries';
       const PREVENTIVI_KEY = 'timbrature.local.preventivi';
       const CHAT_MESSAGES_KEY = 'timbrature.local.chat.messages';
+      const CHAT_LAST_READ_AT_KEY = 'timbrature.local.chat.last_read_at';
+      const CHAT_LAST_NOTIFIED_AT_KEY = 'timbrature.local.chat.last_notified_at';
       const PREZZARIO_CONFIG_KEY = 'timbrature.local.prezzario.config';
       const MASTER_DATA_KEY = 'timbrature.local.master.data';
       const DRIVE_BACKUP_STATE_KEY = 'timbrature.local.drive.backup.state';
@@ -1563,6 +1603,7 @@
       let localAuthAdapter = null;
       const localAuthListeners = new Set();
       let mainSyncStatusTicker = null;
+      let chatUnreadCount = 0;
       const SHARED_APP_LEGACY_FIRESTORE_COLLECTION = 'timbrature_sync';
       let sharedAppScopeKey = '';
       let sharedAppScopeLabel = '';
@@ -5218,6 +5259,57 @@ out center tags;`;
       function setChatMessagesLocal(rows=[]) {
         writeJSON(CHAT_MESSAGES_KEY, Array.isArray(rows) ? rows.slice(-200) : []);
       }
+      function getChatLastReadAt() {
+        return String(localStorage.getItem(CHAT_LAST_READ_AT_KEY) || '');
+      }
+      function setChatLastReadAt(value='') {
+        const normalized = String(value || '').trim();
+        if (!normalized) return;
+        localStorage.setItem(CHAT_LAST_READ_AT_KEY, normalized);
+      }
+      function getChatLastNotifiedAt() {
+        return String(localStorage.getItem(CHAT_LAST_NOTIFIED_AT_KEY) || '');
+      }
+      function setChatLastNotifiedAt(value='') {
+        const normalized = String(value || '').trim();
+        if (!normalized) return;
+        localStorage.setItem(CHAT_LAST_NOTIFIED_AT_KEY, normalized);
+      }
+      function updateChatFabBadge(count = 0) {
+        const badge = id('chatFabBadge');
+        if (!badge) return;
+        const safeCount = Number(count) > 0 ? Number(count) : 0;
+        badge.textContent = safeCount > 99 ? '99+' : String(safeCount);
+        badge.classList.toggle('hidden', safeCount <= 0);
+      }
+      function markChatAsRead(rows = []) {
+        const normalized = normalizeChatRows(rows);
+        const newest = normalized[0]?.createdAt || '';
+        if (newest) setChatLastReadAt(newest);
+        chatUnreadCount = 0;
+        updateChatFabBadge(0);
+      }
+      function maybeNotifyIncomingChat(rows = []) {
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        const normalized = normalizeChatRows(rows);
+        if (!normalized.length) return;
+        const sender = getChatSenderName();
+        const lastNotifiedAt = getChatLastNotifiedAt();
+        const incoming = normalized
+          .filter((row)=>String(row.createdAt || '') > lastNotifiedAt && String(row.sender || '').trim() !== sender)
+          .sort((a, b)=>String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+        if (!incoming.length) return;
+        const latest = incoming[incoming.length - 1];
+        const body = `${latest.sender}: ${latest.message}`;
+        try { new Notification('Nuovo messaggio in chat', { body }); } catch (_) {}
+        setChatLastNotifiedAt(latest.createdAt || new Date().toISOString());
+      }
+      function openChatFromFab(event) {
+        if (event?.stopPropagation) event.stopPropagation();
+        setMenuSection('chatCard', { force:true });
+        const input = id('chatMessageInput');
+        if (input) input.focus();
+      }
       function normalizeChatRows(rows=[]) {
         return (Array.isArray(rows) ? rows : []).map((row)=>({
           id:String(row.id || `${Date.now()}-${Math.random().toString(36).slice(2,7)}`),
@@ -5230,11 +5322,16 @@ out center tags;`;
         const list = id('chatMessagesList');
         if (!list) return;
         const normalized = normalizeChatRows(rows);
+        const lastReadAt = getChatLastReadAt();
+        chatUnreadCount = normalized.filter((row)=>String(row.createdAt || '') > lastReadAt).length;
+        if (activeMenuPanel === 'chatCard') markChatAsRead(normalized);
+        else updateChatFabBadge(chatUnreadCount);
+        maybeNotifyIncomingChat(normalized);
         if (!normalized.length) {
           list.innerHTML = '<li class="chat-msg"><p>Nessun messaggio. Inizia la conversazione!</p></li>';
           return;
         }
-        list.innerHTML = normalized.map((row)=>`<li class="chat-msg"><strong>${escapeHtml(row.sender)}</strong><p>${escapeHtml(row.message)}</p><div class="chat-meta">${escapeHtml(new Date(row.createdAt).toLocaleString('it-IT'))}</div></li>`).join('');
+        list.innerHTML = normalized.map((row)=>`<li class="chat-msg"><p><strong>${escapeHtml(row.sender)}:</strong> ${escapeHtml(row.message)}</p><div class="chat-meta">${escapeHtml(new Date(row.createdAt).toLocaleString('it-IT'))}</div></li>`).join('');
       }
       function getChatSenderName() {
         const profile = getProfile();
@@ -7999,10 +8096,11 @@ out center tags;`;
         showPrezzarioMsg('Configurazione prezzario salvata.', 'ok');
       }
 
-      function setMenuSection(panelId) {
+      function setMenuSection(panelId, options = {}) {
         if (!menuPanelIds.includes(panelId)) return;
         const allowedPanels = getAllowedPanelsForRole(currentUserRole);
-        if (allowedPanels.length && !allowedPanels.includes(panelId)) return;
+        const forceOpen = Boolean(options?.force);
+        if (!forceOpen && allowedPanels.length && !allowedPanels.includes(panelId)) return;
         activeMenuPanel = panelId;
         menuPanelIds.forEach((name)=>{
           const panel = id(name);
@@ -8015,6 +8113,7 @@ out center tags;`;
         if (parentGroup) parentGroup.open = true;
         if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
         if (panelId === 'lavoroCard') renderLavoroCommesseUI();
+        if (panelId === 'chatCard') markChatAsRead(getChatMessagesLocal());
         if (panelId === 'giornaleCard') {
           backToCommesse();
           renderCommesseList();
@@ -9055,6 +9154,7 @@ out center tags;`;
         id('agendaSaveBtn').addEventListener('click', saveAgendaEntry);
         if (id('sendChatMessageBtn')) id('sendChatMessageBtn').addEventListener('click', sendChatMessage);
         if (id('refreshChatBtn')) id('refreshChatBtn').addEventListener('click', loadChatMessages);
+        if (id('chatFabBtn')) id('chatFabBtn').addEventListener('click', openChatFromFab);
         id('todayAgendaWidget').addEventListener('click', ()=>setMenuSection('calendarioCard'));
         const toggleWeatherForecast = ()=>{
           const panel = id('weatherMiniForecast');
