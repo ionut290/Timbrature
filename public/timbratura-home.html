@@ -1571,6 +1571,12 @@
       let firebaseCloudAuth = null;
       let firebaseCloudDb = null;
       let firebaseCloudRtdb = null;
+      let firebaseSharedSyncCapabilities = {
+        hasFirestore: false,
+        hasRtdb: false,
+        firestoreReason: 'Firestore non inizializzato.',
+        rtdbReason: 'Realtime Database non inizializzato.'
+      };
       let firebaseLiveUnsubscribe = null;
       let firebaseLivePushTimer = null;
       let firebaseAutoPushDebounceTimer = null;
@@ -1770,6 +1776,32 @@
       }
       function getSharedSyncIdentity() {
         return currentAuthUser || firebaseCloudAuth?.currentUser || null;
+      }
+      function getSharedSyncCapabilities() {
+        return {
+          hasFirestore: Boolean(firebaseSharedSyncCapabilities?.hasFirestore),
+          hasRtdb: Boolean(firebaseSharedSyncCapabilities?.hasRtdb),
+          firestoreReason: String(firebaseSharedSyncCapabilities?.firestoreReason || ''),
+          rtdbReason: String(firebaseSharedSyncCapabilities?.rtdbReason || '')
+        };
+      }
+      function setSharedSyncCapabilities(next = {}) {
+        firebaseSharedSyncCapabilities = {
+          ...getSharedSyncCapabilities(),
+          ...next
+        };
+        return getSharedSyncCapabilities();
+      }
+      function buildSharedSyncNoChannelError(context = 'operazione') {
+        const caps = getSharedSyncCapabilities();
+        const details = [
+          `Firestore: ${caps.hasFirestore ? 'OK' : (caps.firestoreReason || 'non disponibile')}`,
+          `RTDB: ${caps.hasRtdb ? 'OK' : (caps.rtdbReason || 'non disponibile')}`
+        ].join(' | ');
+        const err = new Error(`Nessun canale di sincronizzazione condivisa disponibile per ${context}. ${details}`);
+        err.code = 'NO_SHARED_SYNC_CHANNEL';
+        err.capabilities = caps;
+        return err;
       }
       async function resolveSharedSyncFirebaseApp() {
         const auth = await ensureMainAuthReady();
@@ -7267,6 +7299,12 @@ out center tags;`;
             firebaseCloudAuth = null;
             firebaseCloudDb = null;
             firebaseCloudRtdb = null;
+            setSharedSyncCapabilities({
+              hasFirestore: false,
+              hasRtdb: false,
+              firestoreReason: 'App Firebase reinizializzata.',
+              rtdbReason: 'App Firebase reinizializzata.'
+            });
             existingApp = null;
           }
         }
@@ -7283,8 +7321,29 @@ out center tags;`;
         };
         firebaseCloudApp = existingApp || window.firebase.initializeApp(firebaseConfig, appName);
         firebaseCloudAuth = window.firebase.auth(firebaseCloudApp);
-        firebaseCloudDb = window.firebase.firestore(firebaseCloudApp);
-        firebaseCloudRtdb = window.firebase.database(firebaseCloudApp);
+        let firestoreError = null;
+        let rtdbError = null;
+        try {
+          firebaseCloudDb = window.firebase.firestore(firebaseCloudApp);
+        } catch (error) {
+          firebaseCloudDb = null;
+          firestoreError = error;
+          console.warn('Firestore cloud non inizializzato:', error);
+        }
+        try {
+          firebaseCloudRtdb = window.firebase.database(firebaseCloudApp);
+        } catch (error) {
+          firebaseCloudRtdb = null;
+          rtdbError = error;
+          console.warn('Realtime Database cloud non inizializzato:', error);
+        }
+        setSharedSyncCapabilities({
+          hasFirestore: Boolean(firebaseCloudDb),
+          hasRtdb: Boolean(firebaseCloudRtdb),
+          firestoreReason: firebaseCloudDb ? '' : String(firestoreError?.message || 'Firestore non disponibile o non configurato nel progetto Firebase.'),
+          rtdbReason: firebaseCloudRtdb ? '' : String(rtdbError?.message || 'Realtime Database non disponibile o non configurato nel progetto Firebase.')
+        });
+        if (!firebaseCloudDb && !firebaseCloudRtdb) throw buildSharedSyncNoChannelError('inizializzazione Firebase cloud');
         setFirebaseConfigState(cfg);
         return { cfg, auth: firebaseCloudAuth, db: firebaseCloudDb };
       }
@@ -8393,6 +8452,8 @@ out center tags;`;
         }
       }
       async function ensureSharedAppDbRef() {
+        const caps = getSharedSyncCapabilities();
+        if (!caps.hasRtdb) throw buildSharedSyncNoChannelError('RTDB');
         const app = await resolveSharedSyncFirebaseApp();
         if (!window.firebase?.database) throw new Error('Realtime Database non disponibile.');
         refreshSharedScopeCache();
@@ -8403,6 +8464,8 @@ out center tags;`;
         return sharedAppDbRef;
       }
       async function ensureSharedAppFirestoreDocRef() {
+        const caps = getSharedSyncCapabilities();
+        if (!caps.hasFirestore) throw buildSharedSyncNoChannelError('Firestore');
         const app = await resolveSharedSyncFirebaseApp();
         if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
         const db = window.firebase.firestore(app);
@@ -8413,6 +8476,8 @@ out center tags;`;
           .doc(SHARED_APP_FIRESTORE_DOC_BASENAME);
       }
       async function ensureSharedCommesseFirestoreCollectionRef() {
+        const caps = getSharedSyncCapabilities();
+        if (!caps.hasFirestore) throw buildSharedSyncNoChannelError('Firestore/commesse');
         const app = await resolveSharedSyncFirebaseApp();
         if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
         const db = window.firebase.firestore(app);
@@ -8422,6 +8487,8 @@ out center tags;`;
           .collection('commesse');
       }
       async function ensureSharedAppLegacyFirestoreCollectionRef() {
+        const caps = getSharedSyncCapabilities();
+        if (!caps.hasFirestore) throw buildSharedSyncNoChannelError('Firestore legacy');
         const app = await resolveSharedSyncFirebaseApp();
         if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
         const db = window.firebase.firestore(app);
@@ -8518,49 +8585,75 @@ out center tags;`;
             payload: buildSharedAppPayload()
           };
           let pushed = false;
-          try {
-            const ref = await ensureSharedAppDbRef();
-            await ref.set(envelope);
-            pushed = true;
-          } catch (rtdbError) {
-            console.warn('Sync condivisa RTDB push fallita, provo Firestore fallback:', rtdbError);
-          }
-          try {
-            const docRef = await ensureSharedAppFirestoreDocRef();
-            await docRef.set(envelope, { merge: true });
-            pushed = true;
-          } catch (firestoreError) {
-            console.warn('Sync condivisa Firestore fallback push fallita:', firestoreError);
-          }
-          try {
-            const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
-            await legacyDocRef.set({
-              ...envelope,
-              updatedAt: envelope.updated_at,
-              updatedBy: envelope.updated_by,
-              uid: syncIdentity?.uid || '',
-              deviceId: getDeviceId()
-            }, { merge: true });
-            pushed = true;
-          } catch (legacyFirestoreError) {
-            console.warn('Sync condivisa Firestore legacy doc condiviso fallita:', legacyFirestoreError);
-          }
-          try {
-            const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
-            await legacyCollection.doc(getSharedLegacyDocId()).set({
-              ...envelope,
-              updatedAt: envelope.updated_at,
-              updatedBy: envelope.updated_by,
-              uid: syncIdentity?.uid || '',
-              deviceId: getDeviceId()
-            }, { merge: true });
-            pushed = true;
-          } catch (legacyFirestoreUserError) {
-            console.warn('Sync condivisa Firestore legacy doc utente fallita:', legacyFirestoreUserError);
+          const caps = getSharedSyncCapabilities();
+          const channelErrors = [];
+          const tryFirestoreWrite = async () => {
+            if (!caps.hasFirestore) {
+              channelErrors.push(`Firestore skipped: ${caps.firestoreReason || 'non disponibile'}`);
+              return false;
+            }
+            try {
+              const docRef = await ensureSharedAppFirestoreDocRef();
+              await docRef.set(envelope, { merge: true });
+              pushed = true;
+            } catch (firestoreError) {
+              channelErrors.push(`Firestore primary failed: ${firestoreError?.message || firestoreError}`);
+              console.warn('Sync condivisa Firestore fallback push fallita:', firestoreError);
+            }
+            try {
+              const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
+              await legacyDocRef.set({
+                ...envelope,
+                updatedAt: envelope.updated_at,
+                updatedBy: envelope.updated_by,
+                uid: syncIdentity?.uid || '',
+                deviceId: getDeviceId()
+              }, { merge: true });
+              pushed = true;
+            } catch (legacyFirestoreError) {
+              channelErrors.push(`Firestore legacy shared-doc failed: ${legacyFirestoreError?.message || legacyFirestoreError}`);
+              console.warn('Sync condivisa Firestore legacy doc condiviso fallita:', legacyFirestoreError);
+            }
+            try {
+              const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
+              await legacyCollection.doc(getSharedLegacyDocId()).set({
+                ...envelope,
+                updatedAt: envelope.updated_at,
+                updatedBy: envelope.updated_by,
+                uid: syncIdentity?.uid || '',
+                deviceId: getDeviceId()
+              }, { merge: true });
+              pushed = true;
+            } catch (legacyFirestoreUserError) {
+              channelErrors.push(`Firestore legacy user-doc failed: ${legacyFirestoreUserError?.message || legacyFirestoreUserError}`);
+              console.warn('Sync condivisa Firestore legacy doc utente fallita:', legacyFirestoreUserError);
+            }
+            return pushed;
+          };
+          const tryRtdbWrite = async () => {
+            if (!caps.hasRtdb) {
+              channelErrors.push(`RTDB skipped: ${caps.rtdbReason || 'non disponibile'}`);
+              return false;
+            }
+            try {
+              const ref = await ensureSharedAppDbRef();
+              await ref.set(envelope);
+              pushed = true;
+            } catch (rtdbError) {
+              channelErrors.push(`RTDB failed: ${rtdbError?.message || rtdbError}`);
+              console.warn('Sync condivisa RTDB push fallita:', rtdbError);
+            }
+            return pushed;
+          };
+          if (caps.hasFirestore) {
+            await tryFirestoreWrite();
+            if (!pushed) await tryRtdbWrite();
+          } else {
+            await tryRtdbWrite();
           }
           if (!pushed) {
-            const noChannelError = new Error('Nessun canale di sincronizzazione condivisa disponibile (RTDB/Firestore).');
-            noChannelError.code = 'NO_SHARED_SYNC_CHANNEL';
+            const noChannelError = buildSharedSyncNoChannelError(`push (${reason})`);
+            noChannelError.channelDetails = channelErrors;
             throw noChannelError;
           }
           sharedAppLastPushedAt = pushedAt;
