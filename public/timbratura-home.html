@@ -7733,7 +7733,7 @@ out center tags;`;
           }
           try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
-            const snap = await legacyCollection.limit(20).get();
+            const snap = await legacyCollection.orderBy('updated_at', 'desc').limit(20).get();
             const docs = (snap?.docs || [])
               .map((doc)=>({
                 docId: doc?.id || '',
@@ -7844,6 +7844,7 @@ out center tags;`;
           try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
             sharedAppLegacyFirestoreUnsubscribe = legacyCollection
+              .orderBy('updated_at', 'desc')
               .limit(20)
               .onSnapshot((querySnap)=>{
                 const docs = (querySnap?.docs || [])
