@@ -252,6 +252,7 @@
         padding:0 12px;
         gap:24px;
         will-change:transform;
+        transform:translate3d(0,0,0);
       }
       .ticker-text {
         display:inline-block;
@@ -262,7 +263,7 @@
       }
       @keyframes ticker-right-to-left-loop {
         from { transform:translateX(0); }
-        to { transform:translateX(calc(-50% - 12px)); }
+        to { transform:translateX(var(--ticker-shift, calc(-50% - 12px))); }
       }
       @media (prefers-reduced-motion: reduce) {
         .ticker-track { animation:none; }
@@ -1490,6 +1491,7 @@
       let currentRules = { roundingMinutes: 15, ordinaryHours: 8 };
       let liveClockTimer = null;
       let infoTickerTimer = null;
+      let tickerLayoutTimer = null;
       let lastWeatherTickerFetchAt = 0;
       let autoPunchTimer = null;
       let appAuth = null;
@@ -5370,14 +5372,30 @@ out center tags;`;
         requestAnimationFrame(()=>{
           const textWidth = Number(text.scrollWidth || 0);
           const bannerWidth = Number(banner.clientWidth || 0);
+          if (!textWidth || !bannerWidth) {
+            window.setTimeout(()=>setInfoTickerText(clean), 180);
+            return;
+          }
+          const tickerGapPx = 24;
           const cycleWidth = Math.max(textWidth, bannerWidth);
-          const pixelsPerSecond = 24;
-          const durationSec = Math.ceil(cycleWidth / pixelsPerSecond);
+          const pixelsPerSecond = 36;
+          const durationSec = Math.max(14, Math.ceil(cycleWidth / pixelsPerSecond));
+          track.style.setProperty('--ticker-shift', `-${textWidth + tickerGapPx}px`);
           track.style.setProperty('--ticker-duration', `${durationSec}s`);
+          track.style.animationPlayState = 'running';
           track.style.animation = 'none';
           void track.offsetWidth;
           track.style.animation = '';
         });
+      }
+      function refreshTickerLayout() {
+        const currentText = id('infoTickerText')?.textContent || '';
+        if (!currentText) return;
+        setInfoTickerText(currentText);
+      }
+      function queueTickerLayoutRefresh() {
+        if (tickerLayoutTimer) clearTimeout(tickerLayoutTimer);
+        tickerLayoutTimer = window.setTimeout(()=>refreshTickerLayout(), 150);
       }
       function getWeatherTickerCache() {
         return readJSON(WEATHER_TICKER_CACHE_KEY, {});
@@ -9234,6 +9252,9 @@ out center tags;`;
       }
 
       window.onload = init;
+      window.addEventListener('resize', queueTickerLayoutRefresh);
+      window.addEventListener('orientationchange', queueTickerLayoutRefresh);
+      window.addEventListener('pageshow', queueTickerLayoutRefresh);
       registerServiceWorker();
       setupPwaInstallPrompt();
       window.loadMyMonth = loadMyMonth;
