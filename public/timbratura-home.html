@@ -62,9 +62,8 @@
       .service-subtotal { margin:2px 0 0; font-size:13px; color:#475569; }
       .setup-box { margin-top:10px; border:1px solid #bfdbfe; background:#eff6ff; border-radius:10px; padding:10px; }
       .app-shell { position:relative; }
-      .top-menu { display:flex; justify-content:flex-end; margin:8px 0 10px; }
-      .kebab-btn { width:44px; min-width:44px; padding:0; border-radius:999px; font-size:24px; line-height:1; background:var(--secondary); }
-      .left-menu { width:min(280px, calc(100vw - 24px)); position:absolute; right:0; top:52px; z-index:20; margin:0; }
+      .top-menu { display:flex; justify-content:flex-start; margin:8px 0 10px; }
+      .left-menu { width:100%; position:relative; right:auto; top:auto; z-index:1; margin:0; }
       .left-menu h3 { margin:0 0 10px; font-size:16px; }
       .menu-links { display:flex; flex-direction:column; gap:8px; }
       .menu-link { background:#e2e8f0; color:#0f172a; text-align:left; }
@@ -215,7 +214,7 @@
         gap:24px;
         white-space:nowrap;
         min-width:200%;
-        animation:ticker-right-to-left-loop 34s linear infinite;
+        animation:ticker-right-to-left-loop var(--ticker-duration, 34s) linear infinite;
         padding:0 12px;
       }
       .ticker-text {
@@ -294,8 +293,7 @@
 
       <div class="app-shell hidden" id="appShell">
         <div class="top-menu" id="topMenuBar">
-          <button type="button" class="kebab-btn" id="menuToggleBtn" aria-label="Apri menu" aria-expanded="false">⋮</button>
-          <aside class="card left-menu hidden" id="leftMenu">
+          <aside class="card left-menu" id="leftMenu">
             <h3>Menu</h3>
             <div class="menu-links">
               <button type="button" class="menu-link menu-link-external" data-menu-action="go-app-timbratura">Timbratura (app)</button>
@@ -4758,13 +4756,22 @@ out center tags;`;
         return `Ore mese: ${worked.toFixed(2)}h (straordinari ${stra.toFixed(2)}h)`;
       }
       function setInfoTickerText(value='') {
+        const track = id('infoTickerTrack');
+        const banner = id('infoTickerBanner');
         const text = id('infoTickerText');
         const clone = id('infoTickerTextClone');
-        if (!text) return;
+        if (!text || !track || !banner) return;
         const clean = String(value || '').trim() || 'Meteo e appuntamenti in aggiornamento.';
-        const continuous = `${clean} ✦ ${clean}`;
-        text.textContent = continuous;
-        if (clone) clone.textContent = continuous;
+        text.textContent = clean;
+        if (clone) clone.textContent = clean;
+        requestAnimationFrame(()=>{
+          const trackWidth = Number(track.scrollWidth || 0);
+          const bannerWidth = Number(banner.clientWidth || 0);
+          const distancePx = Math.max(trackWidth / 2, bannerWidth);
+          const pixelsPerSecond = 70;
+          const durationSec = Math.max(18, Math.ceil(distancePx / pixelsPerSecond));
+          track.style.setProperty('--ticker-duration', `${durationSec}s`);
+        });
       }
       function getWeatherTickerCache() {
         return readJSON(WEATHER_TICKER_CACHE_KEY, {});
@@ -7320,7 +7327,13 @@ out center tags;`;
         }
         setMenuOpen(false);
       }
-      function setMenuOpen(open) { menuOpen = !!open; id('leftMenu').classList.toggle('hidden', !menuOpen); id('menuToggleBtn').setAttribute('aria-expanded', menuOpen ? 'true' : 'false'); }
+      function setMenuOpen(open) {
+        const menuEl = id('leftMenu');
+        const toggleBtn = id('menuToggleBtn');
+        menuOpen = true;
+        if (menuEl) menuEl.classList.toggle('hidden', !menuOpen);
+        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', menuOpen ? 'true' : 'false');
+      }
       function updateFocusMode() {
         const enabled = activeMenuPanel === 'timbratureCard';
         document.body.classList.toggle('punch-focus', enabled);
@@ -8157,8 +8170,8 @@ out center tags;`;
         if (!id('customGroupsContainer').children.length) setCustomGroups([{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
         applySimpleWeeklyPlan();
         applyDefaultBreakForDate(id('data').value || nowDateISO(), true);
-        id('menuToggleBtn').addEventListener('click', (e)=>{ e.stopPropagation(); setMenuOpen(!menuOpen); });
-        id('leftMenu').addEventListener('click', (e)=>e.stopPropagation());
+        if (id('menuToggleBtn')) id('menuToggleBtn').addEventListener('click', (e)=>{ e.stopPropagation(); setMenuOpen(!menuOpen); });
+        if (id('leftMenu')) id('leftMenu').addEventListener('click', (e)=>e.stopPropagation());
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
         document.querySelectorAll('[data-menu-action]').forEach((btn)=>btn.addEventListener('click', ()=>{
