@@ -1488,10 +1488,15 @@
         return `${SHARED_APP_DATA_PATH_ROOT}/${getSharedScopeKey()}/${SHARED_APP_FIRESTORE_DOC_BASENAME}`;
       }
       function writeJSON(k, v) {
-        localStorage.setItem(k, JSON.stringify(v));
+        let nextValue = v;
+        if (k === SHARED_APP_SYNC_META_KEY) {
+          const prevMeta = readJSON(SHARED_APP_SYNC_META_KEY, {});
+          nextValue = { ...(prevMeta || {}), ...(v || {}) };
+        }
+        localStorage.setItem(k, JSON.stringify(nextValue));
         if (k === SHARED_APP_SYNC_META_KEY) updateMainSyncStatusUI();
         if (SHARED_DATA_HUB_KEYS.includes(k) && currentAuthUser) {
-          syncDataHubKeyToCloud(k, v).catch((error)=>{
+          syncDataHubKeyToCloud(k, nextValue).catch((error)=>{
             console.warn(`Sync cloud immediata fallita (${k}):`, error);
           });
           if (getFirebaseSyncState().connected && firebaseCloudAuth?.currentUser && firebaseCloudRtdb) {
@@ -6784,6 +6789,12 @@ out center tags;`;
           showMsg('Effettua prima il login per sincronizzare.', 'err');
           return;
         }
+        const syncBtn = id('forceSharedSyncBtn');
+        if (syncBtn) {
+          syncBtn.disabled = true;
+          syncBtn.dataset.prevLabel = syncBtn.textContent || '🔄 Sync adesso';
+          syncBtn.textContent = '⏳ Sync in corso...';
+        }
         try {
           const syncedAt = new Date().toISOString();
           await pushSharedAppPayload('manual-force-button', { throwOnFailure:true });
@@ -6811,6 +6822,12 @@ out center tags;`;
             return;
           }
           showMsg(error?.message || 'Sync manuale non riuscita.', 'err');
+        } finally {
+          if (syncBtn) {
+            syncBtn.disabled = false;
+            syncBtn.textContent = syncBtn.dataset.prevLabel || '🔄 Sync adesso';
+            delete syncBtn.dataset.prevLabel;
+          }
         }
       }
       function buildBackupPayload() {
@@ -7881,8 +7898,10 @@ out center tags;`;
             console.warn(`Pull snapshot Firestore legacy fallita (${reason}):`, legacyFirestoreError);
           }
           if (checkedAnyChannel) {
+            const pulledAt = new Date().toISOString();
             const syncMeta = readJSON(SHARED_APP_SYNC_META_KEY, {});
-            writeJSON(SHARED_APP_SYNC_META_KEY, { ...syncMeta, last_pull_at: new Date().toISOString() });
+            writeJSON(SHARED_APP_SYNC_META_KEY, { ...syncMeta, last_pull_at: pulledAt });
+            setFirebaseSyncState({ lastPullAt: pulledAt });
           }
           return applied;
         } catch (error) {
