@@ -5,6 +5,11 @@
     # Ensure build-time tooling from devDependencies (e.g. vite) is installed in CI.
     NPM_FLAGS = "--include=dev"
     NODE_VERSION = "20"
+    # Use smart detection to reduce false positives for known public Firebase
+    # client config values that are embedded in browser bundles.
+    SECRETS_SCAN_SMART_DETECTION_ENABLED = "true"
+    # Keep masked Firebase API-key prefix omission for legacy scans.
+    SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIza***"
 
 [[redirects]]
   from = "/*"
