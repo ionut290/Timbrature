@@ -1604,6 +1604,7 @@
       const localAuthListeners = new Set();
       let mainSyncStatusTicker = null;
       let chatUnreadCount = 0;
+      let chatFallbackSyncTimer = null;
       const SHARED_APP_LEGACY_FIRESTORE_COLLECTION = 'timbrature_sync';
       let sharedAppScopeKey = '';
       let sharedAppScopeLabel = '';
@@ -5359,10 +5360,23 @@ out center tags;`;
         }
         return db ? { db, authUser } : null;
       }
+      function startChatFallbackSync() {
+        if (chatFallbackSyncTimer) return;
+        if (!getSharedSyncIdentity()) return;
+        chatFallbackSyncTimer = setInterval(()=>{
+          pullSharedAppPayloadOnce('chat-fallback').catch(()=>{});
+        }, 4500);
+      }
+      function stopChatFallbackSync() {
+        if (!chatFallbackSyncTimer) return;
+        clearInterval(chatFallbackSyncTimer);
+        chatFallbackSyncTimer = null;
+      }
       async function loadChatMessages() {
         renderChatMessages(getChatMessagesLocal());
         const cloud = resolveChatCloudContext();
         if (!cloud) {
+          startChatFallbackSync();
           showChatMsg('Chat locale attiva (Firebase non connesso).', 'ok');
           return;
         }
@@ -5373,12 +5387,15 @@ out center tags;`;
             const rows = (snap?.docs || []).map((doc)=>({ id:doc.id, ...(doc.data() || {}) }));
             setChatMessagesLocal(rows);
             renderChatMessages(rows);
+            stopChatFallbackSync();
             showChatMsg('Chat sincronizzata in tempo reale.', 'ok');
           }, ()=>{
-            showChatMsg('Errore sync realtime chat. Modalità locale attiva.', 'err');
+            startChatFallbackSync();
+            showChatMsg('Realtime chat non disponibile ora. Attivo fallback cloud condiviso.', 'ok');
           });
         } catch (_) {
-          showChatMsg('Impossibile avviare chat realtime. Modalità locale attiva.', 'err');
+          startChatFallbackSync();
+          showChatMsg('Impossibile avviare realtime chat. Attivo fallback cloud condiviso.', 'ok');
         }
       }
       async function sendChatMessage() {
@@ -5390,6 +5407,7 @@ out center tags;`;
         const localRows = normalizeChatRows([payload, ...getChatMessagesLocal()]);
         setChatMessagesLocal(localRows);
         renderChatMessages(localRows);
+        pushSharedAppPayload('chat-local-push').catch(()=>{});
         input.value = '';
         const cloud = resolveChatCloudContext();
         if (!cloud) {
