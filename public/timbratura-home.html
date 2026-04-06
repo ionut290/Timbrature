@@ -1429,6 +1429,7 @@
       let sharedAppFirestoreUnsubscribe = null;
       let sharedAppLegacyFirestoreDocUnsubscribe = null;
       let sharedAppLegacyFirestoreUnsubscribe = null;
+      let sharedCommesseFirestoreUnsubscribe = null;
       let sharedAppPushTimer = null;
       let applyingSharedAppPayload = false;
       let sharedAppReady = false;
@@ -7443,6 +7444,10 @@ out center tags;`;
           try { sharedAppLegacyFirestoreUnsubscribe(); } catch (_) {}
           sharedAppLegacyFirestoreUnsubscribe = null;
         }
+        if (sharedCommesseFirestoreUnsubscribe) {
+          try { sharedCommesseFirestoreUnsubscribe(); } catch (_) {}
+          sharedCommesseFirestoreUnsubscribe = null;
+        }
       }
       async function pushSharedAppPayload(reason = 'manual') {
         if (!currentAuthUser) return;
@@ -7667,6 +7672,37 @@ out center tags;`;
               });
           } catch (legacyFirestoreError) {
             console.warn('Sync condivisa Firestore legacy non disponibile:', legacyFirestoreError);
+          }
+          try {
+            const auth = await ensureMainAuthReady();
+            if (window.firebase?.firestore) {
+              const db = window.firebase.firestore(auth.app);
+              const commesseRef = db.collection('commesse');
+              sharedCommesseFirestoreUnsubscribe = commesseRef.onSnapshot((snap)=>{
+                const incomingRows = (snap?.docs || []).map((docSnap)=>{
+                  const data = docSnap?.data?.() || {};
+                  const id = String(data?.id || docSnap?.id || '').trim();
+                  const nome = String(data?.nome || id).trim();
+                  if (!id && !nome) return null;
+                  return {
+                    id: id || nome,
+                    nome: nome || id,
+                    cantieri: Array.isArray(data?.cantieri) ? data.cantieri : [],
+                    updated_at: String(data?.updated_at || data?.updatedAt || '')
+                  };
+                }).filter(Boolean);
+                if (!incomingRows.length) return;
+                const localRows = getCommesse();
+                const mergedRows = mergeCommesseByUpdatedAt(localRows, incomingRows);
+                if (JSON.stringify(localRows) !== JSON.stringify(mergedRows)) {
+                  setCommesse(mergedRows);
+                }
+              }, (error)=>{
+                console.warn('Listener Firestore commesse non disponibile:', error);
+              });
+            }
+          } catch (commesseListenerError) {
+            console.warn('Sync commesse da collection Firestore non disponibile:', commesseListenerError);
           }
           pullSharedAppPayloadOnce('start-sync');
         } catch (error) {
