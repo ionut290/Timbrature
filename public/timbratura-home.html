@@ -6746,8 +6746,19 @@ out center tags;`;
           updateMainSyncStatusUI();
         } catch (error) {
           if (isNoSharedSyncChannelError(error)) {
-            await pullSharedAppPayloadOnce('manual-force-button-no-channel');
-            showMsg('Sincronizzazione completata.', 'ok');
+            let syncedFromFirebaseCloud = false;
+            try {
+              if (firebaseCloudAuth?.currentUser) {
+                const pulled = await pullFirebaseSnapshot(false);
+                syncedFromFirebaseCloud = Boolean(pulled);
+              }
+            } catch (firebaseFallbackError) {
+              console.warn('Sync manuale: fallback su Firebase Cloud non riuscito:', firebaseFallbackError);
+            }
+            if (!syncedFromFirebaseCloud) {
+              await pullSharedAppPayloadOnce('manual-force-button-no-channel');
+            }
+            showMsg(syncedFromFirebaseCloud ? 'Sincronizzazione completata da Cloud Firebase.' : 'Sincronizzazione completata.', 'ok');
             updateMainSyncStatusUI();
             return;
           }
