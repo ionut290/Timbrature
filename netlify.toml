@@ -1,6 +1,7 @@
 [build]
   command = "npm run build"
   publish = "dist"
+
   [build.environment]
     # Ensure build-time tooling from devDependencies (e.g. vite) is installed in CI.
     NPM_FLAGS = "--include=dev"
