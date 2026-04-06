@@ -1327,9 +1327,11 @@
       const DEFAULT_FIREBASE_WEB_CONFIG = (() => {
         const runtime = window.__TIMBRATURE_FIREBASE_CONFIG__ || {};
         return {
+          // TODO: chiavi obbligatorie per inizializzare Firebase cloud: apiKey, authDomain, projectId, appId.
           apiKey: String(runtime.apiKey || '').trim(),
           authDomain: String(runtime.authDomain || '').trim(),
           projectId: String(runtime.projectId || '').trim(),
+          // TODO: databaseURL è obbligatoria solo se si abilita Firebase Realtime Database (RTDB).
           databaseURL: String(runtime.databaseURL || '').trim(),
           storageBucket: String(runtime.storageBucket || '').trim(),
           messagingSenderId: String(runtime.messagingSenderId || '').trim(),
@@ -7242,7 +7244,17 @@ out center tags;`;
         const overrideConfig = options.config ? sanitizeFirebaseConfig(options.config) : null;
         let cfg = overrideConfig || (preferUI ? saveFirebaseConfigFromUI(false) : sanitizeFirebaseConfig(getFirebaseConfigState()));
         cfg = sanitizeFirebaseConfig(cfg);
-        if (!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) throw new Error('Compila prima tutti i campi Firebase (API key, Auth domain, Project ID, App ID).');
+        // TODO: campi obbligatori lato cloud sync: apiKey, authDomain, projectId, appId.
+        const requiredFirebaseFields = [
+          ['apiKey', 'API key'],
+          ['authDomain', 'Auth domain'],
+          ['projectId', 'Project ID'],
+          ['appId', 'App ID']
+        ];
+        const missingFirebaseFields = requiredFirebaseFields.filter(([key])=>!cfg[key]).map(([, label])=>label);
+        if (missingFirebaseFields.length) {
+          throw new Error(`Configurazione Firebase incompleta. Campi mancanti: ${missingFirebaseFields.join(', ')}.`);
+        }
 
         let existingApp = window.firebase.apps.find((app)=>app.name === appName) || null;
         if (existingApp) {
