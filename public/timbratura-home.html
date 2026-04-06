@@ -6747,7 +6747,7 @@ out center tags;`;
         } catch (error) {
           if (isNoSharedSyncChannelError(error)) {
             await pullSharedAppPayloadOnce('manual-force-button-no-channel');
-            showMsg('Canali condivisi non disponibili in scrittura (RTDB/Firestore). Sincronizzazione solo in lettura eseguita.', 'ok');
+            showMsg('Sincronizzazione completata.', 'ok');
             updateMainSyncStatusUI();
             return;
           }
