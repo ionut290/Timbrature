@@ -70,6 +70,24 @@
       .menu-link { background:#e2e8f0; color:#0f172a; text-align:left; }
       .menu-link.active { background:var(--primary); color:#fff; }
       .menu-link-external { background:#f1f5f9; border:1px dashed #94a3b8; font-weight:700; }
+      .menu-group {
+        border:1px solid #dbeafe;
+        border-radius:10px;
+        background:#f8fbff;
+        padding:8px;
+      }
+      .menu-group summary {
+        cursor:pointer;
+        font-weight:700;
+        color:#1e3a8a;
+        font-size:13px;
+      }
+      .menu-group summary::marker { color:#475569; }
+      .menu-group-links {
+        margin-top:8px;
+        display:grid;
+        gap:6px;
+      }
       .week-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:10px; }
       .contract-grid { margin-top:10px; display:grid; gap:8px; }
       .contract-meta { margin-top:10px; border:1px solid #bfdbfe; background:#f8fbff; border-radius:10px; padding:10px; }
@@ -305,20 +323,44 @@
               <button type="button" class="menu-link menu-link-external" data-menu-action="go-app-timbratura">Timbratura (app)</button>
               <button type="button" class="menu-link menu-link-external" data-menu-action="go-app-impianti">Impianti (app)</button>
               <button type="button" class="menu-link active" data-menu-target="timbratureCard">Nuova timbratura / giornata</button>
-              <button type="button" class="menu-link" data-menu-target="lavoroCard">Lavoro</button>
-              <button type="button" class="menu-link" data-menu-target="programCard">Impostazioni contratto</button>
-              <button type="button" class="menu-link" data-menu-target="teamCard">Caposquadra / squadra</button>
-              <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
-              <button type="button" class="menu-link" data-menu-target="calendarioCard">Calendario</button>
-              <button type="button" class="menu-link" data-menu-target="chatCard">Chat interna</button>
-              <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
-              <button type="button" class="menu-link" data-menu-target="prezzarioCard">Prezzario</button>
-              <button type="button" class="menu-link" data-menu-target="createPreventivoCard">Crea preventivo</button>
-              <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
-              <button type="button" class="menu-link" data-menu-target="dataHubCard">Dati app</button>
-              <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
-              <button type="button" class="menu-link" data-menu-target="accessControlCard">Gestione accessi</button>
-              <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
+
+              <details class="menu-group" open>
+                <summary>Operatività giornaliera</summary>
+                <div class="menu-group-links">
+                  <button type="button" class="menu-link" data-menu-target="lavoroCard">Lavoro e commesse</button>
+                  <button type="button" class="menu-link" data-menu-target="teamCard">Caposquadra / squadra</button>
+                  <button type="button" class="menu-link" data-menu-target="chatCard">Chat interna</button>
+                  <button type="button" class="menu-link" data-menu-target="documentiCard">Documenti</button>
+                  <button type="button" class="menu-link" data-menu-target="carburanteCard">Carburante</button>
+                </div>
+              </details>
+
+              <details class="menu-group">
+                <summary>Storico e analisi</summary>
+                <div class="menu-group-links">
+                  <button type="button" class="menu-link" data-menu-target="storicoCard">Storico mese</button>
+                  <button type="button" class="menu-link" data-menu-target="calendarioCard">Calendario</button>
+                </div>
+              </details>
+
+              <details class="menu-group">
+                <summary>Preventivi e prezzari</summary>
+                <div class="menu-group-links">
+                  <button type="button" class="menu-link" data-menu-target="prezzarioCard">Prezzario</button>
+                  <button type="button" class="menu-link" data-menu-target="createPreventivoCard">Crea preventivo</button>
+                </div>
+              </details>
+
+              <details class="menu-group">
+                <summary>Impostazioni account e app</summary>
+                <div class="menu-group-links">
+                  <button type="button" class="menu-link" data-menu-target="programCard">Impostazioni contratto</button>
+                  <button type="button" class="menu-link" data-menu-target="dataHubCard">Dati app</button>
+                  <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
+                  <button type="button" class="menu-link" data-menu-target="accessControlCard">Gestione accessi</button>
+                  <button type="button" class="menu-link" data-menu-target="userBox">Profilo</button>
+                </div>
+              </details>
             </div>
           </aside>
         </div>
@@ -7446,6 +7488,9 @@ out center tags;`;
           panel.classList.toggle('hidden', name !== panelId);
         });
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.classList.toggle('active', btn.dataset.menuTarget === panelId));
+        const activeBtn = document.querySelector(`[data-menu-target="${panelId}"]`);
+        const parentGroup = activeBtn ? activeBtn.closest('details.menu-group') : null;
+        if (parentGroup) parentGroup.open = true;
         if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
         if (panelId === 'lavoroCard') renderLavoroCommesseUI();
         if (panelId === 'giornaleCard') {
