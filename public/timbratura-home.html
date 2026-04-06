@@ -265,6 +265,7 @@
     <div class="container">
       <h1>Timbrature Varga</h1>
       <p class="pill">Accesso protetto: registrazione/login obbligatori</p>
+      <p id="mainSyncStatusLine" class="status-line status-neutral">Account: non autenticato • Firebase: non connesso • Sync live: OFF</p>
 
       <div class="card auth-shell" id="authGateCard">
         <h2>Accesso all'app</h2>
@@ -615,8 +616,9 @@
               <button type="button" id="confirmClockInSetupBtn">Conferma entrata</button>
             </div>
           </div>
-          <div id="cantiereSwapWrap" style="margin-top:10px; max-width:170px;">
+          <div id="cantiereSwapWrap" style="margin-top:10px; max-width:340px; display:flex; gap:8px; flex-wrap:wrap;">
             <button type="button" class="secondary swap-btn" id="splitCantiereBtn"><span class="icon">⇄</span><span class="label">Cambia cantiere</span></button>
+            <button type="button" class="secondary btn-small" id="forceSharedSyncBtn">🔄 Sync adesso</button>
           </div>
           <p id="splitSummaryText" class="split-summary force-hidden">Cantieri di oggi: -</p>
           <div class="setup-box hidden force-hidden" id="splitCantiereForm">
@@ -1427,7 +1429,9 @@
       let sharedAppDbRef = null;
       let sharedAppUnsubscribe = null;
       let sharedAppFirestoreUnsubscribe = null;
+      let sharedAppLegacyFirestoreDocUnsubscribe = null;
       let sharedAppLegacyFirestoreUnsubscribe = null;
+      let sharedCommesseFirestoreUnsubscribe = null;
       let sharedAppPushTimer = null;
       let applyingSharedAppPayload = false;
       let sharedAppReady = false;
@@ -1436,6 +1440,7 @@
       let sharedAppLastPushedAt = '';
       let sharedAppPullInProgress = false;
       let firebaseCloudAutoConnectInProgress = false;
+      let mainSyncStatusTicker = null;
       const SHARED_APP_FIRESTORE_COLLECTION = '_shared';
       const SHARED_APP_FIRESTORE_DOC = 'global_app_data_v1';
       const SHARED_APP_LEGACY_FIRESTORE_COLLECTION = 'timbrature_sync';
@@ -1444,6 +1449,12 @@
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
       function writeJSON(k, v) {
         localStorage.setItem(k, JSON.stringify(v));
+        if (k === SHARED_APP_SYNC_META_KEY) updateMainSyncStatusUI();
+        if (SHARED_DATA_HUB_KEYS.includes(k) && currentAuthUser) {
+          syncDataHubKeyToCloud(k, v).catch((error)=>{
+            console.warn(`Sync cloud immediata fallita (${k}):`, error);
+          });
+        }
         scheduleFirebaseAutoPush(`writeJSON:${k}`);
         if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) {
           if (!sharedAppReady) sharedAppPendingPush = true;
@@ -1454,6 +1465,59 @@
             scheduleSharedAppPush(`writeJSON:${k}`);
           }
         }
+      }
+      async function syncDataHubKeyToCloud(key, value) {
+        if (!currentAuthUser) return;
+        const pushedAt = new Date().toISOString();
+        const envelopePatch = {
+          updated_at: pushedAt,
+          updated_by: currentAuthUser.email || currentAuthUser.uid || '',
+          reason: `data-hub:${key}`,
+          payload: { [key]: value }
+        };
+        const operations = [
+          {
+            channel: 'rtdb/timbrature_shared/app_data_v1',
+            run: async ()=>{
+              const ref = await ensureSharedAppDbRef();
+              await ref.child('updated_at').set(envelopePatch.updated_at);
+              await ref.child('updated_by').set(envelopePatch.updated_by);
+              await ref.child('reason').set(envelopePatch.reason);
+              await ref.child(`payload/${key}`).set(value);
+            }
+          },
+          {
+            channel: '_shared/global_app_data_v1',
+            run: async ()=>{
+              const docRef = await ensureSharedAppFirestoreDocRef();
+              await docRef.set(envelopePatch, { merge: true });
+            }
+          },
+          {
+            channel: 'timbrature_sync/global_app_data_v1',
+            run: async ()=>{
+              const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
+              await legacyDocRef.set({
+                ...envelopePatch,
+                updatedAt: envelopePatch.updated_at,
+                updatedBy: envelopePatch.updated_by,
+                uid: currentAuthUser?.uid || '',
+                deviceId: getDeviceId()
+              }, { merge: true });
+            }
+          }
+        ];
+        const results = await Promise.allSettled(operations.map((op)=>op.run()));
+        const successCount = results.filter((entry)=>entry.status === 'fulfilled').length;
+        if (!successCount) {
+          const details = results.map((entry, idx)=>{
+            const channel = operations[idx]?.channel || 'sconosciuto';
+            if (entry.status === 'fulfilled') return `${channel}: ok`;
+            return `${channel}: ${entry?.reason?.message || entry?.reason || 'errore sconosciuto'}`;
+          }).join(' | ');
+          throw new Error(`Impossibile sincronizzare su Firebase (${details || 'nessun canale disponibile'}).`);
+        }
+        writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: pushedAt });
       }
       const nowDateISO = () => new Date().toISOString().slice(0, 10);
       const tomorrowDateISO = () => {
@@ -1643,6 +1707,7 @@
         if (biometricBtn) biometricBtn.classList.toggle('hidden', !hasUser || !hasBiometric);
         const userLine = id('authUserLine');
         if (userLine) userLine.textContent = hasUser ? `Utente: ${currentAuthUser.email || currentAuthUser.uid} • Ruolo: ${currentUserRole}` : 'Non autenticato.';
+        updateMainSyncStatusUI();
       }
       async function unlockWithBiometrics() {
         if (!window.PublicKeyCredential) throw new Error('Biometria non supportata su questo dispositivo/browser.');
@@ -3117,6 +3182,19 @@ out center tags;`;
         const ref = firebaseCloudDb.collection('mezzi');
         mezziRealtimeUnsubscribe = ref.onSnapshot((snap)=>{
           mezziRealtimeRows = (snap?.docs || []).map((doc)=>normalizeMezzoFirestoreRow({ id: doc.id, ...(doc.data() || {}) })).filter((row)=>row.name);
+          try {
+            const masterData = getMasterData();
+            const nextVehicles = mezziRealtimeRows.map((row)=>({
+              name: String(row?.name || '').trim(),
+              fuel_type: String(row?.fuel_type || '').trim(),
+              targa: String(row?.targa || '').trim(),
+              stato: String(row?.stato || '').trim(),
+              note: String(row?.note || '').trim()
+            })).filter((row)=>row.name);
+            if (JSON.stringify(masterData.vehicles || []) !== JSON.stringify(nextVehicles)) {
+              setMasterData({ ...masterData, vehicles: nextVehicles });
+            }
+          } catch (_) {}
           mezziRealtimeLoading = false;
           mezziRealtimeError = '';
           renderTeamDirectorySelects();
@@ -3148,11 +3226,31 @@ out center tags;`;
           note: row.note || '',
           updated_at: new Date().toISOString()
         }, { merge:true });
+        try {
+          const masterData = getMasterData();
+          const vehicles = Array.isArray(masterData?.vehicles) ? [...masterData.vehicles] : [];
+          const idx = vehicles.findIndex((entry)=>String(entry?.name || '').toLowerCase() === row.name.toLowerCase() && String(entry?.targa || '').toLowerCase() === String(row.targa || '').toLowerCase());
+          const nextRow = { name: row.name, fuel_type: row.fuel_type || '', targa: row.targa || '', stato: row.stato || '', note: row.note || '' };
+          if (idx >= 0) vehicles[idx] = nextRow;
+          else vehicles.push(nextRow);
+          setMasterData({ ...masterData, vehicles });
+        } catch (_) {}
       }
       async function deleteVehicleFromFirestoreById(vehicleId='') {
         if (!vehicleId) throw new Error('ID mezzo non valido.');
         if (!firebaseCloudDb || !firebaseCloudAuth?.currentUser) throw new Error('Connetti prima Firebase cloud.');
+        const deleted = getVehiclesSourceRows().find((row)=>row.id === vehicleId);
         await firebaseCloudDb.collection('mezzi').doc(vehicleId).delete();
+        try {
+          const masterData = getMasterData();
+          const deletedKey = `${String(deleted?.name || '').trim().toLowerCase()}|${String(deleted?.targa || '').trim().toLowerCase()}`;
+          if (!deletedKey || deletedKey === '|') return;
+          const vehicles = (Array.isArray(masterData?.vehicles) ? masterData.vehicles : []).filter((entry)=>{
+            const key = `${String(entry?.name || '').trim().toLowerCase()}|${String(entry?.targa || '').trim().toLowerCase()}`;
+            return key !== deletedKey;
+          });
+          setMasterData({ ...masterData, vehicles });
+        } catch (_) {}
       }
       async function saveCatalogEntry() {
         const category = selectedDataHubCategory || 'vehicles';
@@ -3189,6 +3287,7 @@ out center tags;`;
         if (id('catalogVehiclePlate')) id('catalogVehiclePlate').value = '';
         if (id('catalogVehicleStatus')) id('catalogVehicleStatus').value = '';
         if (id('catalogVehicleNotes')) id('catalogVehicleNotes').value = '';
+        await syncDataHubCatalogChanges(`save:${category}`);
         renderCatalogDataUI();
         renderTeamDirectorySelects();
       }
@@ -3209,8 +3308,21 @@ out center tags;`;
           renderCommesseList();
           renderGlobalCommesseSelect();
         }
+        await syncDataHubCatalogChanges(`delete:${category}`);
         renderCatalogDataUI();
         renderTeamDirectorySelects();
+      }
+      async function syncDataHubCatalogChanges(reason = 'manual') {
+        if (!currentAuthUser) return;
+        try {
+          await Promise.all([
+            syncDataHubKeyToCloud(MASTER_DATA_KEY, getMasterData()),
+            syncDataHubKeyToCloud(COMMESSE_KEY, getCommesse())
+          ]);
+          await pullSharedAppPayloadOnce(`catalog-${reason}`);
+        } catch (error) {
+          console.warn(`Sync catalogo condiviso fallita (${reason}):`, error);
+        }
       }
       
       function renderCatalogDataUI() {
@@ -6299,6 +6411,43 @@ out center tags;`;
           el.textContent = 'Cloud Firebase non connesso.';
         }
         if (liveBtn) liveBtn.textContent = state.liveSync ? 'Disattiva sync live' : 'Attiva sync live';
+        updateMainSyncStatusUI();
+      }
+      function ensureMainSyncStatusTicker() {
+        if (mainSyncStatusTicker) return;
+        mainSyncStatusTicker = window.setInterval(()=>{
+          updateMainSyncStatusUI();
+        }, 1000);
+      }
+      function formatElapsedSince(isoValue = '') {
+        const ts = Date.parse(String(isoValue || ''));
+        if (!Number.isFinite(ts)) return '';
+        const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+        if (diffSec < 60) return `${diffSec}s fa`;
+        const diffMin = Math.floor(diffSec / 60);
+        const remSec = diffSec % 60;
+        if (diffMin < 60) return `${diffMin}m ${remSec}s fa`;
+        const diffHours = Math.floor(diffMin / 60);
+        const remMin = diffMin % 60;
+        if (diffHours < 24) return `${diffHours}h ${remMin}m fa`;
+        const diffDays = Math.floor(diffHours / 24);
+        const remHours = diffHours % 24;
+        return `${diffDays}g ${remHours}h fa`;
+      }
+      function updateMainSyncStatusUI() {
+        ensureMainSyncStatusTicker();
+        const el = id('mainSyncStatusLine');
+        if (!el) return;
+        const syncState = getFirebaseSyncState();
+        const syncMeta = readJSON(SHARED_APP_SYNC_META_KEY, {});
+        const account = currentAuthUser?.email || currentAuthUser?.uid || 'non autenticato';
+        const firebaseStatus = syncState.connected ? 'connesso' : 'non connesso';
+        const liveStatus = syncState.liveSync ? 'ON' : 'OFF';
+        const lastSync = String(syncMeta?.last_pull_at || syncState?.lastPullAt || syncState?.lastPushAt || '');
+        const elapsed = formatElapsedSince(lastSync);
+        const when = elapsed ? ` • ultimo sync: ${elapsed}` : '';
+        el.className = `status-line ${syncState.connected && currentAuthUser ? 'status-ok' : 'status-neutral'}`;
+        el.textContent = `Account: ${account} • Firebase: ${firebaseStatus} • Sync live: ${liveStatus}${when}`;
       }
       async function ensureFirebaseCloudReady(options={}) {
         if (!window.firebase?.apps) throw new Error('SDK Firebase non disponibile. Ricarica la pagina.');
@@ -6564,6 +6713,23 @@ out center tags;`;
           showBackupMsg('Sync live Firebase disattivato.', 'ok');
         }
         updateFirebaseSyncStatusUI();
+      }
+      async function forceSharedSyncNow() {
+        if (!currentAuthUser) {
+          showMsg('Effettua prima il login per sincronizzare.', 'err');
+          return;
+        }
+        try {
+          const syncedAt = new Date().toISOString();
+          await pushSharedAppPayload('manual-force-button', { throwOnFailure:true });
+          await pullSharedAppPayloadOnce('manual-force-button');
+          setFirebaseSyncState({ connected:true, lastPushAt: syncedAt, lastPullAt: syncedAt });
+          writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: syncedAt, last_pull_at: syncedAt });
+          showMsg('Sincronizzazione condivisa completata.', 'ok');
+          updateMainSyncStatusUI();
+        } catch (error) {
+          showMsg(error?.message || 'Sync manuale non riuscita.', 'err');
+        }
       }
       function buildBackupPayload() {
         return {
@@ -7374,6 +7540,13 @@ out center tags;`;
         const db = window.firebase.firestore(auth.app);
         return db.collection(SHARED_APP_LEGACY_FIRESTORE_COLLECTION);
       }
+      async function ensureSharedAppLegacyFirestoreDocRef() {
+        const collectionRef = await ensureSharedAppLegacyFirestoreCollectionRef();
+        return collectionRef.doc(SHARED_APP_FIRESTORE_DOC);
+      }
+      function getSharedLegacyDocId() {
+        return String(currentAuthUser?.uid || getDeviceId() || '').trim() || 'anonymous';
+      }
       function normalizeLegacySharedEnvelope(data = {}, docId = '') {
         const payload = data?.payload;
         if (!payload || typeof payload !== 'object') return null;
@@ -7427,13 +7600,22 @@ out center tags;`;
           try { sharedAppFirestoreUnsubscribe(); } catch (_) {}
           sharedAppFirestoreUnsubscribe = null;
         }
+        if (sharedAppLegacyFirestoreDocUnsubscribe) {
+          try { sharedAppLegacyFirestoreDocUnsubscribe(); } catch (_) {}
+          sharedAppLegacyFirestoreDocUnsubscribe = null;
+        }
         if (sharedAppLegacyFirestoreUnsubscribe) {
           try { sharedAppLegacyFirestoreUnsubscribe(); } catch (_) {}
           sharedAppLegacyFirestoreUnsubscribe = null;
         }
+        if (sharedCommesseFirestoreUnsubscribe) {
+          try { sharedCommesseFirestoreUnsubscribe(); } catch (_) {}
+          sharedCommesseFirestoreUnsubscribe = null;
+        }
       }
-      async function pushSharedAppPayload(reason = 'manual') {
+      async function pushSharedAppPayload(reason = 'manual', options = {}) {
         if (!currentAuthUser) return;
+        const throwOnFailure = Boolean(options?.throwOnFailure);
         try {
           const pushedAt = new Date().toISOString();
           const envelope = {
@@ -7458,22 +7640,37 @@ out center tags;`;
             console.warn('Sync condivisa Firestore fallback push fallita:', firestoreError);
           }
           try {
-            const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
-            await legacyCollection.doc(getDeviceId()).set({
+            const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
+            await legacyDocRef.set({
               ...envelope,
               updatedAt: envelope.updated_at,
               updatedBy: envelope.updated_by,
+              uid: currentAuthUser?.uid || '',
               deviceId: getDeviceId()
             }, { merge: true });
             pushed = true;
           } catch (legacyFirestoreError) {
-            console.warn('Sync condivisa Firestore legacy push fallita:', legacyFirestoreError);
+            console.warn('Sync condivisa Firestore legacy doc condiviso fallita:', legacyFirestoreError);
+          }
+          try {
+            const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
+            await legacyCollection.doc(getSharedLegacyDocId()).set({
+              ...envelope,
+              updatedAt: envelope.updated_at,
+              updatedBy: envelope.updated_by,
+              uid: currentAuthUser?.uid || '',
+              deviceId: getDeviceId()
+            }, { merge: true });
+            pushed = true;
+          } catch (legacyFirestoreUserError) {
+            console.warn('Sync condivisa Firestore legacy doc utente fallita:', legacyFirestoreUserError);
           }
           if (!pushed) throw new Error('Nessun canale di sincronizzazione condivisa disponibile (RTDB/Firestore).');
           sharedAppLastPushedAt = pushedAt;
           sharedAppPendingPush = false;
         } catch (error) {
           console.warn('Sync condivisa push fallita:', error);
+          if (throwOnFailure) throw error;
         }
       }
       function scheduleSharedAppPush(reason = 'auto') {
@@ -7503,6 +7700,16 @@ out center tags;`;
             console.warn(`Pull snapshot Firestore fallback fallita (${reason}):`, firestoreError);
           }
           try {
+            const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
+            const doc = await legacyDocRef.get();
+            const normalized = normalizeLegacySharedEnvelope(doc?.data?.() || {}, SHARED_APP_FIRESTORE_DOC);
+            if (normalized?.payload) {
+              applied = applyIncomingSharedPayloadEnvelope(normalized, `pull-firestore-legacy-doc:${reason}`) || applied;
+            }
+          } catch (legacySharedDocError) {
+            console.warn(`Pull snapshot Firestore legacy doc condiviso fallita (${reason}):`, legacySharedDocError);
+          }
+          try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
             const snap = await legacyCollection.limit(20).get();
             const docs = (snap?.docs || [])
@@ -7511,11 +7718,12 @@ out center tags;`;
                 normalized: normalizeLegacySharedEnvelope(doc?.data?.() || {}, doc?.id || '')
               }))
               .filter((entry)=>entry.normalized?.payload)
-              .sort((a, b)=>String(b.normalized?.updated_at || '').localeCompare(String(a.normalized?.updated_at || '')));
+              .sort((a, b)=>String(b?.normalized?.updated_at || '').localeCompare(String(a?.normalized?.updated_at || '')));
             for (const entry of docs) {
               const normalized = entry.normalized;
               if (!normalized) continue;
               applied = applyIncomingSharedPayloadEnvelope(normalized, `pull-firestore-legacy:${reason}`) || applied;
+              if (applied) break;
             }
           } catch (legacyFirestoreError) {
             console.warn(`Pull snapshot Firestore legacy fallita (${reason}):`, legacyFirestoreError);
@@ -7528,9 +7736,47 @@ out center tags;`;
           sharedAppPullInProgress = false;
         }
       }
+      async function bootstrapSharedDataIfMissing() {
+        try {
+          const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
+          const sharedSnap = await legacyDocRef.get();
+          const sharedData = sharedSnap?.data?.() || null;
+          if (sharedData?.payload && typeof sharedData.payload === 'object') return;
+
+          const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
+          const snap = await legacyCollection.limit(20).get();
+          const docs = (snap?.docs || [])
+            .map((doc)=>({
+              docId: doc?.id || '',
+              normalized: normalizeLegacySharedEnvelope(doc?.data?.() || {}, doc?.id || '')
+            }))
+            .filter((entry)=>entry?.normalized?.payload)
+            .sort((a, b)=>String(b?.normalized?.updated_at || '').localeCompare(String(a?.normalized?.updated_at || '')));
+
+          const best = docs[0]?.normalized || null;
+          const now = new Date().toISOString();
+          const seed = best || {
+            updated_at: now,
+            updated_by: currentAuthUser?.email || currentAuthUser?.uid || 'bootstrap-auto',
+            payload: buildSharedAppPayload()
+          };
+
+          await legacyDocRef.set({
+            updated_at: seed.updated_at || now,
+            updated_by: seed.updated_by || currentAuthUser?.email || currentAuthUser?.uid || 'bootstrap-auto',
+            reason: 'bootstrap-auto',
+            uid: currentAuthUser?.uid || '',
+            deviceId: getDeviceId(),
+            payload: seed.payload || {}
+          }, { merge: true });
+        } catch (error) {
+          console.warn('Bootstrap documento condiviso legacy fallito:', error);
+        }
+      }
       async function startSharedAppSync() {
         if (!currentAuthUser) return;
         try {
+          await bootstrapSharedDataIfMissing();
           stopSharedAppSync();
           sharedAppReady = false;
           try {
@@ -7562,6 +7808,18 @@ out center tags;`;
             console.warn('Sync condivisa Firestore fallback non disponibile:', firestoreError);
           }
           try {
+            const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
+            sharedAppLegacyFirestoreDocUnsubscribe = legacyDocRef.onSnapshot((docSnap)=>{
+              const normalized = normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, SHARED_APP_FIRESTORE_DOC);
+              if (!normalized?.payload) return;
+              applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy-doc');
+            }, (error)=>{
+              console.warn('Listener Firestore legacy doc condiviso non disponibile:', error);
+            });
+          } catch (legacySharedDocError) {
+            console.warn('Sync condivisa Firestore legacy doc condiviso non disponibile:', legacySharedDocError);
+          }
+          try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
             sharedAppLegacyFirestoreUnsubscribe = legacyCollection
               .limit(20)
@@ -7570,15 +7828,46 @@ out center tags;`;
                   .map((docSnap)=>normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, docSnap?.id || ''))
                   .filter((entry)=>entry?.payload)
                   .sort((a, b)=>String(b?.updated_at || '').localeCompare(String(a?.updated_at || '')));
-                docs.forEach((normalized)=>{
-                  if (!normalized) return;
-                  applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy');
-                });
+                for (const normalized of docs) {
+                  if (!normalized) continue;
+                  if (applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy')) break;
+                }
               }, (error)=>{
                 console.warn('Listener Firestore legacy non disponibile:', error);
               });
           } catch (legacyFirestoreError) {
             console.warn('Sync condivisa Firestore legacy non disponibile:', legacyFirestoreError);
+          }
+          try {
+            const auth = await ensureMainAuthReady();
+            if (window.firebase?.firestore) {
+              const db = window.firebase.firestore(auth.app);
+              const commesseRef = db.collection('commesse');
+              sharedCommesseFirestoreUnsubscribe = commesseRef.onSnapshot((snap)=>{
+                const incomingRows = (snap?.docs || []).map((docSnap)=>{
+                  const data = docSnap?.data?.() || {};
+                  const id = String(data?.id || docSnap?.id || '').trim();
+                  const nome = String(data?.nome || id).trim();
+                  if (!id && !nome) return null;
+                  return {
+                    id: id || nome,
+                    nome: nome || id,
+                    cantieri: Array.isArray(data?.cantieri) ? data.cantieri : [],
+                    updated_at: String(data?.updated_at || data?.updatedAt || '')
+                  };
+                }).filter(Boolean);
+                if (!incomingRows.length) return;
+                const localRows = getCommesse();
+                const mergedRows = mergeCommesseByUpdatedAt(localRows, incomingRows);
+                if (JSON.stringify(localRows) !== JSON.stringify(mergedRows)) {
+                  setCommesse(mergedRows);
+                }
+              }, (error)=>{
+                console.warn('Listener Firestore commesse non disponibile:', error);
+              });
+            }
+          } catch (commesseListenerError) {
+            console.warn('Sync commesse da collection Firestore non disponibile:', commesseListenerError);
           }
           pullSharedAppPayloadOnce('start-sync');
         } catch (error) {
@@ -8011,6 +8300,7 @@ out center tags;`;
           setFirebaseCloudAuthCache({ ...cache, remember, password: remember ? cache.password : '' });
         });
         if (id('toggleFirebaseLiveSyncBtn')) id('toggleFirebaseLiveSyncBtn').addEventListener('click', toggleFirebaseLiveSync);
+        if (id('forceSharedSyncBtn')) id('forceSharedSyncBtn').addEventListener('click', forceSharedSyncNow);
         if (id('installAppBtn')) id('installAppBtn').addEventListener('click', installPwaApp);
         if (id('addTeamCommessaRowBtn')) id('addTeamCommessaRowBtn').addEventListener('click', ()=>addTeamCommessaRow());
         if (id('addTeamMemberBtn')) id('addTeamMemberBtn').addEventListener('click', ()=>addTeamMember());
