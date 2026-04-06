@@ -62,8 +62,9 @@
       .service-subtotal { margin:2px 0 0; font-size:13px; color:#475569; }
       .setup-box { margin-top:10px; border:1px solid #bfdbfe; background:#eff6ff; border-radius:10px; padding:10px; }
       .app-shell { position:relative; }
-      .top-menu { display:flex; justify-content:flex-start; margin:8px 0 10px; }
-      .left-menu { width:100%; position:relative; right:auto; top:auto; z-index:1; margin:0; }
+      .top-menu { display:flex; width:100%; justify-content:flex-end; margin:8px 0 10px; }
+      .kebab-btn { width:44px; min-width:44px; padding:0; border-radius:999px; font-size:24px; line-height:1; background:var(--secondary); }
+      .left-menu { width:min(280px, calc(100vw - 24px)); position:absolute; right:0; top:52px; z-index:20; margin:0; }
       .left-menu h3 { margin:0 0 10px; font-size:16px; }
       .menu-links { display:flex; flex-direction:column; gap:8px; }
       .menu-link { background:#e2e8f0; color:#0f172a; text-align:left; }
@@ -209,11 +210,11 @@
       .ticker-track {
         position:absolute;
         inset:0;
-        display:inline-flex;
+        display:flex;
         align-items:center;
-        gap:24px;
+        justify-content:flex-start;
         white-space:nowrap;
-        min-width:200%;
+        min-width:100%;
         animation:ticker-right-to-left-loop var(--ticker-duration, 34s) linear infinite;
         padding:0 12px;
       }
@@ -224,8 +225,8 @@
         text-shadow:none;
       }
       @keyframes ticker-right-to-left-loop {
-        from { transform:translateX(0%); }
-        to { transform:translateX(-50%); }
+        from { transform:translateX(100%); }
+        to { transform:translateX(-100%); }
       }
       @media (prefers-reduced-motion: reduce) {
         .ticker-track { animation:none; }
@@ -4764,11 +4765,11 @@ out center tags;`;
         if (!text || !track || !banner) return;
         const clean = String(value || '').trim() || 'Meteo e appuntamenti in aggiornamento.';
         text.textContent = clean;
-        if (clone) clone.textContent = clean;
+        if (clone) clone.textContent = '';
         requestAnimationFrame(()=>{
-          const trackWidth = Number(track.scrollWidth || 0);
+          const textWidth = Number(text.scrollWidth || 0);
           const bannerWidth = Number(banner.clientWidth || 0);
-          const distancePx = Math.max(trackWidth / 2, bannerWidth);
+          const distancePx = Math.max(textWidth + bannerWidth, bannerWidth * 1.4);
           const pixelsPerSecond = 70;
           const durationSec = Math.max(18, Math.ceil(distancePx / pixelsPerSecond));
           track.style.setProperty('--ticker-duration', `${durationSec}s`);
