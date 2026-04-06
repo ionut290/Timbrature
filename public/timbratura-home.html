@@ -1280,6 +1280,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check-compat.js"></script>
+    <script src="/js/sharedSync.js"></script>
     <script>
       const CAUSALI_LAVORATIVE = ['LAV', 'SW', 'TRA'];
       const FESTIVE_BONUS_PERCENT_DEFAULT = 30;
@@ -1781,6 +1782,18 @@
         }
         throw new Error('Nessuna app Firebase disponibile per sync condivisa.');
       }
+      const sharedSyncService = window.SharedSyncService.createSharedSyncService({
+        firebase: window.firebase,
+        resolveFirebaseApp: resolveSharedSyncFirebaseApp,
+        getScopeKey: getSharedScopeKey,
+        getSyncIdentity: getSharedSyncIdentity,
+        getDeviceId,
+        rtdbPathRoot: SHARED_APP_DATA_PATH_ROOT,
+        firestoreScopesCollection: SHARED_APP_FIRESTORE_SCOPES_COLLECTION,
+        firestoreDocBasename: SHARED_APP_FIRESTORE_DOC_BASENAME,
+        legacyCollection: SHARED_APP_LEGACY_FIRESTORE_COLLECTION,
+        onChannelError: (report)=>console.warn(`Sync condivisa canale ${report.channel} fallito (${report.context || 'n/a'}):`, report.error || report.message || report)
+      });
       function writeJSON(k, v) {
         let nextValue = v;
         if (k === SHARED_APP_SYNC_META_KEY) {
@@ -1834,48 +1847,14 @@
           reason: `data-hub:${key}`,
           payload: { [key]: value }
         };
-        const operations = [
-          {
-            channel: 'rtdb/timbrature_shared/app_data_v1',
-            run: async ()=>{
-              const ref = await ensureSharedAppDbRef();
-              await ref.child('updated_at').set(envelopePatch.updated_at);
-              await ref.child('updated_by').set(envelopePatch.updated_by);
-              await ref.child('reason').set(envelopePatch.reason);
-              await ref.child(`payload/${key}`).set(value);
-            }
-          },
-          {
-            channel: '_shared/global_app_data_v1',
-            run: async ()=>{
-              const docRef = await ensureSharedAppFirestoreDocRef();
-              await docRef.set(envelopePatch, { merge: true });
-            }
-          },
-          {
-            channel: 'timbrature_sync/global_app_data_v1',
-            run: async ()=>{
-              const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
-              await legacyDocRef.set({
-                ...envelopePatch,
-                updatedAt: envelopePatch.updated_at,
-                updatedBy: envelopePatch.updated_by,
-                uid: currentAuthUser?.uid || '',
-                deviceId: getDeviceId()
-              }, { merge: true });
-            }
-          }
-        ];
-        const results = await Promise.allSettled(operations.map((op)=>op.run()));
-        const successCount = results.filter((entry)=>entry.status === 'fulfilled').length;
-        if (!successCount) {
-          const details = results.map((entry, idx)=>{
-            const channel = operations[idx]?.channel || 'sconosciuto';
-            if (entry.status === 'fulfilled') return `${channel}: ok`;
-            return `${channel}: ${entry?.reason?.message || entry?.reason || 'errore sconosciuto'}`;
-          }).join(' | ');
-          throw new Error(`Impossibile sincronizzare su Firebase (${details || 'nessun canale disponibile'}).`);
-        }
+        const ok = await sharedSyncService.writeShared({
+          envelope: envelopePatch,
+          key,
+          value,
+          reason: `data-hub:${key}`,
+          throwOnFailure: true
+        });
+        if (!ok) throw new Error('Impossibile sincronizzare su Firebase (nessun canale disponibile).');
         writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: pushedAt });
       }
       const nowDateISO = () => new Date().toISOString().slice(0, 10);
@@ -8381,24 +8360,13 @@ out center tags;`;
         }
       }
       async function ensureSharedAppDbRef() {
-        const app = await resolveSharedSyncFirebaseApp();
-        if (!window.firebase?.database) throw new Error('Realtime Database non disponibile.');
         refreshSharedScopeCache();
-        if (!sharedAppDbRef) {
-          const db = window.firebase.database(app);
-          sharedAppDbRef = db.ref(getSharedAppRtdbPath());
-        }
-        return sharedAppDbRef;
+        const { rtdbRef } = await sharedSyncService.initFirebaseSharedSync();
+        return rtdbRef;
       }
       async function ensureSharedAppFirestoreDocRef() {
-        const app = await resolveSharedSyncFirebaseApp();
-        if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
-        const db = window.firebase.firestore(app);
-        return db
-          .collection(SHARED_APP_FIRESTORE_SCOPES_COLLECTION)
-          .doc(getSharedScopeKey())
-          .collection('_shared')
-          .doc(SHARED_APP_FIRESTORE_DOC_BASENAME);
+        const { firestoreDocRef } = await sharedSyncService.initFirebaseSharedSync();
+        return firestoreDocRef;
       }
       async function ensureSharedCommesseFirestoreCollectionRef() {
         const app = await resolveSharedSyncFirebaseApp();
@@ -8410,17 +8378,12 @@ out center tags;`;
           .collection('commesse');
       }
       async function ensureSharedAppLegacyFirestoreCollectionRef() {
-        const app = await resolveSharedSyncFirebaseApp();
-        if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
-        const db = window.firebase.firestore(app);
-        return db
-          .collection(SHARED_APP_FIRESTORE_SCOPES_COLLECTION)
-          .doc(getSharedScopeKey())
-          .collection(SHARED_APP_LEGACY_FIRESTORE_COLLECTION);
+        const { legacyCollectionRef } = await sharedSyncService.initFirebaseSharedSync();
+        return legacyCollectionRef;
       }
       async function ensureSharedAppLegacyFirestoreDocRef() {
-        const collectionRef = await ensureSharedAppLegacyFirestoreCollectionRef();
-        return collectionRef.doc(SHARED_APP_FIRESTORE_DOC_BASENAME);
+        const { legacyDocRef } = await sharedSyncService.initFirebaseSharedSync();
+        return legacyDocRef;
       }
       function getSharedLegacyDocId() {
         return String(currentAuthUser?.uid || getDeviceId() || '').trim() || 'anonymous';
@@ -8463,6 +8426,7 @@ out center tags;`;
         return true;
       }
       function stopSharedAppSync() {
+        sharedSyncService.stopLiveSync().catch(()=>{});
         sharedAppReady = false;
         sharedAppPendingPush = false;
         sharedAppLastAppliedAt = '';
@@ -8505,34 +8469,7 @@ out center tags;`;
             reason,
             payload: buildSharedAppPayload()
           };
-          let pushed = false;
-          try {
-            const ref = await ensureSharedAppDbRef();
-            await ref.set(envelope);
-            pushed = true;
-          } catch (rtdbError) {
-            console.warn('Sync condivisa RTDB push fallita, provo Firestore fallback:', rtdbError);
-          }
-          try {
-            const docRef = await ensureSharedAppFirestoreDocRef();
-            await docRef.set(envelope, { merge: true });
-            pushed = true;
-          } catch (firestoreError) {
-            console.warn('Sync condivisa Firestore fallback push fallita:', firestoreError);
-          }
-          try {
-            const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
-            await legacyDocRef.set({
-              ...envelope,
-              updatedAt: envelope.updated_at,
-              updatedBy: envelope.updated_by,
-              uid: syncIdentity?.uid || '',
-              deviceId: getDeviceId()
-            }, { merge: true });
-            pushed = true;
-          } catch (legacyFirestoreError) {
-            console.warn('Sync condivisa Firestore legacy doc condiviso fallita:', legacyFirestoreError);
-          }
+          const pushed = await sharedSyncService.writeShared({ envelope, reason, throwOnFailure });
           try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
             await legacyCollection.doc(getSharedLegacyDocId()).set({
@@ -8542,9 +8479,8 @@ out center tags;`;
               uid: syncIdentity?.uid || '',
               deviceId: getDeviceId()
             }, { merge: true });
-            pushed = true;
           } catch (legacyFirestoreUserError) {
-            console.warn('Sync condivisa Firestore legacy doc utente fallita:', legacyFirestoreUserError);
+            sharedSyncService.reportChannelError('timbrature_sync/{uid}', legacyFirestoreUserError, reason);
           }
           if (!pushed) {
             const noChannelError = new Error('Nessun canale di sincronizzazione condivisa disponibile (RTDB/Firestore).');
@@ -8602,35 +8538,17 @@ out center tags;`;
         try {
           let applied = false;
           let checkedAnyChannel = false;
-          try {
-            const ref = await ensureSharedAppDbRef();
-            const snap = await ref.get();
-            const data = snap?.val?.() || null;
-            checkedAnyChannel = true;
-            applied = applyIncomingSharedPayloadEnvelope(data, `pull-rtdb:${reason}`) || applied;
-          } catch (rtdbError) {
-            console.warn(`Pull snapshot RTDB fallita (${reason}):`, rtdbError);
-          }
-          try {
-            const docRef = await ensureSharedAppFirestoreDocRef();
-            const doc = await docRef.get();
-            const data = doc?.data?.() || null;
-            checkedAnyChannel = true;
-            applied = applyIncomingSharedPayloadEnvelope(data, `pull-firestore:${reason}`) || applied;
-          } catch (firestoreError) {
-            console.warn(`Pull snapshot Firestore fallback fallita (${reason}):`, firestoreError);
-          }
-          try {
-            const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
-            const doc = await legacyDocRef.get();
-            const normalized = normalizeLegacySharedEnvelope(doc?.data?.() || {}, SHARED_APP_FIRESTORE_DOC_BASENAME);
-            checkedAnyChannel = true;
-            if (normalized?.payload) {
-              applied = applyIncomingSharedPayloadEnvelope(normalized, `pull-firestore-legacy-doc:${reason}`) || applied;
+          const baseResult = await sharedSyncService.readShared({
+            reason,
+            handlers: {
+              onRtdbData: applyIncomingSharedPayloadEnvelope,
+              onFirestoreData: applyIncomingSharedPayloadEnvelope,
+              normalizeLegacyEnvelope: normalizeLegacySharedEnvelope,
+              onLegacyData: applyIncomingSharedPayloadEnvelope
             }
-          } catch (legacySharedDocError) {
-            console.warn(`Pull snapshot Firestore legacy doc condiviso fallita (${reason}):`, legacySharedDocError);
-          }
+          });
+          applied = baseResult.applied || applied;
+          checkedAnyChannel = baseResult.checkedAnyChannel || checkedAnyChannel;
           try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
             const snap = await legacyCollection.orderBy('updated_at', 'desc').limit(20).get();
@@ -8709,66 +8627,35 @@ out center tags;`;
           await bootstrapSharedDataIfMissing();
           stopSharedAppSync();
           sharedAppReady = false;
-          try {
-            const ref = await ensureSharedAppDbRef();
-            const handler = (snapshot) => {
-              const data = snapshot?.val?.() || null;
+          await sharedSyncService.startLiveSync({
+            onRtdbValue: (data)=>{
               if (!data?.payload) {
                 sharedAppReady = true;
                 scheduleSharedAppPush('bootstrap-empty-rtdb');
                 return;
               }
               applyIncomingSharedPayloadEnvelope(data, 'live-rtdb');
-            };
-            ref.on('value', handler);
-            sharedAppUnsubscribe = ()=>ref.off('value', handler);
-          } catch (rtdbError) {
-            console.warn('Listener RTDB non disponibile, provo fallback Firestore:', rtdbError);
-          }
-          try {
-            const docRef = await ensureSharedAppFirestoreDocRef();
-            sharedAppFirestoreUnsubscribe = docRef.onSnapshot((docSnap)=>{
-              const data = docSnap?.data?.() || null;
+            },
+            onFirestoreDoc: (data)=>{
               if (!data?.payload) return;
               applyIncomingSharedPayloadEnvelope(data, 'live-firestore');
-            }, (error)=>{
-              console.warn('Listener Firestore fallback non disponibile:', error);
-            });
-          } catch (firestoreError) {
-            console.warn('Sync condivisa Firestore fallback non disponibile:', firestoreError);
-          }
-          try {
-            const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
-            sharedAppLegacyFirestoreDocUnsubscribe = legacyDocRef.onSnapshot((docSnap)=>{
-              const normalized = normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, SHARED_APP_FIRESTORE_DOC_BASENAME);
+            },
+            onLegacyDoc: (data)=>{
+              const normalized = normalizeLegacySharedEnvelope(data || {}, SHARED_APP_FIRESTORE_DOC_BASENAME);
               if (!normalized?.payload) return;
               applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy-doc');
-            }, (error)=>{
-              console.warn('Listener Firestore legacy doc condiviso non disponibile:', error);
-            });
-          } catch (legacySharedDocError) {
-            console.warn('Sync condivisa Firestore legacy doc condiviso non disponibile:', legacySharedDocError);
-          }
-          try {
-            const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
-            sharedAppLegacyFirestoreUnsubscribe = legacyCollection
-              .orderBy('updated_at', 'desc')
-              .limit(20)
-              .onSnapshot((querySnap)=>{
-                const docs = (querySnap?.docs || [])
-                  .map((docSnap)=>normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, docSnap?.id || ''))
-                  .filter((entry)=>entry?.payload)
-                  .sort((a, b)=>String(b?.updated_at || '').localeCompare(String(a?.updated_at || '')));
-                for (const normalized of docs) {
-                  if (!normalized) continue;
-                  if (applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy')) break;
-                }
-              }, (error)=>{
-                console.warn('Listener Firestore legacy non disponibile:', error);
-              });
-          } catch (legacyFirestoreError) {
-            console.warn('Sync condivisa Firestore legacy non disponibile:', legacyFirestoreError);
-          }
+            },
+            onLegacyCollection: (querySnap)=>{
+              const docs = (querySnap?.docs || [])
+                .map((docSnap)=>normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, docSnap?.id || ''))
+                .filter((entry)=>entry?.payload)
+                .sort((a, b)=>String(b?.updated_at || '').localeCompare(String(a?.updated_at || '')));
+              for (const normalized of docs) {
+                if (!normalized) continue;
+                if (applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy')) break;
+              }
+            }
+          });
           try {
             const auth = await ensureMainAuthReady();
             if (window.firebase?.firestore) {
