@@ -1453,6 +1453,11 @@
           syncDataHubKeyToCloud(k, v).catch((error)=>{
             console.warn(`Sync cloud immediata fallita (${k}):`, error);
           });
+          if (getFirebaseSyncState().connected && firebaseCloudAuth?.currentUser && firebaseCloudRtdb) {
+            pushFirebaseSnapshot().catch((error)=>{
+              console.warn(`Push Firebase Cloud immediata fallita (${k}):`, error);
+            });
+          }
         }
         scheduleFirebaseAutoPush(`writeJSON:${k}`);
         if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) {
@@ -6603,6 +6608,11 @@ out center tags;`;
         const code = String(error?.code || error?.message || '').toLowerCase();
         return code.includes('permission_denied') || code.includes('permission denied');
       }
+      function isNoSharedSyncChannelError(error) {
+        const code = String(error?.code || '').toLowerCase();
+        const message = String(error?.message || '').toLowerCase();
+        return code === 'no_shared_sync_channel' || message.includes('nessun canale di sincronizzazione condivisa disponibile');
+      }
       async function tryAutoConnectFirebaseCloud() {
         if (firebaseCloudAutoConnectInProgress) return false;
         const cache = getFirebaseCloudAuthCache();
@@ -6739,6 +6749,23 @@ out center tags;`;
           showMsg('Sincronizzazione condivisa completata.', 'ok');
           updateMainSyncStatusUI();
         } catch (error) {
+          if (isNoSharedSyncChannelError(error)) {
+            let syncedFromFirebaseCloud = false;
+            try {
+              if (firebaseCloudAuth?.currentUser) {
+                const pulled = await pullFirebaseSnapshot(false);
+                syncedFromFirebaseCloud = Boolean(pulled);
+              }
+            } catch (firebaseFallbackError) {
+              console.warn('Sync manuale: fallback su Firebase Cloud non riuscito:', firebaseFallbackError);
+            }
+            if (!syncedFromFirebaseCloud) {
+              await pullSharedAppPayloadOnce('manual-force-button-no-channel');
+            }
+            showMsg(syncedFromFirebaseCloud ? 'Sincronizzazione completata da Cloud Firebase.' : 'Sincronizzazione completata.', 'ok');
+            updateMainSyncStatusUI();
+            return;
+          }
           showMsg(error?.message || 'Sync manuale non riuscita.', 'err');
         }
       }
@@ -7686,7 +7713,11 @@ out center tags;`;
           } catch (legacyFirestoreUserError) {
             console.warn('Sync condivisa Firestore legacy doc utente fallita:', legacyFirestoreUserError);
           }
-          if (!pushed) throw new Error('Nessun canale di sincronizzazione condivisa disponibile (RTDB/Firestore).');
+          if (!pushed) {
+            const noChannelError = new Error('Nessun canale di sincronizzazione condivisa disponibile (RTDB/Firestore).');
+            noChannelError.code = 'NO_SHARED_SYNC_CHANNEL';
+            throw noChannelError;
+          }
           sharedAppLastPushedAt = pushedAt;
           sharedAppPendingPush = false;
         } catch (error) {
