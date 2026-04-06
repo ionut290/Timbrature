@@ -1178,7 +1178,10 @@
       const ACCESS_CONTROL_KEY = 'timbrature.local.access.control';
       const ACCESS_CONTROL_SCHEMA_VERSION = 2;
       const SHARED_APP_SYNC_META_KEY = 'timbrature.shared.app.sync.meta';
-      const SHARED_APP_DATA_PATH = 'shared/global_app_data_v1';
+      const SHARED_APP_SCOPE_DEFAULT = 'globale-condiviso';
+      const SHARED_APP_DATA_PATH_ROOT = 'shared_scopes';
+      const SHARED_APP_FIRESTORE_SCOPES_COLLECTION = '_shared_scopes';
+      const SHARED_APP_FIRESTORE_DOC_BASENAME = 'global_app_data_v1';
       const DEFAULT_FIREBASE_WEB_CONFIG = (() => {
         const runtime = window.__TIMBRATURE_FIREBASE_CONFIG__ || {};
         return {
@@ -1445,12 +1448,42 @@
       let sharedAppPullInProgress = false;
       let firebaseCloudAutoConnectInProgress = false;
       let mainSyncStatusTicker = null;
-      const SHARED_APP_FIRESTORE_COLLECTION = '_shared';
-      const SHARED_APP_FIRESTORE_DOC = 'global_app_data_v1';
       const SHARED_APP_LEGACY_FIRESTORE_COLLECTION = 'timbrature_sync';
+      let sharedAppScopeKey = '';
+      let sharedAppScopeLabel = '';
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
+      function normalizeSharedScopeSegment(value = '') {
+        return String(value || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 64);
+      }
+      function resolveSharedScopeFromProfile() {
+        return { key: SHARED_APP_SCOPE_DEFAULT, label: 'globale (tutti gli utenti)' };
+      }
+      function refreshSharedScopeCache(force = false) {
+        const resolved = resolveSharedScopeFromProfile();
+        const nextKey = resolved?.key || SHARED_APP_SCOPE_DEFAULT;
+        const changed = force || sharedAppScopeKey !== nextKey;
+        if (changed) {
+          sharedAppScopeKey = nextKey;
+          sharedAppScopeLabel = String(resolved?.label || nextKey);
+          sharedAppDbRef = null;
+        }
+        return { changed, key: sharedAppScopeKey, label: sharedAppScopeLabel };
+      }
+      function getSharedScopeKey() {
+        if (!sharedAppScopeKey) refreshSharedScopeCache(true);
+        return sharedAppScopeKey || SHARED_APP_SCOPE_DEFAULT;
+      }
+      function getSharedAppRtdbPath() {
+        return `${SHARED_APP_DATA_PATH_ROOT}/${getSharedScopeKey()}/${SHARED_APP_FIRESTORE_DOC_BASENAME}`;
+      }
       function writeJSON(k, v) {
         localStorage.setItem(k, JSON.stringify(v));
         if (k === SHARED_APP_SYNC_META_KEY) updateMainSyncStatusUI();
@@ -2637,6 +2670,7 @@ out center tags;`;
       function saveProfile() {
         const profile = { nome: id('nome').value.trim(), azienda: id('azienda').value.trim(), email: id('email').value.trim() };
         setProfile(profile);
+        refreshSharedScopeCache();
         updateWelcomeMessage();
         showProfileMsg('Profilo salvato sul dispositivo.', 'ok');
       }
@@ -6465,11 +6499,12 @@ out center tags;`;
         const account = currentAuthUser?.email || currentAuthUser?.uid || 'non autenticato';
         const firebaseStatus = syncState.connected ? 'connesso' : 'non connesso';
         const liveStatus = syncState.liveSync ? 'ON' : 'OFF';
+        const scopeLabel = sharedAppScopeLabel || refreshSharedScopeCache().label || SHARED_APP_SCOPE_DEFAULT;
         const lastSync = String(syncMeta?.last_pull_at || syncState?.lastPullAt || syncState?.lastPushAt || '');
         const elapsed = formatElapsedSince(lastSync);
         const when = elapsed ? ` • ultimo sync: ${elapsed}` : '';
         el.className = `status-line ${syncState.connected && currentAuthUser ? 'status-ok' : 'status-neutral'}`;
-        el.textContent = `Account: ${account} • Firebase: ${firebaseStatus} • Sync live: ${liveStatus}${when}`;
+        el.textContent = `Account: ${account} • Ambito dati: ${scopeLabel} • Firebase: ${firebaseStatus} • Sync live: ${liveStatus}${when}`;
       }
       async function ensureFirebaseCloudReady(options={}) {
         if (!window.firebase?.apps) throw new Error('SDK Firebase non disponibile. Ricarica la pagina.');
@@ -7576,9 +7611,10 @@ out center tags;`;
       async function ensureSharedAppDbRef() {
         const auth = await ensureMainAuthReady();
         if (!window.firebase?.database) throw new Error('Realtime Database non disponibile.');
+        refreshSharedScopeCache();
         if (!sharedAppDbRef) {
           const db = window.firebase.database(auth.app);
-          sharedAppDbRef = db.ref(SHARED_APP_DATA_PATH);
+          sharedAppDbRef = db.ref(getSharedAppRtdbPath());
         }
         return sharedAppDbRef;
       }
@@ -7586,17 +7622,24 @@ out center tags;`;
         const auth = await ensureMainAuthReady();
         if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
         const db = window.firebase.firestore(auth.app);
-        return db.collection(SHARED_APP_FIRESTORE_COLLECTION).doc(SHARED_APP_FIRESTORE_DOC);
+        return db
+          .collection(SHARED_APP_FIRESTORE_SCOPES_COLLECTION)
+          .doc(getSharedScopeKey())
+          .collection('_shared')
+          .doc(SHARED_APP_FIRESTORE_DOC_BASENAME);
       }
       async function ensureSharedAppLegacyFirestoreCollectionRef() {
         const auth = await ensureMainAuthReady();
         if (!window.firebase?.firestore) throw new Error('Firestore non disponibile.');
         const db = window.firebase.firestore(auth.app);
-        return db.collection(SHARED_APP_LEGACY_FIRESTORE_COLLECTION);
+        return db
+          .collection(SHARED_APP_FIRESTORE_SCOPES_COLLECTION)
+          .doc(getSharedScopeKey())
+          .collection(SHARED_APP_LEGACY_FIRESTORE_COLLECTION);
       }
       async function ensureSharedAppLegacyFirestoreDocRef() {
         const collectionRef = await ensureSharedAppLegacyFirestoreCollectionRef();
-        return collectionRef.doc(SHARED_APP_FIRESTORE_DOC);
+        return collectionRef.doc(SHARED_APP_FIRESTORE_DOC_BASENAME);
       }
       function getSharedLegacyDocId() {
         return String(currentAuthUser?.uid || getDeviceId() || '').trim() || 'anonymous';
@@ -7760,7 +7803,7 @@ out center tags;`;
           try {
             const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
             const doc = await legacyDocRef.get();
-            const normalized = normalizeLegacySharedEnvelope(doc?.data?.() || {}, SHARED_APP_FIRESTORE_DOC);
+            const normalized = normalizeLegacySharedEnvelope(doc?.data?.() || {}, SHARED_APP_FIRESTORE_DOC_BASENAME);
             if (normalized?.payload) {
               applied = applyIncomingSharedPayloadEnvelope(normalized, `pull-firestore-legacy-doc:${reason}`) || applied;
             }
@@ -7833,6 +7876,7 @@ out center tags;`;
       }
       async function startSharedAppSync() {
         if (!currentAuthUser) return;
+        refreshSharedScopeCache(true);
         try {
           await bootstrapSharedDataIfMissing();
           stopSharedAppSync();
@@ -7868,7 +7912,7 @@ out center tags;`;
           try {
             const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
             sharedAppLegacyFirestoreDocUnsubscribe = legacyDocRef.onSnapshot((docSnap)=>{
-              const normalized = normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, SHARED_APP_FIRESTORE_DOC);
+              const normalized = normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, SHARED_APP_FIRESTORE_DOC_BASENAME);
               if (!normalized?.payload) return;
               applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy-doc');
             }, (error)=>{
@@ -7901,7 +7945,10 @@ out center tags;`;
             const auth = await ensureMainAuthReady();
             if (window.firebase?.firestore) {
               const db = window.firebase.firestore(auth.app);
-              const commesseRef = db.collection('commesse');
+              const commesseRef = db
+                .collection(SHARED_APP_FIRESTORE_SCOPES_COLLECTION)
+                .doc(getSharedScopeKey())
+                .collection('commesse');
               sharedCommesseFirestoreUnsubscribe = commesseRef.onSnapshot((snap)=>{
                 const incomingRows = (snap?.docs || []).map((docSnap)=>{
                   const data = docSnap?.data?.() || {};
