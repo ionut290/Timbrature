@@ -1475,25 +1475,49 @@
           reason: `data-hub:${key}`,
           payload: { [key]: value }
         };
-        const writes = [];
-        try {
-          const docRef = await ensureSharedAppFirestoreDocRef();
-          writes.push(docRef.set(envelopePatch, { merge: true }));
-        } catch (_) {}
-        try {
-          const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
-          writes.push(legacyDocRef.set({
-            ...envelopePatch,
-            updatedAt: envelopePatch.updated_at,
-            updatedBy: envelopePatch.updated_by,
-            uid: currentAuthUser?.uid || '',
-            deviceId: getDeviceId()
-          }, { merge: true }));
-        } catch (_) {}
-        if (writes.length) {
-          await Promise.all(writes);
-          writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: pushedAt });
+        const operations = [
+          {
+            channel: 'rtdb/timbrature_shared/app_data_v1',
+            run: async ()=>{
+              const ref = await ensureSharedAppDbRef();
+              await ref.child('updated_at').set(envelopePatch.updated_at);
+              await ref.child('updated_by').set(envelopePatch.updated_by);
+              await ref.child('reason').set(envelopePatch.reason);
+              await ref.child(`payload/${key}`).set(value);
+            }
+          },
+          {
+            channel: '_shared/global_app_data_v1',
+            run: async ()=>{
+              const docRef = await ensureSharedAppFirestoreDocRef();
+              await docRef.set(envelopePatch, { merge: true });
+            }
+          },
+          {
+            channel: 'timbrature_sync/global_app_data_v1',
+            run: async ()=>{
+              const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
+              await legacyDocRef.set({
+                ...envelopePatch,
+                updatedAt: envelopePatch.updated_at,
+                updatedBy: envelopePatch.updated_by,
+                uid: currentAuthUser?.uid || '',
+                deviceId: getDeviceId()
+              }, { merge: true });
+            }
+          }
+        ];
+        const results = await Promise.allSettled(operations.map((op)=>op.run()));
+        const successCount = results.filter((entry)=>entry.status === 'fulfilled').length;
+        if (!successCount) {
+          const details = results.map((entry, idx)=>{
+            const channel = operations[idx]?.channel || 'sconosciuto';
+            if (entry.status === 'fulfilled') return `${channel}: ok`;
+            return `${channel}: ${entry?.reason?.message || entry?.reason || 'errore sconosciuto'}`;
+          }).join(' | ');
+          throw new Error(`Impossibile sincronizzare su Firebase (${details || 'nessun canale disponibile'}).`);
         }
+        writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: pushedAt });
       }
       const nowDateISO = () => new Date().toISOString().slice(0, 10);
       const tomorrowDateISO = () => {
@@ -6697,7 +6721,7 @@ out center tags;`;
         }
         try {
           const syncedAt = new Date().toISOString();
-          await pushSharedAppPayload('manual-force-button');
+          await pushSharedAppPayload('manual-force-button', { throwOnFailure:true });
           await pullSharedAppPayloadOnce('manual-force-button');
           setFirebaseSyncState({ connected:true, lastPushAt: syncedAt, lastPullAt: syncedAt });
           writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: syncedAt, last_pull_at: syncedAt });
@@ -7589,8 +7613,9 @@ out center tags;`;
           sharedCommesseFirestoreUnsubscribe = null;
         }
       }
-      async function pushSharedAppPayload(reason = 'manual') {
+      async function pushSharedAppPayload(reason = 'manual', options = {}) {
         if (!currentAuthUser) return;
+        const throwOnFailure = Boolean(options?.throwOnFailure);
         try {
           const pushedAt = new Date().toISOString();
           const envelope = {
@@ -7645,6 +7670,7 @@ out center tags;`;
           sharedAppPendingPush = false;
         } catch (error) {
           console.warn('Sync condivisa push fallita:', error);
+          if (throwOnFailure) throw error;
         }
       }
       function scheduleSharedAppPush(reason = 'auto') {
