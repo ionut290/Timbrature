@@ -292,6 +292,7 @@
         right:16px;
         bottom:16px;
         z-index:120;
+        pointer-events:auto;
         min-height:54px;
         min-width:54px;
         border-radius:999px;
@@ -368,7 +369,7 @@
       </div>
 
       <div class="app-shell hidden" id="appShell">
-        <button type="button" id="chatFabBtn" class="chat-fab" aria-label="Apri chat interna">
+        <button type="button" id="chatFabBtn" class="chat-fab" aria-label="Apri chat interna" onclick="openChatFromFab(event)">
           💬
           <span id="chatFabBadge" class="chat-fab-badge hidden">0</span>
         </button>
@@ -5303,8 +5304,9 @@ out center tags;`;
         try { new Notification('Nuovo messaggio in chat', { body }); } catch (_) {}
         setChatLastNotifiedAt(latest.createdAt || new Date().toISOString());
       }
-      function openChatFromFab() {
-        setMenuSection('chatCard');
+      function openChatFromFab(event) {
+        if (event?.stopPropagation) event.stopPropagation();
+        setMenuSection('chatCard', { force:true });
         const input = id('chatMessageInput');
         if (input) input.focus();
       }
@@ -8094,10 +8096,11 @@ out center tags;`;
         showPrezzarioMsg('Configurazione prezzario salvata.', 'ok');
       }
 
-      function setMenuSection(panelId) {
+      function setMenuSection(panelId, options = {}) {
         if (!menuPanelIds.includes(panelId)) return;
         const allowedPanels = getAllowedPanelsForRole(currentUserRole);
-        if (allowedPanels.length && !allowedPanels.includes(panelId)) return;
+        const forceOpen = Boolean(options?.force);
+        if (!forceOpen && allowedPanels.length && !allowedPanels.includes(panelId)) return;
         activeMenuPanel = panelId;
         menuPanelIds.forEach((name)=>{
           const panel = id(name);
