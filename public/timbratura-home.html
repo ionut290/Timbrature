@@ -1449,6 +1449,9 @@
       let sharedAppPullInProgress = false;
       let sharedAppAccessSyncInProgress = false;
       let sharedAppLastAccessSyncAt = 0;
+      let sharedAppAutoSyncInProgress = false;
+      let sharedAppLastAutoSyncAt = 0;
+      let sharedAppLastAutoSyncUserKey = '';
       let firebaseCloudAutoConnectInProgress = false;
       let mainSyncStatusTicker = null;
       const SHARED_APP_LEGACY_FIRESTORE_COLLECTION = 'timbrature_sync';
@@ -6678,6 +6681,46 @@ out center tags;`;
         const message = String(error?.message || '').toLowerCase();
         return code === 'no_shared_sync_channel' || message.includes('nessun canale di sincronizzazione condivisa disponibile');
       }
+      async function runSharedSyncCycle(reason = 'manual-sync', options = {}) {
+        const pullTimeoutMs = Number(options?.pullTimeoutMs || 15000);
+        const pushTimeoutMs = Number(options?.pushTimeoutMs || 15000);
+        await promiseWithTimeout(
+          pushSharedAppPayload(reason, { throwOnFailure:true }),
+          pushTimeoutMs,
+          'Timeout durante il push dati condivisi.'
+        );
+        try {
+          await promiseWithTimeout(
+            pullSharedAppPayloadOnce(reason),
+            pullTimeoutMs,
+            'Timeout durante il pull dati condivisi.'
+          );
+          return { usedFallback:false };
+        } catch (error) {
+          if (!isNoSharedSyncChannelError(error)) throw error;
+          let syncedFromFirebaseCloud = false;
+          try {
+            if (firebaseCloudAuth?.currentUser) {
+              const pulled = await promiseWithTimeout(
+                pullFirebaseSnapshot(false),
+                pullTimeoutMs,
+                'Timeout durante il pull Cloud Firebase.'
+              );
+              syncedFromFirebaseCloud = Boolean(pulled);
+            }
+          } catch (firebaseFallbackError) {
+            console.warn('Sync: fallback su Firebase Cloud non riuscito:', firebaseFallbackError);
+          }
+          if (!syncedFromFirebaseCloud) {
+            await promiseWithTimeout(
+              pullSharedAppPayloadOnce(`${reason}:no-channel-fallback`),
+              pullTimeoutMs,
+              'Timeout durante il pull fallback condiviso.'
+            );
+          }
+          return { usedFallback:true, syncedFromFirebaseCloud };
+        }
+      }
       async function tryAutoConnectFirebaseCloud() {
         if (firebaseCloudAutoConnectInProgress) return false;
         const cache = getFirebaseCloudAuthCache();
@@ -6813,38 +6856,17 @@ out center tags;`;
         }
         try {
           const syncedAt = new Date().toISOString();
-          await promiseWithTimeout(
-            pushSharedAppPayload('manual-force-button', { throwOnFailure:true }),
-            15000,
-            'Timeout durante il push dati condivisi.'
-          );
-          await promiseWithTimeout(
-            pullSharedAppPayloadOnce('manual-force-button'),
-            15000,
-            'Timeout durante il pull dati condivisi.'
-          );
+          const result = await runSharedSyncCycle('manual-force-button');
           setFirebaseSyncState({ connected:true, lastPushAt: syncedAt, lastPullAt: syncedAt });
           writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: syncedAt, last_pull_at: syncedAt });
-          showMsg('Sincronizzazione condivisa completata.', 'ok');
+          showMsg(
+            result?.usedFallback
+              ? (result?.syncedFromFirebaseCloud ? 'Sincronizzazione completata da Cloud Firebase.' : 'Sincronizzazione completata (fallback condiviso).')
+              : 'Sincronizzazione condivisa completata.',
+            'ok'
+          );
           updateMainSyncStatusUI();
         } catch (error) {
-          if (isNoSharedSyncChannelError(error)) {
-            let syncedFromFirebaseCloud = false;
-            try {
-              if (firebaseCloudAuth?.currentUser) {
-                const pulled = await pullFirebaseSnapshot(false);
-                syncedFromFirebaseCloud = Boolean(pulled);
-              }
-            } catch (firebaseFallbackError) {
-              console.warn('Sync manuale: fallback su Firebase Cloud non riuscito:', firebaseFallbackError);
-            }
-            if (!syncedFromFirebaseCloud) {
-              await pullSharedAppPayloadOnce('manual-force-button-no-channel');
-            }
-            showMsg(syncedFromFirebaseCloud ? 'Sincronizzazione completata da Cloud Firebase.' : 'Sincronizzazione completata.', 'ok');
-            updateMainSyncStatusUI();
-            return;
-          }
           showMsg(error?.message || 'Sync manuale non riuscita.', 'err');
         } finally {
           if (syncBtn) {
@@ -8093,6 +8115,34 @@ out center tags;`;
           updateMainSyncStatusUI();
         }
       }
+      async function autoSyncOnDeviceAccess(reason = 'device-access') {
+        if (!currentAuthUser || sharedAppAutoSyncInProgress) return;
+        const userKey = String(currentAuthUser?.uid || currentAuthUser?.email || '');
+        const now = Date.now();
+        const sameUser = sharedAppLastAutoSyncUserKey === userKey;
+        if (sameUser && (now - sharedAppLastAutoSyncAt < 60000)) return;
+        sharedAppAutoSyncInProgress = true;
+        sharedAppLastAutoSyncUserKey = userKey;
+        showBackupMsg('Sincronizzazione automatica in corso…', 'ok');
+        try {
+          const syncedAt = new Date().toISOString();
+          const result = await runSharedSyncCycle(`auto:${reason}`, { pushTimeoutMs: 12000, pullTimeoutMs: 12000 });
+          setFirebaseSyncState({ connected:true, lastPushAt: syncedAt, lastPullAt: syncedAt });
+          writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: syncedAt, last_pull_at: syncedAt });
+          showBackupMsg(
+            result?.usedFallback
+              ? (result?.syncedFromFirebaseCloud ? 'Auto-sync completata da Cloud Firebase.' : 'Auto-sync completata con fallback condiviso.')
+              : 'Sincronizzazione automatica completata.',
+            'ok'
+          );
+        } catch (error) {
+          showBackupMsg(`Auto-sync non riuscita: ${error?.message || 'errore sconosciuto.'}`, 'err');
+        } finally {
+          sharedAppLastAutoSyncAt = Date.now();
+          sharedAppAutoSyncInProgress = false;
+          updateMainSyncStatusUI();
+        }
+      }
       async function ensureMainAuthReady() {
         if (appAuth) return appAuth;
         if (!window.firebase?.initializeApp) throw new Error('Firebase Auth non disponibile.');
@@ -8228,6 +8278,8 @@ out center tags;`;
           if (!user) {
             currentUserRole = 'OPERATORE';
             stopSharedAppSync();
+            sharedAppAutoSyncInProgress = false;
+            sharedAppLastAutoSyncUserKey = '';
             updateAuthUiState();
             setAppLocked(true, 'Effettua login o registrazione per accedere.');
             return;
@@ -8236,6 +8288,7 @@ out center tags;`;
           updateAuthUiState();
           applyRolePermissions();
           startSharedAppSync().catch(()=>{});
+          autoSyncOnDeviceAccess('auth-login').catch(()=>{});
           const hasBiometric = !!getBiometricCredentialId(user.uid || '');
           if (hasBiometric) {
             setAppLocked(true, 'Utente riconosciuto. Sblocca con impronta/Face ID oppure rifai login.');
@@ -8383,6 +8436,7 @@ out center tags;`;
         document.querySelectorAll('[data-menu-target]').forEach((btn)=>btn.addEventListener('click', ()=>setMenuSection(btn.dataset.menuTarget)));
         document.addEventListener('visibilitychange', ()=>{
           if (document.visibilityState === 'visible') {
+            autoSyncOnDeviceAccess('app-visible').catch(()=>{});
             syncOnAppAccess('app-visible').catch(()=>{});
           }
         });
