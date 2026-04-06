@@ -10,6 +10,8 @@
     SECRETS_SCAN_SMART_DETECTION_ENABLED = "true"
     # Keep masked Firebase API-key prefix omission for legacy scans.
     SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIza***"
+    # Ignore known Firebase declaration files that trigger false positives.
+    SECRETS_SCAN_SMART_DETECTION_OMIT_FILES = "node_modules/@firebase/analytics/dist/src/global_index.d.ts,node_modules/@firebase/app/dist/app-public.d.ts"
 
 [[redirects]]
   from = "/*"
