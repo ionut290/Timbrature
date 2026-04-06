@@ -1311,6 +1311,8 @@
       const FIREBASE_CONFIG_KEY = 'timbrature.local.firebase.config';
       const FIREBASE_SYNC_STATE_KEY = 'timbrature.local.firebase.sync.state';
       const FIREBASE_CLOUD_AUTH_CACHE_KEY = 'timbrature.local.firebase.cloud.auth.cache';
+      const LOCAL_AUTH_USERS_KEY = 'timbrature.local.auth.users';
+      const LOCAL_AUTH_SESSION_KEY = 'timbrature.local.auth.session';
       const DEVICE_ID_KEY = 'timbrature.local.device.id';
       const BIOMETRIC_CREDENTIAL_KEY = 'timbrature.local.auth.biometric.credential';
       const ACCESS_CONTROL_KEY = 'timbrature.local.access.control';
@@ -1595,6 +1597,9 @@
       let sharedAppLastAutoSyncAt = 0;
       let sharedAppLastAutoSyncUserKey = '';
       let firebaseCloudAutoConnectInProgress = false;
+      let authMode = 'firebase';
+      let localAuthAdapter = null;
+      const localAuthListeners = new Set();
       let mainSyncStatusTicker = null;
       const SHARED_APP_LEGACY_FIRESTORE_COLLECTION = 'timbrature_sync';
       let sharedAppScopeKey = '';
@@ -1602,6 +1607,126 @@
 
       const id = (x) => document.getElementById(x);
       const readJSON = (k, fallback) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? fallback; } catch (_) { return fallback; } };
+      function hasFirebaseCoreConfig(cfg={}) {
+        return Boolean(cfg.apiKey && cfg.authDomain && cfg.projectId && cfg.appId);
+      }
+      function normalizeLocalAuthUsers(input) {
+        if (!Array.isArray(input)) return [];
+        return input
+          .filter((row)=>row && typeof row === 'object')
+          .map((row)=>({
+            uid: String(row.uid || '').trim(),
+            email: String(row.email || '').trim().toLowerCase(),
+            password: String(row.password || ''),
+            displayName: String(row.displayName || '').trim(),
+            createdAt: String(row.createdAt || new Date().toISOString()),
+            updatedAt: String(row.updatedAt || new Date().toISOString())
+          }))
+          .filter((row)=>row.uid && row.email && row.password);
+      }
+      function getLocalAuthUsers() {
+        return normalizeLocalAuthUsers(readJSON(LOCAL_AUTH_USERS_KEY, []));
+      }
+      function setLocalAuthUsers(nextUsers=[]) {
+        const normalized = normalizeLocalAuthUsers(nextUsers);
+        writeJSON(LOCAL_AUTH_USERS_KEY, normalized);
+        return normalized;
+      }
+      function normalizeLocalAuthSession(input={}) {
+        return {
+          uid: String(input?.uid || '').trim(),
+          email: String(input?.email || '').trim().toLowerCase()
+        };
+      }
+      function createLocalAuthUserRecord(base={}) {
+        return {
+          uid: String(base.uid || '').trim(),
+          email: String(base.email || '').trim().toLowerCase(),
+          displayName: String(base.displayName || '').trim(),
+          async updateProfile(payload={}) {
+            const nextName = String(payload?.displayName || '').trim();
+            if (nextName) this.displayName = nextName;
+            const rows = getLocalAuthUsers();
+            const idx = rows.findIndex((row)=>row.uid === this.uid);
+            if (idx >= 0) {
+              rows[idx] = { ...rows[idx], displayName:this.displayName, updatedAt:new Date().toISOString() };
+              setLocalAuthUsers(rows);
+            }
+            if (localAuthAdapter) {
+              localAuthAdapter.currentUser = this;
+              localAuthAdapter._emitAuthChange();
+            }
+          }
+        };
+      }
+      function ensureLocalAuthAdapter() {
+        if (localAuthAdapter) return localAuthAdapter;
+        authMode = 'local';
+        const session = normalizeLocalAuthSession(readJSON(LOCAL_AUTH_SESSION_KEY, {}));
+        const users = getLocalAuthUsers();
+        const matched = users.find((row)=>row.uid === session.uid && row.email === session.email) || null;
+        localAuthAdapter = {
+          app: null,
+          currentUser: matched ? createLocalAuthUserRecord(matched) : null,
+          _emitAuthChange() {
+            localAuthListeners.forEach((listener)=>{
+              try { listener(this.currentUser); } catch (_) {}
+            });
+          },
+          onAuthStateChanged(callback) {
+            if (typeof callback !== 'function') return ()=>{};
+            localAuthListeners.add(callback);
+            callback(this.currentUser);
+            return ()=>localAuthListeners.delete(callback);
+          },
+          async signInWithEmailAndPassword(email, password) {
+            const normalizedEmail = String(email || '').trim().toLowerCase();
+            const normalizedPassword = String(password || '');
+            const rows = getLocalAuthUsers();
+            const found = rows.find((row)=>row.email === normalizedEmail);
+            if (!found || found.password !== normalizedPassword) {
+              const err = new Error('Email o password non corretti.');
+              err.code = 'auth/invalid-credential';
+              throw err;
+            }
+            this.currentUser = createLocalAuthUserRecord(found);
+            writeJSON(LOCAL_AUTH_SESSION_KEY, { uid:this.currentUser.uid, email:this.currentUser.email });
+            this._emitAuthChange();
+            return { user: this.currentUser };
+          },
+          async createUserWithEmailAndPassword(email, password) {
+            const normalizedEmail = String(email || '').trim().toLowerCase();
+            const normalizedPassword = String(password || '');
+            const rows = getLocalAuthUsers();
+            if (rows.some((row)=>row.email === normalizedEmail)) {
+              const err = new Error('Esiste già un account registrato con questa email.');
+              err.code = 'auth/email-already-in-use';
+              throw err;
+            }
+            const nowIso = new Date().toISOString();
+            const stored = {
+              uid: `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+              email: normalizedEmail,
+              password: normalizedPassword,
+              displayName: '',
+              createdAt: nowIso,
+              updatedAt: nowIso
+            };
+            rows.push(stored);
+            setLocalAuthUsers(rows);
+            this.currentUser = createLocalAuthUserRecord(stored);
+            writeJSON(LOCAL_AUTH_SESSION_KEY, { uid:this.currentUser.uid, email:this.currentUser.email });
+            this._emitAuthChange();
+            return { user: this.currentUser };
+          },
+          async signOut() {
+            this.currentUser = null;
+            writeJSON(LOCAL_AUTH_SESSION_KEY, { uid:'', email:'' });
+            this._emitAuthChange();
+          }
+        };
+        return localAuthAdapter;
+      }
       function normalizeSharedScopeSegment(value = '') {
         return String(value || '')
           .normalize('NFD')
@@ -8714,12 +8839,13 @@ ${JSON.stringify(context)}`;
         }
       }
       async function ensureMainAuthReady() {
-        if (appAuth) return appAuth;
-        if (!window.firebase?.initializeApp) throw new Error('Firebase Auth non disponibile.');
         const cfg = sanitizeFirebaseConfig(getFirebaseConfigState());
-        if (!cfg.apiKey || !cfg.authDomain || !cfg.projectId || !cfg.appId) {
-          throw new Error('Configurazione Firebase mancante: apri Impostazioni cloud e inserisci API key, Auth domain, Project ID e App ID.');
+        if (!hasFirebaseCoreConfig(cfg) || !window.firebase?.initializeApp) {
+          appAuth = ensureLocalAuthAdapter();
+          return appAuth;
         }
+        authMode = 'firebase';
+        if (appAuth && appAuth !== localAuthAdapter) return appAuth;
         const appName = 'timbrature-auth-app';
         let existing = window.firebase.apps?.find((entry)=>entry?.name === appName) || null;
         if (existing) {
@@ -8802,6 +8928,12 @@ ${JSON.stringify(context)}`;
       }
       function friendlyAuthErrorMessage(error) {
         const code = String(error?.code || error?.message || '').toLowerCase();
+        if (code.includes('auth/invalid-credential')) {
+          return 'Credenziali non valide. Controlla email e password.';
+        }
+        if (code.includes('auth/email-already-in-use')) {
+          return 'Esiste già un account con questa email.';
+        }
         if (code.includes('auth/invalid-api-key')) {
           return 'API key Firebase non valida. Vai in Impostazioni cloud e aggiorna i parametri Firebase del progetto corretto.';
         }
@@ -8857,7 +8989,7 @@ ${JSON.stringify(context)}`;
           ensureRoleForCurrentUser();
           updateAuthUiState();
           applyRolePermissions();
-          startSharedAppSync().catch(()=>{});
+          if (authMode === 'firebase') startSharedAppSync().catch(()=>{});
           autoSyncOnDeviceAccess('auth-login').catch(()=>{});
           const hasBiometric = !!getBiometricCredentialId(user.uid || '');
           if (hasBiometric) {
@@ -8867,7 +8999,7 @@ ${JSON.stringify(context)}`;
           }
           showAuthMsg('Login effettuato con successo.', 'ok');
           setAppLocked(false);
-          syncOnAppAccess('auth-state').catch(()=>{});
+          if (authMode === 'firebase') syncOnAppAccess('auth-state').catch(()=>{});
         });
         authReady = true;
       }
