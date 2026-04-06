@@ -354,7 +354,6 @@
               <details class="menu-group">
                 <summary>Impostazioni account e app</summary>
                 <div class="menu-group-links">
-                  <button type="button" class="menu-link" data-menu-action="go-pause-settings">Pausa pranzo e colazione</button>
                   <button type="button" class="menu-link" data-menu-target="programCard">Impostazioni contratto</button>
                   <button type="button" class="menu-link" data-menu-target="dataHubCard">Dati app</button>
                   <button type="button" class="menu-link" data-menu-target="backupCard">Backup Google Drive</button>
@@ -1181,6 +1180,28 @@
           <div id="fuelMap" class="fuel-map"></div>
           <ul id="fuelStationsList" class="fuel-list"></ul>
         </div>
+
+        <div class="card hidden" id="pastiCard">
+          <h2>Pranzo e colazione</h2>
+          <p class="small">Trova ristoranti o bar vicini che accettano buoni pasto Day, ordinati dal più vicino al più lontano.</p>
+          <div class="grid">
+            <label>Servizio
+              <select id="mealServiceType">
+                <option value="pranzo">Pranzo (solo ristoranti)</option>
+                <option value="colazione">Colazione (ristoranti + bar)</option>
+              </select>
+            </label>
+            <label>Raggio ricerca (km)
+              <input type="number" id="mealRadiusKm" min="1" max="25" step="1" value="8" />
+            </label>
+          </div>
+          <div class="inline-actions">
+            <button type="button" id="findMealPlacesBtn">Trova locali vicini</button>
+          </div>
+          <p id="mealEsito" class="msg"></p>
+          <div id="mealMap" class="fuel-map"></div>
+          <ul id="mealPlacesList" class="fuel-list"></ul>
+        </div>
       </div>
     </div>
     <datalist id="memberSuggestionsList"></datalist>
@@ -1273,6 +1294,7 @@
         { panel:'prezzarioCard', label:'Prezzario' },
         { panel:'createPreventivoCard', label:'Crea preventivo' },
         { panel:'carburanteCard', label:'Carburante' },
+        { panel:'pastiCard', label:'Pranzo / colazione' },
         { panel:'dataHubCard', label:'Dati app' },
         { panel:'backupCard', label:'Backup Google Drive' },
         { panel:'userBox', label:'Profilo' },
@@ -1280,8 +1302,8 @@
       ];
       const DEFAULT_ROLE_PERMISSIONS = {
         ADMIN: MENU_PERMISSION_ITEMS.map((item)=>item.panel),
-        CAPOSQUADRA: ['timbratureCard', 'lavoroCard', 'teamCard', 'storicoCard', 'calendarioCard', 'chatCard', 'documentiCard', 'carburanteCard', 'userBox'],
-        OPERATORE: ['timbratureCard', 'lavoroCard', 'storicoCard', 'calendarioCard', 'chatCard', 'documentiCard', 'carburanteCard', 'userBox'],
+        CAPOSQUADRA: ['timbratureCard', 'lavoroCard', 'teamCard', 'storicoCard', 'calendarioCard', 'chatCard', 'documentiCard', 'carburanteCard', 'pastiCard', 'userBox'],
+        OPERATORE: ['timbratureCard', 'lavoroCard', 'storicoCard', 'calendarioCard', 'chatCard', 'documentiCard', 'carburanteCard', 'pastiCard', 'userBox'],
         BACKOFFICE: ['lavoroCard', 'storicoCard', 'calendarioCard', 'chatCard', 'documentiCard', 'prezzarioCard', 'createPreventivoCard', 'dataHubCard', 'backupCard', 'userBox']
       };
       const SHARED_DATA_HUB_KEYS = [
@@ -1466,6 +1488,8 @@
       let preventivoDraftRows = [];
       let fuelMap = null;
       let fuelMarkersLayer = null;
+      let mealMap = null;
+      let mealMarkersLayer = null;
       let dataHubCantieriMap = null;
       let dataHubCantieriLayer = null;
       let lavoroCantieriMap = null;
@@ -2401,6 +2425,113 @@ out center tags;`;
         const preferred = rows.filter((row)=>isPreferredFuelBrand(row.tags));
         return (preferred.length ? preferred : rows).slice(0, 25);
       }
+      function showMealMsg(message = '', type = 'ok') {
+        const target = id('mealEsito');
+        if (!target) return;
+        target.className = `msg ${type}`;
+        target.textContent = message;
+      }
+      function amenityAllowedForMeal(tags = {}, serviceType = 'pranzo') {
+        const amenity = String(tags?.amenity || '').trim().toLowerCase();
+        if (serviceType === 'colazione') return ['restaurant', 'cafe', 'bar'].includes(amenity);
+        return amenity === 'restaurant';
+      }
+      function acceptsDayMealVoucher(tags = {}) {
+        const yesValues = ['yes', 'true', '1'];
+        const containsDay = (value='')=>String(value || '').toLowerCase().includes('day');
+        const explicitDayKeys = [
+          'payment:day',
+          'payment:meal_voucher:day',
+          'meal_voucher:day',
+          'payment:ticket_restaurant:day',
+          'payment:buoni_pasto_day'
+        ];
+        if (explicitDayKeys.some((key)=>yesValues.includes(String(tags?.[key] || '').toLowerCase()))) return true;
+        const genericVoucherAccepted = yesValues.includes(String(tags?.['payment:meal_voucher'] || '').toLowerCase())
+          || yesValues.includes(String(tags?.['payment:ticket_restaurant'] || '').toLowerCase());
+        if (genericVoucherAccepted && (
+          containsDay(tags?.['payment:meal_voucher:brands'])
+          || containsDay(tags?.['payment:ticket_restaurant:brands'])
+          || containsDay(tags?.meal_vouchers)
+          || containsDay(tags?.voucher)
+          || containsDay(tags?.payment))
+        ) return true;
+        return false;
+      }
+      async function fetchNearbyMealPlaces(lat, lon, radiusKm=8, serviceType='pranzo') {
+        const radiusM = Math.max(1000, Math.min(Number(radiusKm || 8) * 1000, 25000));
+        const query = `
+[out:json][timeout:25];
+(
+  node["amenity"~"restaurant|cafe|bar"](around:${radiusM},${lat},${lon});
+  way["amenity"~"restaurant|cafe|bar"](around:${radiusM},${lat},${lon});
+  relation["amenity"~"restaurant|cafe|bar"](around:${radiusM},${lat},${lon});
+);
+out center tags;`;
+        const endpoints = [
+          'https://overpass-api.de/api/interpreter',
+          'https://overpass.kumi.systems/api/interpreter',
+          'https://overpass.openstreetmap.fr/api/interpreter'
+        ];
+        const fetchWithTimeout = async (url, options={}, timeoutMs=7500)=>{
+          const controller = new AbortController();
+          const timer = setTimeout(()=>controller.abort(), timeoutMs);
+          try {
+            return await fetch(url, { ...options, signal: controller.signal });
+          } finally {
+            clearTimeout(timer);
+          }
+        };
+        const fetchEndpointPayload = async (endpoint='')=>{
+          const directRes = await fetchWithTimeout(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+            body: query
+          });
+          if (directRes.ok) return directRes.json();
+          const formRes = await fetchWithTimeout(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            body: `data=${encodeURIComponent(query)}`
+          });
+          if (formRes.ok) return formRes.json();
+          throw new Error(`Endpoint Overpass non disponibile (${endpoint})`);
+        };
+        let payload = null;
+        let lastError = null;
+        try {
+          payload = await Promise.any(endpoints.map((endpoint)=>fetchEndpointPayload(endpoint)));
+        } catch (error) {
+          lastError = error;
+        }
+        if (!payload) {
+          console.warn('Overpass non disponibile (pasti):', lastError);
+          throw new Error('Servizio mappa ristoranti/bar non disponibile ora. Riprova tra poco.');
+        }
+        const elements = Array.isArray(payload?.elements) ? payload.elements : [];
+        return elements
+          .map((el)=>{
+            const placeLat = Number(el.lat ?? el.center?.lat);
+            const placeLon = Number(el.lon ?? el.center?.lon);
+            if (!Number.isFinite(placeLat) || !Number.isFinite(placeLon)) return null;
+            const tags = el.tags || {};
+            return {
+              id: `${el.type}-${el.id}`,
+              name: tags.name || tags.brand || 'Locale',
+              amenity: String(tags.amenity || '').toLowerCase(),
+              address: [tags['addr:street'], tags['addr:housenumber'], tags['addr:city']].filter(Boolean).join(', '),
+              lat: placeLat,
+              lon: placeLon,
+              tags,
+              distanceKm: haversineKm(lat, lon, placeLat, placeLon)
+            };
+          })
+          .filter(Boolean)
+          .filter((row)=>amenityAllowedForMeal(row.tags, serviceType))
+          .filter((row)=>acceptsDayMealVoucher(row.tags))
+          .sort((a,b)=>a.distanceKm - b.distanceKm)
+          .slice(0, 30);
+      }
       function openGoogleMapsNavigation(lat, lon) {
         const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${lat},${lon}`)}&travelmode=driving`;
         window.open(url, '_blank', 'noopener,noreferrer');
@@ -2677,6 +2808,86 @@ out center tags;`;
             openGoogleMapsNavigation(target.lat, target.lon);
           });
         });
+      }
+      function renderMealPlacesMap(userLat, userLon, places=[]) {
+        if (!window.L?.map) return;
+        const mapEl = id('mealMap');
+        if (!mapEl) return;
+        if (!mealMap) {
+          mealMap = window.L.map(mapEl).setView([userLat, userLon], 13);
+          window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(mealMap);
+          mealMarkersLayer = window.L.layerGroup().addTo(mealMap);
+        } else {
+          mealMap.setView([userLat, userLon], 13);
+          mealMarkersLayer?.clearLayers();
+        }
+        const userIcon = window.L.divIcon({
+          className: 'meal-user-worker-icon',
+          html: '<div style="background:#0f766e;color:#fff;border-radius:999px;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);">👷</div>',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
+        });
+        const placeIcon = window.L.divIcon({
+          className: 'meal-place-icon',
+          html: '<div style="background:#ea580c;color:#fff;border-radius:999px;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3);">🍽️</div>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16]
+        });
+        mealMarkersLayer.addLayer(window.L.marker([userLat, userLon], { icon: userIcon }).bindPopup('La tua posizione (operatore)'));
+        places.forEach((place)=>{
+          const marker = window.L.marker([place.lat, place.lon], { icon: placeIcon });
+          marker.bindPopup(`<strong>${escapeHtml(place.name)}</strong><br>Tipo: ${escapeHtml(place.amenity || '-')}`);
+          marker.on('click', ()=>openGoogleMapsNavigation(place.lat, place.lon));
+          mealMarkersLayer.addLayer(marker);
+        });
+      }
+      function renderMealPlacesList(places = []) {
+        const list = id('mealPlacesList');
+        if (!list) return;
+        if (!places.length) {
+          list.innerHTML = '<li class="small">Nessun locale compatibile trovato (buoni pasto Day) nel raggio indicato.</li>';
+          return;
+        }
+        list.innerHTML = places.map((place)=>`
+          <li class="fuel-item">
+            <div>
+              <h4>${escapeHtml(place.name)}</h4>
+              <p>${escapeHtml(place.address || 'Indirizzo non disponibile')}</p>
+              <p>Tipo: ${escapeHtml(place.amenity || '-')} • Distanza: ${place.distanceKm.toFixed(2)} km</p>
+            </div>
+            <button type="button" class="btn-small" data-meal-nav="${escapeHtml(place.id)}">Naviga</button>
+          </li>
+        `).join('');
+        list.querySelectorAll('[data-meal-nav]').forEach((btn)=>{
+          btn.addEventListener('click', ()=>{
+            const target = places.find((place)=>place.id === btn.dataset.mealNav);
+            if (!target) return;
+            openGoogleMapsNavigation(target.lat, target.lon);
+          });
+        });
+      }
+      async function findNearbyMealPlaces() {
+        const serviceType = id('mealServiceType')?.value || 'pranzo';
+        const radiusKm = Number(id('mealRadiusKm')?.value || 8);
+        showMealMsg(`Ricerca ${serviceType} con buoni Day in corso...`, 'ok');
+        try {
+          const position = await getCurrentPositionSafe();
+          const { lat, lon } = extractLatLon(position);
+          await ensureLeafletLoaded();
+          const places = await fetchNearbyMealPlaces(lat, lon, radiusKm, serviceType);
+          renderMealPlacesMap(lat, lon, places);
+          renderMealPlacesList(places);
+          showMealMsg(`Trovati ${places.length} locali compatibili ordinati dal più vicino al più lontano.`, places.length ? 'ok' : 'err');
+        } catch (error) {
+          const geoCode = Number(error?.code);
+          if (geoCode === 1) showMealMsg('Permesso posizione negato. Consenti la geolocalizzazione e riprova.', 'err');
+          else if (geoCode === 2) showMealMsg('Posizione non disponibile al momento.', 'err');
+          else if (geoCode === 3) showMealMsg('Timeout geolocalizzazione. Riprova tra qualche secondo.', 'err');
+          else showMealMsg(error.message || 'Ricerca locali non riuscita.', 'err');
+        }
       }
       async function findNearbyFuelStations() {
         const fuelType = id('fuelType')?.value || 'diesel';
@@ -8570,6 +8781,7 @@ out center tags;`;
         id('addPreventivoRowBtn').addEventListener('click', ()=>addPreventivoRow());
         id('finalizePreventivoBtn').addEventListener('click', finalizePreventivo);
         if (id('findFuelStationsBtn')) id('findFuelStationsBtn').addEventListener('click', findNearbyFuelStations);
+        if (id('findMealPlacesBtn')) id('findMealPlacesBtn').addEventListener('click', findNearbyMealPlaces);
         if (id('saveCatalogEntryBtn')) id('saveCatalogEntryBtn').addEventListener('click', saveCatalogEntry);
         if (id('exportAllDataExcelBtn')) id('exportAllDataExcelBtn').addEventListener('click', exportAllAppDataExcel);
         if (id('saveDataHubCantiereBtn')) id('saveDataHubCantiereBtn').addEventListener('click', saveCantiereFromDataHubForm);
