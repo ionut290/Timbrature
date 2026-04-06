@@ -62,9 +62,8 @@
       .service-subtotal { margin:2px 0 0; font-size:13px; color:#475569; }
       .setup-box { margin-top:10px; border:1px solid #bfdbfe; background:#eff6ff; border-radius:10px; padding:10px; }
       .app-shell { position:relative; }
-      .top-menu { display:flex; justify-content:flex-end; margin:8px 0 10px; }
-      .kebab-btn { width:44px; min-width:44px; padding:0; border-radius:999px; font-size:24px; line-height:1; background:var(--secondary); }
-      .left-menu { width:min(280px, calc(100vw - 24px)); position:absolute; right:0; top:52px; z-index:20; margin:0; }
+      .top-menu { display:flex; justify-content:flex-start; margin:8px 0 10px; }
+      .left-menu { width:100%; position:relative; right:auto; top:auto; z-index:1; margin:0; }
       .left-menu h3 { margin:0 0 10px; font-size:16px; }
       .menu-links { display:flex; flex-direction:column; gap:8px; }
       .menu-link { background:#e2e8f0; color:#0f172a; text-align:left; }
@@ -294,8 +293,7 @@
 
       <div class="app-shell hidden" id="appShell">
         <div class="top-menu" id="topMenuBar">
-          <button type="button" class="kebab-btn" id="menuToggleBtn" aria-label="Apri menu" aria-expanded="false">⋮</button>
-          <aside class="card left-menu hidden" id="leftMenu">
+          <aside class="card left-menu" id="leftMenu">
             <h3>Menu</h3>
             <div class="menu-links">
               <button type="button" class="menu-link menu-link-external" data-menu-action="go-app-timbratura">Timbratura (app)</button>
@@ -7729,7 +7727,7 @@ out center tags;`;
           }
           try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
-            const snap = await legacyCollection.limit(20).get();
+            const snap = await legacyCollection.orderBy('updated_at', 'desc').limit(20).get();
             const docs = (snap?.docs || [])
               .map((doc)=>({
                 docId: doc?.id || '',
@@ -7840,6 +7838,7 @@ out center tags;`;
           try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
             sharedAppLegacyFirestoreUnsubscribe = legacyCollection
+              .orderBy('updated_at', 'desc')
               .limit(20)
               .onSnapshot((querySnap)=>{
                 const docs = (querySnap?.docs || [])
