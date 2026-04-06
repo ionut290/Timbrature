@@ -293,7 +293,8 @@
 
       <div class="app-shell hidden" id="appShell">
         <div class="top-menu" id="topMenuBar">
-          <aside class="card left-menu" id="leftMenu">
+          <button type="button" class="kebab-btn" id="menuToggleBtn" aria-label="Apri menu" aria-expanded="false">⋮</button>
+          <aside class="card left-menu hidden" id="leftMenu" style="display:none;" aria-hidden="true">
             <h3>Menu</h3>
             <div class="menu-links">
               <button type="button" class="menu-link menu-link-external" data-menu-action="go-app-timbratura">Timbratura (app)</button>
@@ -7334,7 +7335,11 @@ out center tags;`;
         const menuEl = id('leftMenu');
         const toggleBtn = id('menuToggleBtn');
         menuOpen = !!open;
-        if (menuEl) menuEl.classList.toggle('hidden', !menuOpen);
+        if (menuEl) {
+          menuEl.classList.toggle('hidden', !menuOpen);
+          menuEl.style.display = menuOpen ? 'block' : 'none';
+          menuEl.setAttribute('aria-hidden', menuOpen ? 'false' : 'true');
+        }
         if (toggleBtn) toggleBtn.setAttribute('aria-expanded', menuOpen ? 'true' : 'false');
       }
       function updateFocusMode() {
@@ -8173,6 +8178,7 @@ out center tags;`;
         if (!id('customGroupsContainer').children.length) setCustomGroups([{ hours:7, days:'Lun,Mar,Mer,Gio,Ven' }]);
         applySimpleWeeklyPlan();
         applyDefaultBreakForDate(id('data').value || nowDateISO(), true);
+        setMenuOpen(false);
         if (id('menuToggleBtn')) id('menuToggleBtn').addEventListener('click', (e)=>{ e.stopPropagation(); setMenuOpen(!menuOpen); });
         if (id('leftMenu')) id('leftMenu').addEventListener('click', (e)=>e.stopPropagation());
         document.addEventListener('click', ()=>menuOpen && setMenuOpen(false));
