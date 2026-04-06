@@ -616,8 +616,9 @@
               <button type="button" id="confirmClockInSetupBtn">Conferma entrata</button>
             </div>
           </div>
-          <div id="cantiereSwapWrap" style="margin-top:10px; max-width:170px;">
+          <div id="cantiereSwapWrap" style="margin-top:10px; max-width:340px; display:flex; gap:8px; flex-wrap:wrap;">
             <button type="button" class="secondary swap-btn" id="splitCantiereBtn"><span class="icon">⇄</span><span class="label">Cambia cantiere</span></button>
+            <button type="button" class="secondary btn-small" id="forceSharedSyncBtn">🔄 Sync adesso</button>
           </div>
           <p id="splitSummaryText" class="split-summary force-hidden">Cantieri di oggi: -</p>
           <div class="setup-box hidden force-hidden" id="splitCantiereForm">
@@ -6642,6 +6643,20 @@ out center tags;`;
         }
         updateFirebaseSyncStatusUI();
       }
+      async function forceSharedSyncNow() {
+        if (!currentAuthUser) {
+          showMsg('Effettua prima il login per sincronizzare.', 'err');
+          return;
+        }
+        try {
+          await pushSharedAppPayload('manual-force-button');
+          await pullSharedAppPayloadOnce('manual-force-button');
+          showMsg('Sincronizzazione condivisa completata.', 'ok');
+          updateMainSyncStatusUI();
+        } catch (error) {
+          showMsg(error?.message || 'Sync manuale non riuscita.', 'err');
+        }
+      }
       function buildBackupPayload() {
         return {
           exportedAt: new Date().toISOString(),
@@ -8210,6 +8225,7 @@ out center tags;`;
           setFirebaseCloudAuthCache({ ...cache, remember, password: remember ? cache.password : '' });
         });
         if (id('toggleFirebaseLiveSyncBtn')) id('toggleFirebaseLiveSyncBtn').addEventListener('click', toggleFirebaseLiveSync);
+        if (id('forceSharedSyncBtn')) id('forceSharedSyncBtn').addEventListener('click', forceSharedSyncNow);
         if (id('installAppBtn')) id('installAppBtn').addEventListener('click', installPwaApp);
         if (id('addTeamCommessaRowBtn')) id('addTeamCommessaRowBtn').addEventListener('click', ()=>addTeamCommessaRow());
         if (id('addTeamMemberBtn')) id('addTeamMemberBtn').addEventListener('click', ()=>addTeamMember());
