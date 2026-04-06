@@ -7546,7 +7546,8 @@ out center tags;`;
                 docId: doc?.id || '',
                 normalized: normalizeLegacySharedEnvelope(doc?.data?.() || {}, doc?.id || '')
               }))
-              .filter((entry)=>entry.normalized?.payload);
+              .filter((entry)=>entry.normalized?.payload)
+              .sort((a, b)=>String(b?.normalized?.updated_at || '').localeCompare(String(a?.normalized?.updated_at || '')));
             for (const entry of docs) {
               const normalized = entry.normalized;
               if (!normalized) continue;
@@ -7617,7 +7618,8 @@ out center tags;`;
               .onSnapshot((querySnap)=>{
                 const docs = (querySnap?.docs || [])
                   .map((docSnap)=>normalizeLegacySharedEnvelope(docSnap?.data?.() || {}, docSnap?.id || ''))
-                  .filter((entry)=>entry?.payload);
+                  .filter((entry)=>entry?.payload)
+                  .sort((a, b)=>String(b?.updated_at || '').localeCompare(String(a?.updated_at || '')));
                 for (const normalized of docs) {
                   if (!normalized) continue;
                   if (applyIncomingSharedPayloadEnvelope(normalized, 'live-firestore-legacy')) break;
