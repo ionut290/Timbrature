@@ -1792,6 +1792,9 @@
         if (SHARED_DATA_HUB_KEYS.includes(k) && currentAuthUser) {
           syncDataHubKeyToCloud(k, nextValue).catch((error)=>{
             console.warn(`Sync cloud immediata fallita (${k}):`, error);
+            if (isNoSharedSyncChannelError(error)) {
+              showBackupMsg('Nessun canale cloud disponibile (Firestore/RTDB). Verifica connessione e permessi Firebase.', 'err');
+            }
           });
           if (getFirebaseSyncState().connected && firebaseCloudAuth?.currentUser && firebaseCloudRtdb) {
             pushFirebaseSnapshot().catch((error)=>{
@@ -1803,7 +1806,11 @@
         if (!applyingSharedAppPayload && SHARED_APP_KEYS.includes(k)) {
           if (!sharedAppReady) sharedAppPendingPush = true;
           if (currentAuthUser && sharedAppReady) {
-            pushSharedAppPayload(`immediate:${k}`).catch(()=>{});
+            pushSharedAppPayload(`immediate:${k}`, { throwOnFailure:true }).catch((error)=>{
+              if (isNoSharedSyncChannelError(error)) {
+                showBackupMsg('Nessun canale condiviso disponibile (Firestore/RTDB). Impossibile sincronizzare le modifiche locali.', 'err');
+              }
+            });
           } else {
             scheduleSharedAppPush(`writeJSON:${k}`);
           }
@@ -1825,6 +1832,36 @@
             });
         });
       }
+      function compactSyncError(error) {
+        if (!error) return null;
+        const rawStack = typeof error?.stack === 'string' ? error.stack : '';
+        const stack = rawStack ? rawStack.split('\n').slice(0, 3).join('\n') : '';
+        return {
+          code: String(error?.code || error?.name || 'UNKNOWN_ERROR'),
+          message: String(error?.message || 'Errore sconosciuto'),
+          ...(stack ? { stack } : {})
+        };
+      }
+      function buildSyncWriteReport(operation = 'unknown') {
+        return {
+          operation,
+          channels: {
+            firestore: { attempted:false, ok:false, error:null },
+            rtdb: { attempted:false, ok:false, error:null }
+          },
+          finalChannel: '',
+          timestamp: new Date().toISOString()
+        };
+      }
+      function buildNoChannelSyncError(operation, report) {
+        const detail = JSON.stringify(report);
+        const error = new Error(`Nessun canale di sincronizzazione disponibile. Dettaglio tecnico: ${detail}`);
+        error.code = 'NO_SHARED_SYNC_CHANNEL';
+        error.syncReport = report;
+        error.syncReportSerialized = detail;
+        error.operation = operation;
+        return error;
+      }
       async function syncDataHubKeyToCloud(key, value) {
         if (!currentAuthUser) return;
         const pushedAt = new Date().toISOString();
@@ -1834,47 +1871,36 @@
           reason: `data-hub:${key}`,
           payload: { [key]: value }
         };
-        const operations = [
-          {
-            channel: 'rtdb/timbrature_shared/app_data_v1',
-            run: async ()=>{
-              const ref = await ensureSharedAppDbRef();
-              await ref.child('updated_at').set(envelopePatch.updated_at);
-              await ref.child('updated_by').set(envelopePatch.updated_by);
-              await ref.child('reason').set(envelopePatch.reason);
-              await ref.child(`payload/${key}`).set(value);
-            }
-          },
-          {
-            channel: '_shared/global_app_data_v1',
-            run: async ()=>{
-              const docRef = await ensureSharedAppFirestoreDocRef();
-              await docRef.set(envelopePatch, { merge: true });
-            }
-          },
-          {
-            channel: 'timbrature_sync/global_app_data_v1',
-            run: async ()=>{
-              const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
-              await legacyDocRef.set({
-                ...envelopePatch,
-                updatedAt: envelopePatch.updated_at,
-                updatedBy: envelopePatch.updated_by,
-                uid: currentAuthUser?.uid || '',
-                deviceId: getDeviceId()
-              }, { merge: true });
-            }
+        const report = buildSyncWriteReport(`syncDataHubKeyToCloud:${key}`);
+        report.channels.firestore.attempted = true;
+        report.channels.rtdb.attempted = true;
+        try {
+          const docRef = await ensureSharedAppFirestoreDocRef();
+          await docRef.set(envelopePatch, { merge: true });
+          const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
+          await legacyDocRef.set({
+            ...envelopePatch,
+            updatedAt: envelopePatch.updated_at,
+            updatedBy: envelopePatch.updated_by,
+            uid: currentAuthUser?.uid || '',
+            deviceId: getDeviceId()
+          }, { merge: true });
+          report.channels.firestore.ok = true;
+          report.finalChannel = 'firestore';
+        } catch (firestoreError) {
+          report.channels.firestore.error = compactSyncError(firestoreError);
+          try {
+            const ref = await ensureSharedAppDbRef();
+            await ref.child('updated_at').set(envelopePatch.updated_at);
+            await ref.child('updated_by').set(envelopePatch.updated_by);
+            await ref.child('reason').set(envelopePatch.reason);
+            await ref.child(`payload/${key}`).set(value);
+            report.channels.rtdb.ok = true;
+            report.finalChannel = 'rtdb';
+          } catch (rtdbError) {
+            report.channels.rtdb.error = compactSyncError(rtdbError);
+            throw buildNoChannelSyncError(`syncDataHubKeyToCloud:${key}`, report);
           }
-        ];
-        const results = await Promise.allSettled(operations.map((op)=>op.run()));
-        const successCount = results.filter((entry)=>entry.status === 'fulfilled').length;
-        if (!successCount) {
-          const details = results.map((entry, idx)=>{
-            const channel = operations[idx]?.channel || 'sconosciuto';
-            if (entry.status === 'fulfilled') return `${channel}: ok`;
-            return `${channel}: ${entry?.reason?.message || entry?.reason || 'errore sconosciuto'}`;
-          }).join(' | ');
-          throw new Error(`Impossibile sincronizzare su Firebase (${details || 'nessun canale disponibile'}).`);
         }
         writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: pushedAt });
       }
@@ -2372,7 +2398,11 @@
       function getMasterData() { return readJSON(MASTER_DATA_KEY, { vehicles:[], equipment:[], colleagues:[], commesse:[] }); }
       function triggerImmediateSharedBroadcast(reason = 'manual-update') {
         if (!currentAuthUser || !sharedAppReady) return;
-        pushSharedAppPayload(reason).catch(()=>{});
+        pushSharedAppPayload(reason, { throwOnFailure:true }).catch((error)=>{
+          if (isNoSharedSyncChannelError(error)) {
+            showBackupMsg('Nessun canale condiviso disponibile (Firestore/RTDB). Aggiornamento non propagato.', 'err');
+          }
+        });
       }
       function setMasterData(v) {
         writeJSON(MASTER_DATA_KEY, v);
@@ -5407,7 +5437,11 @@ out center tags;`;
         const localRows = normalizeChatRows([payload, ...getChatMessagesLocal()]);
         setChatMessagesLocal(localRows);
         renderChatMessages(localRows);
-        pushSharedAppPayload('chat-local-push').catch(()=>{});
+        pushSharedAppPayload('chat-local-push', { throwOnFailure:true }).catch((error)=>{
+          if (isNoSharedSyncChannelError(error)) {
+            showChatMsg('Messaggio salvato solo in locale: nessun canale cloud condiviso disponibile (Firestore/RTDB).', 'err');
+          }
+        });
         input.value = '';
         const cloud = resolveChatCloudContext();
         if (!cloud) {
@@ -7413,11 +7447,7 @@ out center tags;`;
             console.warn('Sync: fallback su Firebase Cloud non riuscito:', firebaseFallbackError);
           }
           if (!syncedFromFirebaseCloud) {
-            await promiseWithTimeout(
-              pullSharedAppPayloadOnce(`${reason}:no-channel-fallback`),
-              pullTimeoutMs,
-              'Timeout durante il pull fallback condiviso.'
-            );
+            throw error;
           }
           return { usedFallback:true, syncedFromFirebaseCloud };
         }
@@ -7568,7 +7598,11 @@ out center tags;`;
           );
           updateMainSyncStatusUI();
         } catch (error) {
-          showMsg(error?.message || 'Sync manuale non riuscita.', 'err');
+          if (isNoSharedSyncChannelError(error)) {
+            showMsg('Sync manuale non riuscita: nessun canale cloud condiviso disponibile (Firestore/RTDB).', 'err');
+          } else {
+            showMsg(error?.message || 'Sync manuale non riuscita.', 'err');
+          }
         } finally {
           if (syncBtn) {
             syncBtn.disabled = false;
@@ -8505,22 +8539,12 @@ out center tags;`;
             reason,
             payload: buildSharedAppPayload()
           };
-          let pushed = false;
-          try {
-            const ref = await ensureSharedAppDbRef();
-            await ref.set(envelope);
-            pushed = true;
-          } catch (rtdbError) {
-            console.warn('Sync condivisa RTDB push fallita, provo Firestore fallback:', rtdbError);
-          }
+          const report = buildSyncWriteReport(`pushSharedAppPayload:${reason}`);
+          report.channels.firestore.attempted = true;
+          report.channels.rtdb.attempted = true;
           try {
             const docRef = await ensureSharedAppFirestoreDocRef();
             await docRef.set(envelope, { merge: true });
-            pushed = true;
-          } catch (firestoreError) {
-            console.warn('Sync condivisa Firestore fallback push fallita:', firestoreError);
-          }
-          try {
             const legacyDocRef = await ensureSharedAppLegacyFirestoreDocRef();
             await legacyDocRef.set({
               ...envelope,
@@ -8529,11 +8553,6 @@ out center tags;`;
               uid: syncIdentity?.uid || '',
               deviceId: getDeviceId()
             }, { merge: true });
-            pushed = true;
-          } catch (legacyFirestoreError) {
-            console.warn('Sync condivisa Firestore legacy doc condiviso fallita:', legacyFirestoreError);
-          }
-          try {
             const legacyCollection = await ensureSharedAppLegacyFirestoreCollectionRef();
             await legacyCollection.doc(getSharedLegacyDocId()).set({
               ...envelope,
@@ -8542,14 +8561,20 @@ out center tags;`;
               uid: syncIdentity?.uid || '',
               deviceId: getDeviceId()
             }, { merge: true });
-            pushed = true;
-          } catch (legacyFirestoreUserError) {
-            console.warn('Sync condivisa Firestore legacy doc utente fallita:', legacyFirestoreUserError);
-          }
-          if (!pushed) {
-            const noChannelError = new Error('Nessun canale di sincronizzazione condivisa disponibile (RTDB/Firestore).');
-            noChannelError.code = 'NO_SHARED_SYNC_CHANNEL';
-            throw noChannelError;
+            report.channels.firestore.ok = true;
+            report.finalChannel = 'firestore';
+          } catch (firestoreError) {
+            report.channels.firestore.error = compactSyncError(firestoreError);
+            console.warn('Sync condivisa Firestore push fallita, provo RTDB fallback:', firestoreError);
+            try {
+              const ref = await ensureSharedAppDbRef();
+              await ref.set(envelope);
+              report.channels.rtdb.ok = true;
+              report.finalChannel = 'rtdb';
+            } catch (rtdbError) {
+              report.channels.rtdb.error = compactSyncError(rtdbError);
+              throw buildNoChannelSyncError(`pushSharedAppPayload:${reason}`, report);
+            }
           }
           sharedAppLastPushedAt = pushedAt;
           sharedAppPendingPush = false;
@@ -8844,7 +8869,11 @@ out center tags;`;
             'ok'
           );
         } catch (error) {
-          showBackupMsg(`Auto-sync non riuscita: ${error?.message || 'errore sconosciuto.'}`, 'err');
+          if (isNoSharedSyncChannelError(error)) {
+            showBackupMsg('Auto-sync non riuscita: nessun canale cloud condiviso disponibile (Firestore/RTDB).', 'err');
+          } else {
+            showBackupMsg(`Auto-sync non riuscita: ${error?.message || 'errore sconosciuto.'}`, 'err');
+          }
         } finally {
           sharedAppLastAutoSyncAt = Date.now();
           sharedAppAutoSyncInProgress = false;
