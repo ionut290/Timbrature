@@ -194,6 +194,20 @@
       .fuel-item { border:1px solid #dbeafe; border-radius:10px; background:#f8fbff; padding:10px; display:flex; justify-content:space-between; gap:8px; align-items:center; }
       .fuel-item h4 { margin:0 0 4px; font-size:14px; color:#0f172a; }
       .fuel-item p { margin:0; font-size:12px; color:#475569; }
+      .meal-place-item { align-items:flex-start; gap:12px; }
+      .meal-place-main { flex:1; min-width:220px; }
+      .meal-place-main .meal-place-meta { margin-top:6px; font-size:13px; color:#334155; }
+      .meal-place-main .meal-place-distance { display:inline-block; margin-top:6px; background:#e0e7ff; color:#1e3a8a; border:1px solid #c7d2fe; border-radius:999px; padding:3px 9px; font-size:12px; font-weight:700; }
+      .meal-place-actions { width:min(230px, 100%); display:grid; gap:8px; }
+      .meal-place-actions .btn-small { width:100%; }
+      .meal-details { margin-top:10px; border-top:1px solid #dbeafe; padding-top:10px; }
+      .meal-details-title { margin:0 0 8px; font-size:14px; color:#1e3a8a; }
+      .meal-details-list { list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:6px 12px; }
+      .meal-details-list li { margin:0; font-size:13px; color:#334155; }
+      .meal-details-extra { margin-top:10px; border:1px solid #dbeafe; border-radius:8px; background:#f8fafc; padding:8px; }
+      .meal-details-extra summary { cursor:pointer; font-weight:700; color:#1e3a8a; }
+      .meal-details-tags { margin:8px 0 0; padding-left:16px; max-height:180px; overflow:auto; }
+      .meal-details-tags li { font-size:12px; color:#334155; margin-bottom:4px; }
       .team-commessa-box { border:1px solid #bfdbfe; border-radius:10px; background:#f8fbff; padding:10px; margin-top:10px; }
       .team-commessa-head { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
       .team-commessa-head h4 { margin:0; font-size:14px; color:#1e3a8a; }
@@ -272,7 +286,12 @@
       .chat-msg strong { color:#1e3a8a; font-size:12px; }
       .chat-msg p { margin:4px 0 0; font-size:13px; color:#0f172a; white-space:pre-wrap; }
       .chat-meta { margin-top:4px; font-size:11px; color:#64748b; }
-      @media (max-width: 860px) { .actions { grid-template-columns:1fr; } .inline-actions input,.inline-actions button { width:100%; } }
+      @media (max-width: 860px) {
+        .actions { grid-template-columns:1fr; }
+        .inline-actions input,.inline-actions button { width:100%; }
+        .meal-place-item { flex-direction:column; }
+        .meal-place-actions { width:100%; }
+      }
       @media (max-width: 720px) { .contract-row { grid-template-columns:1fr 1fr; } .contract-row .day-name { grid-column:1 / -1; padding-bottom:0; } }
       @media (max-width: 768px) {
         body.punch-focus .container { max-width:100%; padding:8px 8px 82px; }
@@ -2582,12 +2601,12 @@ out center tags;`;
           ? allTagEntries.map(([key, value])=>`<li><strong>${escapeHtml(String(key))}:</strong> ${escapeHtml(String(value))}</li>`).join('')
           : '<li>Nessun tag OSM aggiuntivo disponibile.</li>';
         return `
-          <div class="small">
-            <p><strong>Dettagli principali</strong></p>
-            <ul>${summaryHtml}</ul>
-            <details>
+          <div class="meal-details">
+            <p class="meal-details-title"><strong>Dettagli principali</strong></p>
+            <ul class="meal-details-list">${summaryHtml}</ul>
+            <details class="meal-details-extra">
               <summary>Tutti i dettagli disponibili (tag OSM)</summary>
-              <ul>${allTagsHtml}</ul>
+              <ul class="meal-details-tags">${allTagsHtml}</ul>
             </details>
           </div>
         `;
@@ -2917,13 +2936,14 @@ out center tags;`;
           return;
         }
         list.innerHTML = places.map((place)=>`
-          <li class="fuel-item" data-meal-row="${escapeHtml(place.id)}">
-            <div>
+          <li class="fuel-item meal-place-item" data-meal-row="${escapeHtml(place.id)}">
+            <div class="meal-place-main">
               <h4>${escapeHtml(place.name)}</h4>
               <p>${escapeHtml(place.address || 'Indirizzo non disponibile')}</p>
-              <p>Tipo: ${escapeHtml(place.amenity || '-')} • Distanza: ${place.distanceKm.toFixed(2)} km</p>
+              <p class="meal-place-meta">Tipologia: ${escapeHtml(place.amenity || '-')}</p>
+              <span class="meal-place-distance">Distanza: ${place.distanceKm.toFixed(2)} km</span>
             </div>
-            <div class="inline-actions">
+            <div class="meal-place-actions">
               <button type="button" class="btn-small" data-meal-nav="${escapeHtml(place.id)}">Naviga</button>
               <button type="button" class="secondary btn-small" data-meal-google="${escapeHtml(place.id)}">Google</button>
               <button type="button" class="secondary btn-small" data-meal-details-toggle="${escapeHtml(place.id)}">Dettagli</button>
