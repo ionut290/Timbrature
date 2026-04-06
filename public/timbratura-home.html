@@ -4771,6 +4771,9 @@ out center tags;`;
           const pixelsPerSecond = 70;
           const durationSec = Math.max(18, Math.ceil(distancePx / pixelsPerSecond));
           track.style.setProperty('--ticker-duration', `${durationSec}s`);
+          track.style.animation = 'none';
+          void track.offsetWidth;
+          track.style.animation = '';
         });
       }
       function getWeatherTickerCache() {
