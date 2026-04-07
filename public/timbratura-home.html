@@ -9560,39 +9560,5 @@ out center tags;`;
       window.openDataHubCategory = openDataHubCategory;
       window.openTeamRequestForDate = openTeamRequestForDate;
     </script> 
-   <script type="module">
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-const db = getDatabase();
-
-// 🔥 usa questo ID
-const path = "timbrature_sync/bcMKlMms2ORg6102WDVv9piYRE3";
-
-const dbRef = ref(db, path);
-
-onValue(dbRef, (snapshot) => {
-  const data = snapshot.val();
-
-  console.log("🔥 RTDB DATA:", data);
-
-  if (!data) return;
-
-  const payload = data.payload || {};
-
-  window.commesse = payload.commesse || [];
-  window.giornalEntries = payload.giornalEntries || [];
-
-  console.log("✅ COMESSE:", window.commesse);
-
-  // 🔁 aggiorna UI
-  if (typeof renderCommesseList === "function") {
-    renderCommesseList();
-  }
-
-  if (typeof renderLavoroCommesseUI === "function") {
-    renderLavoroCommesseUI();
-  }
-});
-</script>
   </body>
 </html>
