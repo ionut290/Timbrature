@@ -9559,6 +9559,43 @@ out center tags;`;
       window.deleteCatalogEntry = deleteCatalogEntry;
       window.openDataHubCategory = openDataHubCategory;
       window.openTeamRequestForDate = openTeamRequestForDate;
-    </script>
+    </script> 
+    <script type="module">
+import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const db = getFirestore();
+
+// 🔥 QUESTO È IL TUO DOCUMENTO (già giusto)
+const DOC_ID = "bcMKlMms2ORg6102WDVv9piYRE3";
+
+const ref = doc(db, "timbrature_sync", DOC_ID);
+
+onSnapshot(ref, (snap) => {
+  if (!snap.exists()) {
+    console.warn("❌ Documento Firebase non trovato");
+    return;
+  }
+
+  const data = snap.data();
+  console.log("🔥 FIREBASE DATA:", data);
+
+  const payload = data.payload || {};
+
+  // 👉 DATI PRINCIPALI
+  window.commesse = payload.commesse || [];
+  window.giornalEntries = payload.giornalEntries || [];
+
+  console.log("✅ Commesse:", window.commesse);
+
+  // 🔁 FORZA AGGIORNAMENTO APP
+  if (typeof renderCommesse === "function") {
+    renderCommesse();
+  }
+
+  if (typeof aggiornaDashboard === "function") {
+    aggiornaDashboard();
+  }
+});
+</script>
   </body>
 </html>
