@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isTeamMember(teamId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/teams/$(teamId)/members/$(request.auth.uid));
+    }
+
+    // Shared business data by team.
+    match /teams/{teamId} {
+      allow read: if isTeamMember(teamId);
+      allow write: if false;
+
+      match /members/{uid} {
+        allow read: if isTeamMember(teamId);
+        allow write: if isSignedIn() && request.auth.uid == uid;
+      }
+
+      match /commesse/{commessaId} {
+        allow read, write: if isTeamMember(teamId);
+
+        match /cantieri/{cantiereId} {
+          allow read, write: if isTeamMember(teamId);
+        }
+      }
+
+      match /timbrature/{timbraturaId} {
+        allow read, write: if isTeamMember(teamId);
+      }
+
+      match /impianti/{impiantoId} {
+        allow read, write: if isTeamMember(teamId);
+      }
+
+      match /mezzi/{mezzoId} {
+        allow read, write: if isTeamMember(teamId);
+      }
+    }
+
+    // Personal settings.
+    match /users/{uid}/{docId} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+  }
+}
