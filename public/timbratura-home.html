@@ -7612,23 +7612,89 @@ out center tags;`;
         loadChatMessages();
         updateWelcomeMessage();
       }
+      function extractRealtimeDevicePayloads(syncRootValue = null) {
+        const entries = Object.entries(syncRootValue || {});
+        return entries
+          .map(([deviceId, raw]) => {
+            const payload = raw?.payload;
+            if (!payload || typeof payload !== 'object') return null;
+            const updatedAt = String(raw?.updatedAt || raw?.updated_at || payload?.exportedAt || '');
+            return { deviceId: String(deviceId || '').trim(), updatedAt, payload };
+          })
+          .filter(Boolean);
+      }
+      function buildMergedRealtimePayloadFromDevices(deviceEntries = []) {
+        const sortedEntries = (Array.isArray(deviceEntries) ? deviceEntries : [])
+          .slice()
+          .sort((a, b)=>compareUpdatedAt(String(a?.updatedAt || ''), String(b?.updatedAt || '')));
+        const merged = {};
+        sortedEntries.forEach((entry)=>{
+          const payload = entry?.payload || {};
+          if (Object.prototype.hasOwnProperty.call(payload, COMMESSE_KEY)) {
+            merged[COMMESSE_KEY] = mergeCommesseByUpdatedAt(merged[COMMESSE_KEY] || [], payload[COMMESSE_KEY] || []);
+          }
+          if (Object.prototype.hasOwnProperty.call(payload, RECORDS_KEY)) {
+            merged[RECORDS_KEY] = mergeUniqueRowsById(merged[RECORDS_KEY] || [], payload[RECORDS_KEY] || [], {
+              keyResolver: (row = {}) => String(row?.id || `${row?.data || ''}|${row?.entrata || ''}|${row?.uscita || ''}|${row?.nome || ''}`).trim(),
+              timestampResolver: (row = {}) => String(row?.updatedAt || row?.updated_at || row?.createdAt || '')
+            }).sort((a, b)=>String(b?.data || '').localeCompare(String(a?.data || '')));
+          }
+          if (Object.prototype.hasOwnProperty.call(payload, PROFILE_KEY)) {
+            merged[PROFILE_KEY] = payload[PROFILE_KEY];
+          }
+          if (Object.prototype.hasOwnProperty.call(payload, PROGRAMS_KEY)) {
+            merged[PROGRAMS_KEY] = mergeUniqueRowsById(merged[PROGRAMS_KEY] || [], payload[PROGRAMS_KEY] || [], {
+              keyResolver: (row = {}) => String(row?.id || row?.date || row?.createdAt || JSON.stringify(row || {})).trim(),
+              timestampResolver: (row = {}) => String(row?.updatedAt || row?.updated_at || row?.createdAt || '')
+            });
+          }
+          if (Object.prototype.hasOwnProperty.call(payload, DOCUMENTS_KEY)) {
+            merged[DOCUMENTS_KEY] = mergeUniqueRowsById(merged[DOCUMENTS_KEY] || [], payload[DOCUMENTS_KEY] || [], {
+              keyResolver: (row = {}) => String(row?.id || row?.name || row?.createdAt || JSON.stringify(row || {})).trim(),
+              timestampResolver: (row = {}) => String(row?.updatedAt || row?.updated_at || row?.createdAt || '')
+            });
+          }
+          if (Object.prototype.hasOwnProperty.call(payload, NOTIFICATION_SETTINGS_KEY)) {
+            merged[NOTIFICATION_SETTINGS_KEY] = payload[NOTIFICATION_SETTINGS_KEY];
+          }
+          if (Object.prototype.hasOwnProperty.call(payload, NOTIFICATION_SENT_KEY)) {
+            merged[NOTIFICATION_SENT_KEY] = payload[NOTIFICATION_SENT_KEY];
+          }
+          if (Object.prototype.hasOwnProperty.call(payload, MASTER_DATA_KEY)) {
+            merged[MASTER_DATA_KEY] = payload[MASTER_DATA_KEY];
+          }
+        });
+        return merged;
+      }
       function startFirebaseLiveSync() {
         stopFirebaseLiveSync();
-        const ref = getFirebaseSnapshotRef();
+        if (!firebaseCloudRtdb) throw new Error('Realtime Database cloud non disponibile.');
+        const ref = firebaseCloudRtdb.ref('timbrature_sync');
+        let lastAppliedSignature = '';
         const listener = ref.on('value', (snap)=>{
-          const data = snap?.val?.() || null;
-          if (!data?.payload || data.deviceId === getDeviceId()) return;
-          const state = getFirebaseSyncState();
-          const remoteAt = String(data.updatedAt || '');
-          if (state.lastPullAt && remoteAt && remoteAt <= state.lastPullAt) return;
+          const rootData = snap?.val?.() || null;
+          const deviceEntries = extractRealtimeDevicePayloads(rootData);
+          if (!deviceEntries.length) return;
+          const mergedPayload = buildMergedRealtimePayloadFromDevices(deviceEntries);
+          const signature = JSON.stringify({
+            commesse: mergedPayload[COMMESSE_KEY] || null,
+            records: mergedPayload[RECORDS_KEY] || null,
+            profile: mergedPayload[PROFILE_KEY] || null,
+            programs: mergedPayload[PROGRAMS_KEY] || null,
+            documents: mergedPayload[DOCUMENTS_KEY] || null,
+            notificationsSettings: mergedPayload[NOTIFICATION_SETTINGS_KEY] || null,
+            notificationsSent: mergedPayload[NOTIFICATION_SENT_KEY] || null,
+            masterData: mergedPayload[MASTER_DATA_KEY] || null
+          });
+          if (signature === lastAppliedSignature) return;
+          lastAppliedSignature = signature;
           firebaseApplyingRemoteSnapshot = true;
           try {
-            applyBackupPayload(data.payload || {});
+            applySharedAppPayload(mergedPayload);
           } finally {
             firebaseApplyingRemoteSnapshot = false;
           }
           setFirebaseSyncState({ connected:true, lastPullAt:new Date().toISOString() });
-          refreshUIAfterDataRestore();
           showBackupMsg('Sincronizzazione live: aggiornati dati da altro dispositivo.', 'ok');
         }, (error)=>{
           if (isPermissionDeniedError(error)) {
