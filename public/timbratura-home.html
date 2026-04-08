@@ -1168,6 +1168,8 @@
           </div>
           <div class="inline-actions">
             <button type="button" id="saveCatalogEntryBtn">Salva dato</button>
+            <button type="button" class="secondary" id="importCommesseExcelBtn">Importa commesse/cantieri (Excel)</button>
+            <input type="file" id="importCommesseExcelInput" accept=".xlsx,.xls,.csv,.txt" class="hidden" />
             <button type="button" class="secondary" id="exportAllDataExcelBtn">Esporta tutti i dati (Excel)</button>
           </div>
           <p id="catalogEsito" class="msg"></p>
@@ -3700,11 +3702,21 @@ out center tags;`;
           <p>Codici prezzo: ${escapeHtml(c.price_codes || c.price_code || '-')}</p>
           <p>${escapeHtml(c.notes || '-')}</p>
           <div class="inline-actions" style="margin-top:6px;">
-            <button type="button" class="secondary btn-small" onclick="editCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Modifica</button>
-            <button type="button" class="secondary btn-small" onclick="deleteCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Elimina</button>
+            <button type="button" class="secondary btn-small" data-action="edit-cantiere" data-commessa-id="${encodeURIComponent(String(commessa.id || ''))}" data-cantiere-id="${encodeURIComponent(String(c.id || ''))}">Modifica</button>
+            <button type="button" class="secondary btn-small" data-action="delete-cantiere" data-commessa-id="${encodeURIComponent(String(commessa.id || ''))}" data-cantiere-id="${encodeURIComponent(String(c.id || ''))}">Elimina</button>
           </div>
         </li>`;
         }).join('');
+        list.querySelectorAll('[data-action="edit-cantiere"]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const commessaId = decodeURIComponent(btn.dataset.commessaId || '');
+          const cantiereId = decodeURIComponent(btn.dataset.cantiereId || '');
+          editCantiereFromDataHub(commessaId, cantiereId);
+        }));
+        list.querySelectorAll('[data-action="delete-cantiere"]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const commessaId = decodeURIComponent(btn.dataset.commessaId || '');
+          const cantiereId = decodeURIComponent(btn.dataset.cantiereId || '');
+          deleteCantiereFromDataHub(commessaId, cantiereId);
+        }));
         renderDataHubCantieriMap(cantieri);
       }
       async function renderDataHubCantieriMap(cantieri=[]) {
@@ -3772,10 +3784,10 @@ out center tags;`;
       function deleteCantiereFromDataHub(commessaId='', cantiereId='') {
         const commesse = getCommesse();
         const idx = commesse.findIndex((c)=>c.id === commessaId);
-        if (idx < 0) return;
+        if (idx < 0) { showCatalogMsg('Commessa non trovata.', 'err'); return; }
         const cantieri = Array.isArray(commesse[idx].cantieri) ? commesse[idx].cantieri : [];
         const target = cantieri.find((c)=>c.id === cantiereId);
-        if (!target) return;
+        if (!target) { showCatalogMsg('Cantiere non trovato.', 'err'); return; }
         if (!window.confirm(`Eliminare cantiere ${target.code || ''} ${target.name || ''}?`)) return;
         commesse[idx] = {
           ...commesse[idx],
@@ -4064,6 +4076,7 @@ out center tags;`;
         id('catalogPrimaryLabel').firstChild.textContent = category === 'vehicles' ? 'Nome mezzo' : (category === 'commesse' ? 'Nome commessa/cantiere' : 'Nome');
         id('catalogPrimaryInput').placeholder = category === 'vehicles' ? 'Es. Daily AB123CD / Escavatore Volvo' : (category === 'equipment' ? 'Es. Motosega Stihl' : (category === 'colleagues' ? 'Es. Mario Rossi' : 'Es. Commessa Bologna Nord'));
         id('catalogSecondaryWrap').classList.toggle('force-hidden', category !== 'vehicles');
+        if (id('importCommesseExcelBtn')) id('importCommesseExcelBtn').classList.toggle('hidden', category !== 'commesse');
         if (id('vehicleExtraFields')) id('vehicleExtraFields').classList.toggle('force-hidden', category !== 'vehicles');
         if (category !== 'commesse' && id('dataHubCommessaDetail')) id('dataHubCommessaDetail').classList.add('hidden');
         const rows = getCatalogRowsByCategory(category);
@@ -6260,6 +6273,145 @@ out center tags;`;
         const n = Number(normalized);
         return Number.isFinite(n) ? n : NaN;
       }
+      function parseCommesseRowsFromMatrix(matrix = []) {
+        if (!Array.isArray(matrix) || !matrix.length) return [];
+        const normalizedRows = matrix
+          .map((row)=>Array.isArray(row) ? row.map((cell)=>String(cell ?? '').trim()) : [])
+          .filter((row)=>row.some((cell)=>cell));
+        if (!normalizedRows.length) return [];
+        const firstRow = normalizedRows[0] || [];
+        const firstRowHeaders = firstRow.map((cell)=>normalizeImportHeader(cell));
+        const hasHeader = firstRowHeaders.some((head)=>[
+          'commessa', 'nomecommessa', 'cantiere', 'nomecantiere', 'denominazioneimpianto',
+          'comune', 'indirizzo', 'coordinategpsy', 'coordinategpsx', 'lat', 'lon'
+        ].includes(head));
+        const header = hasHeader ? firstRow : [];
+        const dataRows = hasHeader ? normalizedRows.slice(1) : normalizedRows;
+        const fieldIndex = (aliases = [], fallback = -1) => {
+          if (!hasHeader) return fallback;
+          const idx = header.findIndex((cell)=>aliases.includes(normalizeImportHeader(cell)));
+          return idx >= 0 ? idx : fallback;
+        };
+        const idxCommessa = fieldIndex(['commessa', 'nomecommessa', 'commessanome', 'idsap', 'id'], 0);
+        const idxCantiere = fieldIndex(['cantiere', 'nomecantiere', 'denominazioneimpianto', 'impianto', 'nome'], 1);
+        const idxAddress = fieldIndex(['indirizzo', 'address', 'viaecivicodiubicazioneimpianto'], 2);
+        const idxCity = fieldIndex(['comune', 'city', 'comuneubicazioneimpianto'], 3);
+        const idxProvince = fieldIndex(['provincia', 'province'], 4);
+        const idxPostcode = fieldIndex(['cap', 'postcode'], 5);
+        const idxCountry = fieldIndex(['paese', 'country', 'nazione'], 6);
+        const idxLat = fieldIndex(['lat', 'latitude', 'coordinategpsy'], -1);
+        const idxLon = fieldIndex(['lon', 'lng', 'longitude', 'coordinategpsx'], -1);
+        const idxNotes = fieldIndex(['note', 'notes', 'descrizione'], -1);
+        const idxPriceCode = fieldIndex(['codiceprezzo', 'pricecode'], -1);
+        return dataRows.map((row)=>({
+          commessa: String(idxCommessa >= 0 ? row[idxCommessa] : '').trim(),
+          cantiere: String(idxCantiere >= 0 ? row[idxCantiere] : '').trim(),
+          address: String(idxAddress >= 0 ? row[idxAddress] : '').trim(),
+          city: String(idxCity >= 0 ? row[idxCity] : '').trim(),
+          province: String(idxProvince >= 0 ? row[idxProvince] : '').trim(),
+          postcode: String(idxPostcode >= 0 ? row[idxPostcode] : '').trim(),
+          country: String(idxCountry >= 0 ? row[idxCountry] : '').trim(),
+          lat: idxLat >= 0 ? parseImportNumber(row[idxLat]) : NaN,
+          lon: idxLon >= 0 ? parseImportNumber(row[idxLon]) : NaN,
+          notes: String(idxNotes >= 0 ? row[idxNotes] : '').trim(),
+          priceCode: String(idxPriceCode >= 0 ? row[idxPriceCode] : '').trim().toUpperCase()
+        })).filter((row)=>row.commessa || row.cantiere);
+      }
+      function importCommesseRows(rows = []) {
+        const commesse = getCommesse().map((row)=>normalizeCommessa(row));
+        const byName = new Map(commesse.map((row)=>[String(row.nome || '').trim().toLowerCase(), row]));
+        let createdCommesse = 0;
+        let createdCantieri = 0;
+        let updatedCantieri = 0;
+        let skipped = 0;
+        (Array.isArray(rows) ? rows : []).forEach((raw)=>{
+          const commessaName = String(raw?.commessa || '').trim();
+          const cantiereName = String(raw?.cantiere || '').trim();
+          if (!commessaName && !cantiereName) { skipped += 1; return; }
+          const effectiveCommessaName = commessaName || cantiereName;
+          const key = effectiveCommessaName.toLowerCase();
+          let commessa = byName.get(key);
+          if (!commessa) {
+            commessa = normalizeCommessa({
+              id:`commessa-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+              nome: effectiveCommessaName,
+              impianto: cantiereName || '',
+              cantieri: [],
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+            byName.set(key, commessa);
+            createdCommesse += 1;
+          }
+          if (!cantiereName) return;
+          const cantieri = Array.isArray(commessa.cantieri) ? [...commessa.cantieri] : [];
+          const existingIdx = cantieri.findIndex((c)=>String(c.name || '').trim().toLowerCase() === cantiereName.toLowerCase());
+          const payload = normalizeCantiere({
+            id: existingIdx >= 0 ? cantieri[existingIdx].id : `cantiere-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
+            code: existingIdx >= 0 ? (cantieri[existingIdx].code || '') : generateCantiereCode(cantieri),
+            name: cantiereName,
+            address: String(raw?.address || '').trim(),
+            city: String(raw?.city || '').trim(),
+            province: String(raw?.province || '').trim(),
+            postcode: String(raw?.postcode || '').trim(),
+            country: String(raw?.country || '').trim(),
+            notes: mergeVariantInNotes(String(raw?.notes || '').trim(), raw?.priceCode || '', ''),
+            price_codes: mergePriceCodes(existingIdx >= 0 ? (cantieri[existingIdx].price_codes || '') : '', raw?.priceCode || ''),
+            price_code: String(raw?.priceCode || '').trim().toUpperCase(),
+            lat: Number.isFinite(raw?.lat) ? Number(raw.lat) : NaN,
+            lon: Number.isFinite(raw?.lon) ? Number(raw.lon) : NaN,
+            created_at: existingIdx >= 0 ? cantieri[existingIdx].created_at : new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          if (existingIdx >= 0) {
+            cantieri[existingIdx] = payload;
+            updatedCantieri += 1;
+          } else {
+            cantieri.push(payload);
+            createdCantieri += 1;
+          }
+          commessa.cantieri = cantieri;
+          commessa.impianto = commessa.impianto || cantiereName;
+          commessa.updated_at = new Date().toISOString();
+          byName.set(key, commessa);
+        });
+        const nextRows = Array.from(byName.values());
+        setCommesse(nextRows);
+        renderCommesseList();
+        renderGlobalCommesseSelect();
+        renderCatalogDataUI();
+        return { createdCommesse, createdCantieri, updatedCantieri, skipped };
+      }
+      async function importCommesseFromFile() {
+        const file = id('importCommesseExcelInput')?.files?.[0];
+        if (!file) {
+          showCatalogMsg('Seleziona prima un file Excel/CSV.', 'err');
+          return;
+        }
+        try {
+          let matrix = [];
+          const lowerName = String(file.name || '').toLowerCase();
+          if (lowerName.endsWith('.csv') || lowerName.endsWith('.txt')) {
+            const text = await file.text();
+            matrix = parseDelimitedRows(text);
+          } else {
+            const XLSX = await ensureXlsxLibReady();
+            const buffer = await file.arrayBuffer();
+            const wb = XLSX.read(buffer, { type:'array' });
+            const firstSheetName = wb.SheetNames[0];
+            if (!firstSheetName) throw new Error('Il file Excel non contiene fogli.');
+            matrix = XLSX.utils.sheet_to_json(wb.Sheets[firstSheetName], { header:1, defval:'' });
+          }
+          const rows = parseCommesseRowsFromMatrix(matrix);
+          if (!rows.length) throw new Error('Nessuna commessa/cantiere valida trovata nel file.');
+          const result = importCommesseRows(rows);
+          showCatalogMsg(`Import completato: ${result.createdCommesse} commesse create, ${result.createdCantieri} cantieri inseriti, ${result.updatedCantieri} aggiornati, ${result.skipped} righe saltate.`, 'ok');
+          id('importCommesseExcelInput').value = '';
+          await syncDataHubCatalogChanges('import-commesse-file');
+        } catch (error) {
+          showCatalogMsg(error.message || 'Import commesse/cantieri non riuscito.', 'err');
+        }
+      }
       function parseCantieriRowsFromMatrix(matrix = []) {
         if (!Array.isArray(matrix) || !matrix.length) return [];
         const headerKeywords = new Set([
@@ -7501,9 +7653,14 @@ out center tags;`;
         const message = String(error?.message || '').toLowerCase();
         return code === 'no_shared_sync_channel' || message.includes('nessun canale di sincronizzazione condivisa disponibile');
       }
+      function isTimeoutSyncError(error) {
+        const code = String(error?.code || '').toLowerCase();
+        const message = String(error?.message || '').toLowerCase();
+        return code.includes('timeout') || message.includes('timeout') || message.includes('operazione scaduta');
+      }
       async function runSharedSyncCycle(reason = 'manual-sync', options = {}) {
-        const pullTimeoutMs = Number(options?.pullTimeoutMs || 15000);
-        const pushTimeoutMs = Number(options?.pushTimeoutMs || 15000);
+        const pullTimeoutMs = Number(options?.pullTimeoutMs || 25000);
+        const pushTimeoutMs = Number(options?.pushTimeoutMs || 25000);
         await promiseWithTimeout(
           pushSharedAppPayload(reason, { throwOnFailure:true }),
           pushTimeoutMs,
@@ -9041,7 +9198,7 @@ out center tags;`;
         showBackupMsg('Sincronizzazione automatica in corso…', 'ok');
         try {
           const syncedAt = new Date().toISOString();
-          const result = await runSharedSyncCycle(`auto:${reason}`, { pushTimeoutMs: 12000, pullTimeoutMs: 12000 });
+          const result = await runSharedSyncCycle(`auto:${reason}`, { pushTimeoutMs: 25000, pullTimeoutMs: 25000 });
           setFirebaseSyncState({ connected:true, lastPushAt: syncedAt, lastPullAt: syncedAt });
           writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: syncedAt, last_pull_at: syncedAt });
           showBackupMsg(
@@ -9053,6 +9210,8 @@ out center tags;`;
         } catch (error) {
           if (isNoSharedSyncChannelError(error)) {
             showBackupMsg('Auto-sync non riuscita: nessun canale cloud condiviso disponibile (Firestore/RTDB).', 'err');
+          } else if (isTimeoutSyncError(error)) {
+            showBackupMsg('Connessione lenta: auto-sync in ritardo, verrà riprovata automaticamente.', 'ok');
           } else {
             showBackupMsg(`Auto-sync non riuscita: ${error?.message || 'errore sconosciuto.'}`, 'err');
           }
@@ -9459,6 +9618,8 @@ out center tags;`;
         if (id('findFuelStationsBtn')) id('findFuelStationsBtn').addEventListener('click', findNearbyFuelStations);
         if (id('findMealPlacesBtn')) id('findMealPlacesBtn').addEventListener('click', findNearbyMealPlaces);
         if (id('saveCatalogEntryBtn')) id('saveCatalogEntryBtn').addEventListener('click', saveCatalogEntry);
+        if (id('importCommesseExcelBtn')) id('importCommesseExcelBtn').addEventListener('click', ()=>id('importCommesseExcelInput')?.click());
+        if (id('importCommesseExcelInput')) id('importCommesseExcelInput').addEventListener('change', importCommesseFromFile);
         if (id('exportAllDataExcelBtn')) id('exportAllDataExcelBtn').addEventListener('click', exportAllAppDataExcel);
         if (id('saveDataHubCantiereBtn')) id('saveDataHubCantiereBtn').addEventListener('click', saveCantiereFromDataHubForm);
         if (id('importCantieriPasteBtn')) id('importCantieriPasteBtn').addEventListener('click', importCantieriFromPasteText);
