@@ -3642,6 +3642,25 @@ out center tags;`;
         wrap.querySelectorAll('[data-team-field]').forEach((input)=>input.addEventListener('input', saveTeamRequestDraft));
         syncLegacyTeamFieldsFromPlan();
       }
+      function handleTeamCommesseContainerClick(event) {
+        const trigger = event.target?.closest?.('button');
+        if (!trigger) return;
+        if (trigger.dataset.teamAddSquadra != null) {
+          event.preventDefault();
+          addTeamSquadraRow(Number(trigger.dataset.teamAddSquadra || 0));
+          return;
+        }
+        if (trigger.dataset.teamRemoveCommessa != null) {
+          event.preventDefault();
+          removeTeamCommessaRow(Number(trigger.dataset.teamRemoveCommessa || 0));
+          return;
+        }
+        if (trigger.dataset.teamRemoveSquadra != null) {
+          event.preventDefault();
+          const [commessaIdx, squadraIdx] = String(trigger.dataset.teamRemoveSquadra || '').split(':').map((value)=>Number(value));
+          removeTeamSquadraRow(commessaIdx, squadraIdx);
+        }
+      }
       function addTeamCommessaRow(initialRow={ cantiere:'', personale:'', mezzi:'' }) {
         const current = collectTeamCommessePlanFromUI();
         current.push({ cantiere:initialRow.cantiere || '', personale:initialRow.personale || '', mezzi:initialRow.mezzi || '' });
@@ -9832,6 +9851,8 @@ out center tags;`;
         if (id('toggleFirebaseLiveSyncBtn')) id('toggleFirebaseLiveSyncBtn').addEventListener('click', toggleFirebaseLiveSync);
         if (id('forceSharedSyncBtn')) id('forceSharedSyncBtn').addEventListener('click', forceSharedSyncNow);
         if (id('installAppBtn')) id('installAppBtn').addEventListener('click', installPwaApp);
+        if (id('addTeamCommessaRowBtn')) id('addTeamCommessaRowBtn').addEventListener('click', ()=>addTeamCommessaRow());
+        if (id('teamCommesseContainer')) id('teamCommesseContainer').addEventListener('click', handleTeamCommesseContainerClick);
         if (id('addTeamMemberBtn')) id('addTeamMemberBtn').addEventListener('click', ()=>addTeamMember());
         if (id('teamMemberInput')) id('teamMemberInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); addTeamMember(); } });
         if (id('saveTeamLeaderBtn')) id('saveTeamLeaderBtn').addEventListener('click', saveTeamLeader);
