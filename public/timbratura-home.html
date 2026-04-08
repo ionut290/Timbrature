@@ -654,25 +654,17 @@
             </div>
             <div id="teamImportPreview" class="import-preview">Nessun testo estratto da screenshot.</div>
             <div class="inline-actions">
-              <button type="button" class="secondary" id="extractTeamScreenshotBtn">Leggi screenshot</button>
-              <button type="button" class="secondary" id="prefillTeamRequestBtn">Usa elenco persone/mezzi</button>
+              <button type="button" class="secondary" id="teamInputModeToggleBtn">Modalità inserimento: tastiera</button>
               <button type="button" class="secondary" id="saveTeamProgramBtn">Salva programmazione</button>
               <button type="button" class="secondary" id="updateTeamProgramBtn">Correggi programmazione</button>
               <button type="button" class="secondary" id="deleteTeamProgramBtn">Elimina programmazione</button>
               <button type="button" id="sendTeamRequestWhatsappBtn">Finalizza e apri WhatsApp</button>
             </div>
             <p class="small" id="teamProgramStatusLabel">Stato programmazione: IN_ATTESA</p>
-            <div class="inline-actions">
-              <button type="button" class="secondary" id="markTeamApprovedBtn">Segna APPROVATA</button>
-              <button type="button" class="secondary" id="markTeamRectifyBtn">Segna RETTIFICA</button>
-            </div>
             <div class="grid">
               <label>Risposta WhatsApp ricevuta
                 <input type="text" id="teamWhatsappReplyInput" placeholder="Incolla: APPROVO / RETTIFICO" />
               </label>
-            </div>
-            <div class="inline-actions">
-              <button type="button" class="secondary" id="applyWhatsappReplyBtn">Applica risposta WhatsApp</button>
             </div>
             <p class="small">Compila per il giorno successivo, correggi/elimina e inoltra via WhatsApp.</p>
           </div>
@@ -3448,6 +3440,7 @@ out center tags;`;
           groups: getCustomGroups()
         };
         setProgramDraft(draft);
+        scheduleSharedAppPush('program-draft-update');
       }
       function loadProgramDraftUI() {
         const draft = getProgramDraft();
@@ -3491,6 +3484,7 @@ out center tags;`;
         id('teamImportPreview').textContent = 'Nessun testo estratto da screenshot.';
         renderTeamDirectorySelects();
         renderTeamProgramsSelect();
+        applyTeamInputModeUI();
       }
       function renderTeamMembersLive() {
         const team = getTeamConfig();
@@ -3595,7 +3589,7 @@ out center tags;`;
                       <textarea data-team-field="mezzi" data-team-squadra-field="mezzi" rows="2" placeholder="Es. Furgone + piattaforma">${escapeHtml(squadra.mezzi || '')}</textarea>
                     </label>
                   </div>
-                  <div class="grid">
+                  <div class="grid" data-team-directory-tools>
                     <label>Aggiungi persona da elenco
                       <input type="text" data-team-suggest="personale" list="memberSuggestionsList" placeholder="Scrivi o scegli un nome" />
                       <button type="button" class="secondary btn-small" data-team-suggest-add="personale">Aggiungi persona</button>
@@ -3610,6 +3604,27 @@ out center tags;`;
             </div>
           </div>
         `;
+      }
+      function getTeamInputMode() {
+        const draft = getTeamRequestDraft() || {};
+        return draft.input_mode === 'directory' ? 'directory' : 'keyboard';
+      }
+      function setTeamInputMode(mode='keyboard') {
+        const normalized = mode === 'directory' ? 'directory' : 'keyboard';
+        const draft = getTeamRequestDraft() || {};
+        setTeamRequestDraft({ ...draft, input_mode: normalized });
+        applyTeamInputModeUI();
+      }
+      function applyTeamInputModeUI() {
+        const mode = getTeamInputMode();
+        const toggleBtn = id('teamInputModeToggleBtn');
+        if (toggleBtn) toggleBtn.textContent = `Modalità inserimento: ${mode === 'directory' ? 'elenco app' : 'tastiera'}`;
+        document.querySelectorAll('[data-team-directory-tools]').forEach((box)=>box.classList.toggle('hidden', mode !== 'directory'));
+      }
+      function toggleTeamInputMode() {
+        const currentMode = getTeamInputMode();
+        setTeamInputMode(currentMode === 'directory' ? 'keyboard' : 'directory');
+        showTeamMsg(`Modalità inserimento attiva: ${getTeamInputMode() === 'directory' ? 'elenco dati app' : 'tastiera manuale'}.`, 'ok');
       }
       function collectTeamCommessePlanFromUI() {
         return normalizeTeamCommessePlan(
@@ -4374,6 +4389,7 @@ out center tags;`;
         syncLegacyTeamFieldsFromPlan();
         const plan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI());
         setTeamRequestDraft({
+          input_mode: getTeamInputMode(),
           date: id('teamRequestDate').value,
           cantiere: plan[0]?.cantiere || '',
           personale: normalizeListText(plan.map((row)=>row.personale).filter(Boolean).join(', ')),
@@ -9858,14 +9874,12 @@ out center tags;`;
         if (id('addTeamCommessaRowBtn')) id('addTeamCommessaRowBtn').addEventListener('click', ()=>addTeamCommessaRow());
         if (id('addTeamMemberBtn')) id('addTeamMemberBtn').addEventListener('click', ()=>addTeamMember());
         if (id('teamMemberInput')) id('teamMemberInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); addTeamMember(); } });
-        id('extractTeamScreenshotBtn').addEventListener('click', extractTeamFromScreenshot);
-        id('prefillTeamRequestBtn').addEventListener('click', prefillTeamRequestFromSavedTeam);
+        id('teamInputModeToggleBtn').addEventListener('click', toggleTeamInputMode);
         id('saveTeamProgramBtn').addEventListener('click', saveTeamProgram);
         id('updateTeamProgramBtn').addEventListener('click', updateTeamProgram);
         id('deleteTeamProgramBtn').addEventListener('click', deleteTeamProgram);
-        id('markTeamApprovedBtn').addEventListener('click', ()=>setTeamProgramStatus('APPROVATA'));
-        id('markTeamRectifyBtn').addEventListener('click', ()=>setTeamProgramStatus('RETTIFICA'));
-        id('applyWhatsappReplyBtn').addEventListener('click', applyWhatsappReplyStatus);
+        id('teamWhatsappReplyInput').addEventListener('change', applyWhatsappReplyStatus);
+        id('teamWhatsappReplyInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); applyWhatsappReplyStatus(); } });
         id('teamProgramSelect').addEventListener('change', (e)=>loadTeamProgramById(e.target.value || ''));
         id('sendTeamRequestWhatsappBtn').addEventListener('click', openWhatsAppTeamRequest);
         ['teamRequestDate'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveTeamRequestDraft));
