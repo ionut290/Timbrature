@@ -717,7 +717,7 @@
               </label>
               <label>Cantiere<input type="text" id="clockInCantiere" list="commessaSuggestionsList" placeholder="Nome cantiere"></label>
               <label>Commessa globale
-                <select id="globalCommessaSelect"><option value="">Seleziona commessa</option></select>
+                <input type="text" id="globalCommessaSelect" list="globalCommessaSuggestionsList" placeholder="Scrivi o scegli commessa" />
               </label>
               <label>Caposquadra<input type="text" id="clockInCaposquadra" list="memberSuggestionsList" placeholder="Nome caposquadra"></label>
             </div>
@@ -1275,6 +1275,7 @@
     <datalist id="vehicleSuggestionsList"></datalist>
     <datalist id="equipmentSuggestionsList"></datalist>
     <datalist id="commessaSuggestionsList"></datalist>
+    <datalist id="globalCommessaSuggestionsList"></datalist>
     <datalist id="prezzarioSuggestionsList"></datalist>
 
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -4876,11 +4877,22 @@ out center tags;`;
           if (computed > 0) id(hoursId).value = computed;
         });
       }
-      function saveProgram() {
+      async function saveProgram() {
         const payload = collectProgramPayload();
         setPrograms([payload]);
         saveProgramDraftUI();
-        showProgramMsg('Impostazioni contratto annuali salvate localmente.', 'ok');
+        let syncedOnCloud = false;
+        if (currentAuthUser) {
+          try {
+            await pushSharedAppPayload('save-program', { throwOnFailure:true });
+            syncedOnCloud = true;
+          } catch (error) {
+            console.warn('Sync cloud contratto non riuscita:', error);
+          }
+        }
+        showProgramMsg(syncedOnCloud
+          ? 'Impostazioni contratto annuali salvate su cloud e dispositivo.'
+          : 'Impostazioni contratto annuali salvate sul dispositivo.', 'ok');
         renderProgramSummary(payload);
         refreshPunchSummary();
         loadMyMonth();
@@ -6832,12 +6844,14 @@ out center tags;`;
         renderLavoroCommesseUI();
       }
       function renderGlobalCommesseSelect() {
-        const select = id('globalCommessaSelect');
-        if (!select) return;
-        const current = select.value;
+        const input = id('globalCommessaSelect');
+        const suggestions = id('globalCommessaSuggestionsList');
+        if (!input || !suggestions) return;
+        const current = String(input.value || '').trim();
         const rows = getCommesse().slice().sort((a,b)=>String(a.nome || '').localeCompare(String(b.nome || '')));
-        select.innerHTML = `<option value="">Seleziona commessa</option>${rows.map((c)=>`<option value="${escapeHtml(c.nome || '')}">${escapeHtml(c.nome || '')}${c.impianto ? ` • ${escapeHtml(c.impianto)}` : ''}</option>`).join('')}`;
-        if (rows.some((c)=>c.nome === current)) select.value = current;
+        suggestions.innerHTML = rows.map((c)=>`<option value="${escapeHtml(c.nome || '')}"></option>`).join('');
+        const exact = rows.find((c)=>String(c.nome || '').trim().toLowerCase() === current.toLowerCase());
+        if (exact) input.value = exact.nome || current;
         renderTeamDirectorySelects();
         renderLavoroCommesseUI();
       }
@@ -9738,10 +9752,14 @@ out center tags;`;
           renderGlobalCommesseSelect();
         });
         if (id('globalAddCantiereGpsBtn')) id('globalAddCantiereGpsBtn').addEventListener('click', addCantiereFromGpsForSelectedCommessa);
-        if (id('globalCommessaSelect')) id('globalCommessaSelect').addEventListener('change', ()=>{
-          if (id('clockInCantiere') && !id('clockInCantiere').value) id('clockInCantiere').value = id('globalCommessaSelect').value || '';
-          if (id('cantiere') && !id('cantiere').value) id('cantiere').value = id('globalCommessaSelect').value || '';
-        });
+        if (id('globalCommessaSelect')) {
+          const syncGlobalCommessaToFields = ()=>{
+            if (id('clockInCantiere') && !id('clockInCantiere').value) id('clockInCantiere').value = id('globalCommessaSelect').value || '';
+            if (id('cantiere') && !id('cantiere').value) id('cantiere').value = id('globalCommessaSelect').value || '';
+          };
+          id('globalCommessaSelect').addEventListener('change', syncGlobalCommessaToFields);
+          id('globalCommessaSelect').addEventListener('input', syncGlobalCommessaToFields);
+        }
         if (id('lavoroExternalTabBtn')) id('lavoroExternalTabBtn').addEventListener('click', ()=>setLavoroTab('external'));
         if (id('lavoroCommesseTabBtn')) id('lavoroCommesseTabBtn').addEventListener('click', ()=>setLavoroTab('commesse'));
         if (id('lavoroCommessaSelect')) id('lavoroCommessaSelect').addEventListener('change', ()=>{
