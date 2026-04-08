@@ -3596,10 +3596,12 @@ out center tags;`;
                   </div>
                   <div class="grid">
                     <label>Aggiungi persona da elenco
-                      <input type="text" data-team-suggest="personale" list="memberSuggestionsList" placeholder="Scrivi e scegli un nome" />
+                      <input type="text" data-team-suggest="personale" list="memberSuggestionsList" placeholder="Scrivi o scegli un nome" />
+                      <button type="button" class="secondary btn-small" data-team-suggest-add="personale">Aggiungi persona</button>
                     </label>
                     <label>Aggiungi mezzo da elenco
-                      <input type="text" data-team-suggest="mezzi" list="vehicleSuggestionsList" placeholder="Scrivi e scegli un mezzo" />
+                      <input type="text" data-team-suggest="mezzi" list="vehicleSuggestionsList" placeholder="Scrivi o scegli un mezzo" />
+                      <button type="button" class="secondary btn-small" data-team-suggest-add="mezzi">Aggiungi mezzo</button>
                     </label>
                   </div>
                 </div>
@@ -3638,7 +3640,14 @@ out center tags;`;
           removeTeamSquadraRow(commessaIdx, squadraIdx);
         }));
         wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('change', ()=>appendSuggestionToTeamCommessa(input)));
+        wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('blur', ()=>appendSuggestionToTeamCommessa(input)));
         wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTeamCommessa(input); } }));
+        wrap.querySelectorAll('[data-team-suggest-add]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const field = btn.dataset.teamSuggestAdd || '';
+          const box = btn.closest('[data-team-squadra-index]');
+          const input = box?.querySelector(`[data-team-suggest="${field}"]`);
+          appendSuggestionToTeamCommessa(input);
+        }));
         wrap.querySelectorAll('[data-team-field]').forEach((input)=>input.addEventListener('change', saveTeamRequestDraft));
         syncLegacyTeamFieldsFromPlan();
       }
