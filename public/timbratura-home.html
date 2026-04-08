@@ -643,7 +643,7 @@
               </label>
             </div>
             <div class="inline-actions">
-              <button type="button" class="secondary" id="addTeamCommessaRowBtn">+ Aggiungi commessa per il giorno</button>
+              <button type="button" class="secondary" id="addTeamCommessaRowBtn" onclick="addTeamCommessaRow()">+ Aggiungi commessa per il giorno</button>
             </div>
             <div id="teamCommesseContainer"></div>
             <input type="hidden" id="teamRequestCantiere" />
@@ -3483,6 +3483,7 @@ out center tags;`;
         id('teamProgramStatusLabel').textContent = `Stato programmazione: ${id('teamProgramStatus').value}`;
         id('teamImportPreview').textContent = 'Nessun testo estratto da screenshot.';
         renderTeamProgramsSelect();
+        applyTeamInputModeUI();
       }
       function renderTeamMembersLive() {
         const team = getTeamConfig();
@@ -3562,7 +3563,7 @@ out center tags;`;
           <div class="team-commessa-box" data-team-commessa-index="${idx}">
             <div class="team-commessa-head">
               <h4>Commessa ${idx + 1}</h4>
-              <button type="button" class="secondary btn-small" data-team-remove-commessa="${idx}">Rimuovi</button>
+              <button type="button" class="secondary btn-small" data-team-remove-commessa="${idx}" onclick="removeTeamCommessaRow(${idx})">Rimuovi</button>
             </div>
             <div class="grid">
               <label>Cantiere / commessa
@@ -3570,14 +3571,14 @@ out center tags;`;
               </label>
             </div>
             <div class="inline-actions">
-              <button type="button" class="secondary btn-small" data-team-add-squadra="${idx}">+ Aggiungi squadra</button>
+              <button type="button" class="secondary btn-small" data-team-add-squadra="${idx}" onclick="addTeamSquadraRow(${idx})">+ Aggiungi squadra</button>
             </div>
             <div data-team-squadre-wrap="${idx}">
               ${squadre.map((squadra, sIdx)=>`
                 <div class="setup-box" style="margin-top:8px;" data-team-squadra-index="${sIdx}">
                   <div class="team-commessa-head">
                     <h4>Squadra ${sIdx + 1}</h4>
-                    <button type="button" class="secondary btn-small" data-team-remove-squadra="${idx}:${sIdx}">Rimuovi squadra</button>
+                    <button type="button" class="secondary btn-small" data-team-remove-squadra="${idx}:${sIdx}" onclick="removeTeamSquadraRow(${idx}, ${sIdx})">Rimuovi squadra</button>
                   </div>
                   <div class="grid">
                     <label>Personale richiesto
@@ -3592,6 +3593,27 @@ out center tags;`;
             </div>
           </div>
         `;
+      }
+      function getTeamInputMode() {
+        const draft = getTeamRequestDraft() || {};
+        return draft.input_mode === 'directory' ? 'directory' : 'keyboard';
+      }
+      function setTeamInputMode(mode='keyboard') {
+        const normalized = mode === 'directory' ? 'directory' : 'keyboard';
+        const draft = getTeamRequestDraft() || {};
+        setTeamRequestDraft({ ...draft, input_mode: normalized });
+        applyTeamInputModeUI();
+      }
+      function applyTeamInputModeUI() {
+        const mode = getTeamInputMode();
+        const toggleBtn = id('teamInputModeToggleBtn');
+        if (toggleBtn) toggleBtn.textContent = `Modalità inserimento: ${mode === 'directory' ? 'elenco app' : 'tastiera'}`;
+        document.querySelectorAll('[data-team-directory-tools]').forEach((box)=>box.classList.toggle('hidden', mode !== 'directory'));
+      }
+      function toggleTeamInputMode() {
+        const currentMode = getTeamInputMode();
+        setTeamInputMode(currentMode === 'directory' ? 'keyboard' : 'directory');
+        showTeamMsg(`Modalità inserimento attiva: ${getTeamInputMode() === 'directory' ? 'elenco dati app' : 'tastiera manuale'}.`, 'ok');
       }
       function collectTeamCommessePlanFromUI() {
         return normalizeTeamCommessePlan(
@@ -4349,6 +4371,7 @@ out center tags;`;
         syncLegacyTeamFieldsFromPlan();
         const plan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI());
         setTeamRequestDraft({
+          input_mode: getTeamInputMode(),
           date: id('teamRequestDate').value,
           cantiere: plan[0]?.cantiere || '',
           personale: normalizeListText(plan.map((row)=>row.personale).filter(Boolean).join(', ')),
