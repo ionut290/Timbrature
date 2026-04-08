@@ -3185,7 +3185,7 @@ out center tags;`;
           return;
         }
         list.innerHTML = stations.map((st)=>`
-          <li class="fuel-item" data-meal-row="${escapeHtml(place.id)}">
+          <li class="fuel-item" data-fuel-row="${escapeHtml(st.id)}">
             <div>
               <h4>${escapeHtml(st.name)} ${st.brand ? `(${escapeHtml(st.brand)})` : ''}</h4>
               <p>${escapeHtml(st.address || 'Indirizzo non disponibile')}</p>
@@ -3531,19 +3531,40 @@ out center tags;`;
           }
         }
       }
-      function normalizeTeamCommessePlan(rows=[], keepEmpty=false) {
+      function normalizeTeamSquadre(rows=[], keepEmpty=false) {
         const list = Array.isArray(rows) ? rows : [];
         const normalized = list.map((row)=>({
-          cantiere: String(row?.cantiere || '').trim(),
           personale: normalizeListText(row?.personale || ''),
           mezzi: normalizeListText(row?.mezzi || '')
         }));
-        const filtered = keepEmpty ? normalized : normalized.filter((row)=>row.cantiere || row.personale || row.mezzi);
+        const filtered = keepEmpty ? normalized : normalized.filter((row)=>row.personale || row.mezzi);
         if (keepEmpty && normalized.length) return normalized;
         if (!keepEmpty && filtered.length) return filtered;
-        return [{ cantiere:'', personale:'', mezzi:'' }];
+        return [{ personale:'', mezzi:'' }];
+      }
+      function normalizeTeamCommessePlan(rows=[], keepEmpty=false) {
+        const list = Array.isArray(rows) ? rows : [];
+        const normalized = list.map((row)=>{
+          const squadre = normalizeTeamSquadre(
+            Array.isArray(row?.squadre) && row.squadre.length
+              ? row.squadre
+              : [{ personale: row?.personale || '', mezzi: row?.mezzi || '' }],
+            keepEmpty
+          );
+          return {
+            cantiere: String(row?.cantiere || '').trim(),
+            personale: normalizeListText(squadre.map((s)=>s.personale).filter(Boolean).join(', ')),
+            mezzi: normalizeListText(squadre.map((s)=>s.mezzi).filter(Boolean).join(', ')),
+            squadre
+          };
+        });
+        const filtered = keepEmpty ? normalized : normalized.filter((row)=>row.cantiere || row.personale || row.mezzi || (row.squadre || []).some((s)=>s.personale || s.mezzi));
+        if (keepEmpty && normalized.length) return normalized;
+        if (!keepEmpty && filtered.length) return filtered;
+        return [{ cantiere:'', personale:'', mezzi:'', squadre:[{ personale:'', mezzi:'' }] }];
       }
       function teamCommessaRowHtml(row={}, idx=0) {
+        const squadre = normalizeTeamSquadre(row.squadre?.length ? row.squadre : [{ personale: row.personale || '', mezzi: row.mezzi || '' }], true);
         return `
           <div class="team-commessa-box" data-team-commessa-index="${idx}">
             <div class="team-commessa-head">
@@ -3554,20 +3575,37 @@ out center tags;`;
               <label>Cantiere / commessa
                 <input type="text" data-team-field="cantiere" list="commessaSuggestionsList" value="${escapeHtml(row.cantiere || '')}" placeholder="Nome cantiere" />
               </label>
-              <label>Personale richiesto
-                <textarea data-team-field="personale" rows="2" placeholder="Es. Mario Rossi, Luca Bianchi">${escapeHtml(row.personale || '')}</textarea>
-              </label>
-              <label>Mezzi richiesti
-                <textarea data-team-field="mezzi" rows="2" placeholder="Es. Furgone + piattaforma">${escapeHtml(row.mezzi || '')}</textarea>
-              </label>
             </div>
-            <div class="grid">
-              <label>Aggiungi persona da elenco
-                <input type="text" data-team-suggest="personale" list="memberSuggestionsList" placeholder="Scrivi e scegli un nome" />
-              </label>
-              <label>Aggiungi mezzo da elenco
-                <input type="text" data-team-suggest="mezzi" list="vehicleSuggestionsList" placeholder="Scrivi e scegli un mezzo" />
-              </label>
+            <div class="inline-actions">
+              <button type="button" class="secondary btn-small" data-team-add-squadra="${idx}">+ Aggiungi squadra</button>
+            </div>
+            <div data-team-squadre-wrap="${idx}">
+              ${squadre.map((squadra, sIdx)=>`
+                <div class="setup-box" style="margin-top:8px;" data-team-squadra-index="${sIdx}">
+                  <div class="team-commessa-head">
+                    <h4>Squadra ${sIdx + 1}</h4>
+                    <button type="button" class="secondary btn-small" data-team-remove-squadra="${idx}:${sIdx}">Rimuovi squadra</button>
+                  </div>
+                  <div class="grid">
+                    <label>Personale richiesto
+                      <textarea data-team-field="personale" data-team-squadra-field="personale" rows="2" placeholder="Es. Mario Rossi, Luca Bianchi">${escapeHtml(squadra.personale || '')}</textarea>
+                    </label>
+                    <label>Mezzi richiesti
+                      <textarea data-team-field="mezzi" data-team-squadra-field="mezzi" rows="2" placeholder="Es. Furgone + piattaforma">${escapeHtml(squadra.mezzi || '')}</textarea>
+                    </label>
+                  </div>
+                  <div class="grid">
+                    <label>Aggiungi persona da elenco
+                      <input type="text" data-team-suggest="personale" list="memberSuggestionsList" placeholder="Scrivi o scegli un nome" />
+                      <button type="button" class="secondary btn-small" data-team-suggest-add="personale">Aggiungi persona</button>
+                    </label>
+                    <label>Aggiungi mezzo da elenco
+                      <input type="text" data-team-suggest="mezzi" list="vehicleSuggestionsList" placeholder="Scrivi o scegli un mezzo" />
+                      <button type="button" class="secondary btn-small" data-team-suggest-add="mezzi">Aggiungi mezzo</button>
+                    </label>
+                  </div>
+                </div>
+              `).join('')}
             </div>
           </div>
         `;
@@ -3576,8 +3614,10 @@ out center tags;`;
         return normalizeTeamCommessePlan(
           Array.from(document.querySelectorAll('[data-team-commessa-index]')).map((box)=>({
             cantiere: box.querySelector('[data-team-field="cantiere"]')?.value || '',
-            personale: box.querySelector('[data-team-field="personale"]')?.value || '',
-            mezzi: box.querySelector('[data-team-field="mezzi"]')?.value || ''
+            squadre: normalizeTeamSquadre(Array.from(box.querySelectorAll('[data-team-squadra-index]')).map((squadraBox)=>({
+              personale: squadraBox.querySelector('[data-team-squadra-field="personale"]')?.value || '',
+              mezzi: squadraBox.querySelector('[data-team-squadra-field="mezzi"]')?.value || ''
+            })))
           })),
           true
         );
@@ -3594,8 +3634,20 @@ out center tags;`;
         if (!wrap) return;
         wrap.innerHTML = plan.map((row, idx)=>teamCommessaRowHtml(row, idx)).join('');
         wrap.querySelectorAll('[data-team-remove-commessa]').forEach((btn)=>btn.addEventListener('click', ()=>removeTeamCommessaRow(Number(btn.dataset.teamRemoveCommessa))));
+        wrap.querySelectorAll('[data-team-add-squadra]').forEach((btn)=>btn.addEventListener('click', ()=>addTeamSquadraRow(Number(btn.dataset.teamAddSquadra))));
+        wrap.querySelectorAll('[data-team-remove-squadra]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const [commessaIdx, squadraIdx] = String(btn.dataset.teamRemoveSquadra || '').split(':').map((value)=>Number(value));
+          removeTeamSquadraRow(commessaIdx, squadraIdx);
+        }));
         wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('change', ()=>appendSuggestionToTeamCommessa(input)));
+        wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('blur', ()=>appendSuggestionToTeamCommessa(input)));
         wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTeamCommessa(input); } }));
+        wrap.querySelectorAll('[data-team-suggest-add]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const field = btn.dataset.teamSuggestAdd || '';
+          const box = btn.closest('[data-team-squadra-index]');
+          const input = box?.querySelector(`[data-team-suggest="${field}"]`);
+          appendSuggestionToTeamCommessa(input);
+        }));
         wrap.querySelectorAll('[data-team-field]').forEach((input)=>input.addEventListener('change', saveTeamRequestDraft));
         syncLegacyTeamFieldsFromPlan();
       }
@@ -3610,13 +3662,28 @@ out center tags;`;
         renderTeamCommessePlanUI(current);
         saveTeamRequestDraft();
       }
+      function addTeamSquadraRow(commessaIndex=0) {
+        const current = collectTeamCommessePlanFromUI();
+        if (!current[commessaIndex]) return;
+        current[commessaIndex].squadre = normalizeTeamSquadre(current[commessaIndex].squadre || [], true);
+        current[commessaIndex].squadre.push({ personale:'', mezzi:'' });
+        renderTeamCommessePlanUI(current);
+        saveTeamRequestDraft();
+      }
+      function removeTeamSquadraRow(commessaIndex=0, squadraIndex=0) {
+        const current = collectTeamCommessePlanFromUI();
+        if (!current[commessaIndex]) return;
+        current[commessaIndex].squadre = normalizeTeamSquadre((current[commessaIndex].squadre || []).filter((_, idx)=>idx !== squadraIndex));
+        renderTeamCommessePlanUI(current);
+        saveTeamRequestDraft();
+      }
       function appendSuggestionToTeamCommessa(inputEl) {
         if (!inputEl) return;
         const value = (inputEl.value || '').trim();
         if (!value) return;
-        const box = inputEl.closest('[data-team-commessa-index]');
+        const box = inputEl.closest('[data-team-squadra-index]');
         const field = inputEl.dataset.teamSuggest || '';
-        const target = box?.querySelector(`[data-team-field="${field}"]`);
+        const target = box?.querySelector(`[data-team-squadra-field="${field}"]`);
         if (!target) return;
         target.value = normalizeListText([target.value, value].filter(Boolean).join(', '));
         inputEl.value = '';
@@ -4349,9 +4416,10 @@ out center tags;`;
           }
           const parsed = parseNamesAndVehiclesFromText(extracted);
           const rows = collectTeamCommessePlanFromUI();
-          const first = rows[0] || { cantiere:'', personale:'', mezzi:'' };
-          if (parsed.personnel) first.personale = parsed.personnel;
-          if (parsed.vehicles) first.mezzi = parsed.vehicles;
+          const first = rows[0] || { cantiere:'', personale:'', mezzi:'', squadre:[{ personale:'', mezzi:'' }] };
+          first.squadre = normalizeTeamSquadre(first.squadre || [], true);
+          if (parsed.personnel) first.squadre[0].personale = parsed.personnel;
+          if (parsed.vehicles) first.squadre[0].mezzi = parsed.vehicles;
           renderTeamCommessePlanUI([first, ...rows.slice(1)]);
           id('teamImportPreview').textContent = `Testo estratto: ${extracted.slice(0, 280)}${extracted.length > 280 ? '…' : ''}`;
           saveTeamRequestDraft();
@@ -4527,9 +4595,10 @@ out center tags;`;
       function prefillTeamRequestFromSavedTeam() {
         const directory = getTeamDirectory();
         const rows = collectTeamCommessePlanFromUI();
-        const first = rows[0] || { cantiere:'', personale:'', mezzi:'' };
-        if (!first.personale) first.personale = (directory.members || []).join(', ');
-        if (!first.mezzi) first.mezzi = (directory.vehicles || []).join(', ');
+        const first = rows[0] || { cantiere:'', personale:'', mezzi:'', squadre:[{ personale:'', mezzi:'' }] };
+        first.squadre = normalizeTeamSquadre(first.squadre || [], true);
+        if (!first.squadre[0].personale) first.squadre[0].personale = (directory.members || []).join(', ');
+        if (!first.squadre[0].mezzi) first.squadre[0].mezzi = (directory.vehicles || []).join(', ');
         renderTeamCommessePlanUI([first, ...rows.slice(1)]);
         saveTeamRequestDraft();
         showTeamMsg('Richiesta precompilata con persone/mezzi dal foglio.', 'ok');
@@ -4539,11 +4608,18 @@ out center tags;`;
         const commessePlan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI()).filter((row)=>row.cantiere && row.personale && row.mezzi);
         if (!date || !commessePlan.length) { showTeamMsg('Compila almeno una commessa completa prima di finalizzare.', 'err'); return; }
         const formattedDate = formatDateIT(date);
-        const details = commessePlan.map((row, idx)=>[
-          `📌 Commessa ${idx + 1}: ${row.cantiere}`,
-          `  👷 Personale: ${row.personale}`,
-          `  🚜 Mezzi: ${row.mezzi}`
-        ].join('\n')).join('\n');
+        const details = commessePlan.map((row, idx)=>{
+          const squadre = normalizeTeamSquadre(row.squadre || []).filter((s)=>s.personale || s.mezzi);
+          const squadreLines = squadre.map((squadra, sIdx)=>[
+            `  👥 Squadra ${sIdx + 1}`,
+            `    👷 Personale: ${squadra.personale || '-'}`,
+            `    🚜 Mezzi: ${squadra.mezzi || '-'}`
+          ].join('\n')).join('\n');
+          return [
+            `📌 Commessa ${idx + 1}: ${row.cantiere}`,
+            squadreLines || `  👷 Personale: ${row.personale}\n  🚜 Mezzi: ${row.mezzi}`
+          ].join('\n');
+        }).join('\n');
         const message = [
           `Buongiorno, richiesta squadra per il giorno ${formattedDate}.`,
           `Commesse programmate (${commessePlan.length}):`,
