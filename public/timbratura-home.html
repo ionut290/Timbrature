@@ -613,6 +613,7 @@
           <div class="actions">
             <button class="secondary" id="loadProgramBtn" type="button">Carica contratto</button>
             <button id="saveProgramBtn" type="button">Salva contratto</button>
+            <button class="secondary" id="saveProgramCloudBtn" type="button">Salva contratto su cloud</button>
           </div>
           <p id="programEsito" class="msg"></p>
           <div id="programSummary" class="program-summary hidden"></div>
@@ -4894,6 +4895,20 @@ out center tags;`;
         renderProgramSummary(payload);
         refreshPunchSummary();
         loadMyMonth();
+      }
+      async function saveProgramCloudOnly() {
+        saveProgramDraftUI();
+        if (!currentAuthUser) {
+          showProgramMsg('Per il salvataggio cloud devi prima accedere con un account.', 'err');
+          return;
+        }
+        try {
+          await pushSharedAppPayload('manual-program-cloud-save', { throwOnFailure:true });
+          showProgramMsg('Impostazioni contratto sincronizzate sul cloud.', 'ok');
+        } catch (error) {
+          console.warn('Salvataggio cloud contratto fallito:', error);
+          showProgramMsg('Salvataggio cloud non riuscito. Verifica connessione o autenticazione.', 'err');
+        }
       }
       function loadProgramBySelectedWeek() {
         const found = getPrograms()[0];
@@ -9866,6 +9881,7 @@ out center tags;`;
         if (id('sendTeamRequestWhatsappBtn')) id('sendTeamRequestWhatsappBtn').addEventListener('click', openWhatsAppTeamRequest);
         ['teamRequestDate'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveTeamRequestDraft));
         id('saveProgramBtn').addEventListener('click', saveProgram);
+        if (id('saveProgramCloudBtn')) id('saveProgramCloudBtn').addEventListener('click', saveProgramCloudOnly);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
         id('contractTemplate').addEventListener('change', ()=>{ buildContractLevelsOptions(); saveProgramDraftUI(); });
         id('contractLevel').addEventListener('change', ()=>{ updateContractHintAndRates(); saveProgramDraftUI(); });
