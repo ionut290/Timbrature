@@ -3479,6 +3479,7 @@ out center tags;`;
         id('teamProgramStatusLabel').textContent = `Stato programmazione: ${id('teamProgramStatus').value}`;
         id('teamImportPreview').textContent = 'Nessun testo estratto da screenshot.';
         renderTeamProgramsSelect();
+        applyTeamInputModeUI();
       }
       function renderTeamMembersLive() {
         const team = getTeamConfig();
@@ -3588,6 +3589,27 @@ out center tags;`;
             </div>
           </div>
         `;
+      }
+      function getTeamInputMode() {
+        const draft = getTeamRequestDraft() || {};
+        return draft.input_mode === 'directory' ? 'directory' : 'keyboard';
+      }
+      function setTeamInputMode(mode='keyboard') {
+        const normalized = mode === 'directory' ? 'directory' : 'keyboard';
+        const draft = getTeamRequestDraft() || {};
+        setTeamRequestDraft({ ...draft, input_mode: normalized });
+        applyTeamInputModeUI();
+      }
+      function applyTeamInputModeUI() {
+        const mode = getTeamInputMode();
+        const toggleBtn = id('teamInputModeToggleBtn');
+        if (toggleBtn) toggleBtn.textContent = `Modalità inserimento: ${mode === 'directory' ? 'elenco app' : 'tastiera'}`;
+        document.querySelectorAll('[data-team-directory-tools]').forEach((box)=>box.classList.toggle('hidden', mode !== 'directory'));
+      }
+      function toggleTeamInputMode() {
+        const currentMode = getTeamInputMode();
+        setTeamInputMode(currentMode === 'directory' ? 'keyboard' : 'directory');
+        showTeamMsg(`Modalità inserimento attiva: ${getTeamInputMode() === 'directory' ? 'elenco dati app' : 'tastiera manuale'}.`, 'ok');
       }
       function collectTeamCommessePlanFromUI() {
         return normalizeTeamCommessePlan(
@@ -4331,6 +4353,7 @@ out center tags;`;
         syncLegacyTeamFieldsFromPlan();
         const plan = normalizeTeamCommessePlan(collectTeamCommessePlanFromUI());
         setTeamRequestDraft({
+          input_mode: getTeamInputMode(),
           date: id('teamRequestDate').value,
           cantiere: plan[0]?.cantiere || '',
           personale: normalizeListText(plan.map((row)=>row.personale).filter(Boolean).join(', ')),
