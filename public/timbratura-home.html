@@ -621,7 +621,11 @@
         <div class="card hidden" id="teamCard">
           <h2>Programmazione squadra (giorno successivo)</h2>
           <div class="setup-box">
-            <h3 style="margin:0 0 8px;">Squadra attuale</h3>
+            <h3 style="margin:0 0 8px;">Caposquadra e squadra</h3>
+            <div class="inline-actions">
+              <input type="text" id="teamLeaderInput" list="memberSuggestionsList" placeholder="Nome caposquadra" />
+              <button type="button" class="secondary" id="saveTeamLeaderBtn">Salva caposquadra</button>
+            </div>
             <div class="inline-actions">
               <input type="text" id="teamMemberInput" list="memberSuggestionsList" placeholder="Nome utente squadra" />
               <button type="button" class="secondary" id="addTeamMemberBtn">Aggiungi utente</button>
@@ -634,6 +638,9 @@
               <label>Data richiesta
                 <input type="date" id="teamRequestDate" />
               </label>
+              <label>Programmazione salvata
+                <select id="teamProgramSelect"></select>
+              </label>
             </div>
             <div class="inline-actions">
               <button type="button" class="secondary" id="addTeamCommessaRowBtn">+ Aggiungi commessa per il giorno</button>
@@ -644,15 +651,7 @@
             <input type="hidden" id="teamRequestVehicles" />
             <input type="hidden" id="teamProgramId" />
             <input type="hidden" id="teamProgramStatus" value="IN_ATTESA" />
-            <div class="grid">
-              <label>Seleziona programmazione salvata
-                <select id="teamProgramSelect"></select>
-              </label>
-              <label>Importa screenshot (opzionale)
-                <input type="file" id="teamScreenshotInput" accept="image/*" />
-              </label>
-            </div>
-            <div id="teamImportPreview" class="import-preview">Nessun testo estratto da screenshot.</div>
+            <div id="teamImportPreview" class="import-preview hidden">Nessun testo estratto da screenshot.</div>
             <div class="inline-actions">
               <button type="button" class="secondary" id="teamInputModeToggleBtn">Modalità inserimento: tastiera</button>
               <button type="button" class="secondary" id="saveTeamProgramBtn">Salva programmazione</button>
@@ -661,12 +660,8 @@
               <button type="button" id="sendTeamRequestWhatsappBtn">Finalizza e apri WhatsApp</button>
             </div>
             <p class="small" id="teamProgramStatusLabel">Stato programmazione: IN_ATTESA</p>
-            <div class="grid">
-              <label>Risposta WhatsApp ricevuta
-                <input type="text" id="teamWhatsappReplyInput" placeholder="Incolla: APPROVO / RETTIFICO" />
-              </label>
-            </div>
-            <p class="small">Compila per il giorno successivo, correggi/elimina e inoltra via WhatsApp.</p>
+            <input type="hidden" id="teamWhatsappReplyInput" value="" />
+            <p class="small">Compila per il giorno successivo, salva/correggi e invia via WhatsApp.</p>
           </div>
           <p id="teamEsito" class="msg"></p>
         </div>
@@ -3473,7 +3468,9 @@ out center tags;`;
       }
       function renderTeamUI() {
         const draft = getTeamRequestDraft() || {};
+        const team = getTeamConfig();
         renderTeamMembersLive();
+        if (id('teamLeaderInput')) id('teamLeaderInput').value = team.leader || '';
         id('teamRequestDate').value = draft.date || selectedMonthDay || tomorrowDateISO();
         const commessePlan = normalizeTeamCommessePlan(draft.commesse_plan?.length ? draft.commesse_plan : [{ cantiere:draft.cantiere || '', personale:draft.personale || '', mezzi:draft.mezzi || '' }]);
         renderTeamCommessePlanUI(commessePlan);
@@ -9874,14 +9871,16 @@ out center tags;`;
         if (id('addTeamCommessaRowBtn')) id('addTeamCommessaRowBtn').addEventListener('click', ()=>addTeamCommessaRow());
         if (id('addTeamMemberBtn')) id('addTeamMemberBtn').addEventListener('click', ()=>addTeamMember());
         if (id('teamMemberInput')) id('teamMemberInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); addTeamMember(); } });
-        id('teamInputModeToggleBtn').addEventListener('click', toggleTeamInputMode);
-        id('saveTeamProgramBtn').addEventListener('click', saveTeamProgram);
-        id('updateTeamProgramBtn').addEventListener('click', updateTeamProgram);
-        id('deleteTeamProgramBtn').addEventListener('click', deleteTeamProgram);
-        id('teamWhatsappReplyInput').addEventListener('change', applyWhatsappReplyStatus);
-        id('teamWhatsappReplyInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); applyWhatsappReplyStatus(); } });
-        id('teamProgramSelect').addEventListener('change', (e)=>loadTeamProgramById(e.target.value || ''));
-        id('sendTeamRequestWhatsappBtn').addEventListener('click', openWhatsAppTeamRequest);
+        if (id('saveTeamLeaderBtn')) id('saveTeamLeaderBtn').addEventListener('click', saveTeamLeader);
+        if (id('teamLeaderInput')) id('teamLeaderInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveTeamLeader(); } });
+        if (id('teamInputModeToggleBtn')) id('teamInputModeToggleBtn').addEventListener('click', toggleTeamInputMode);
+        if (id('saveTeamProgramBtn')) id('saveTeamProgramBtn').addEventListener('click', saveTeamProgram);
+        if (id('updateTeamProgramBtn')) id('updateTeamProgramBtn').addEventListener('click', updateTeamProgram);
+        if (id('deleteTeamProgramBtn')) id('deleteTeamProgramBtn').addEventListener('click', deleteTeamProgram);
+        if (id('teamWhatsappReplyInput')) id('teamWhatsappReplyInput').addEventListener('change', applyWhatsappReplyStatus);
+        if (id('teamWhatsappReplyInput')) id('teamWhatsappReplyInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); applyWhatsappReplyStatus(); } });
+        if (id('teamProgramSelect')) id('teamProgramSelect').addEventListener('change', (e)=>loadTeamProgramById(e.target.value || ''));
+        if (id('sendTeamRequestWhatsappBtn')) id('sendTeamRequestWhatsappBtn').addEventListener('click', openWhatsAppTeamRequest);
         ['teamRequestDate'].forEach((fieldId)=>id(fieldId).addEventListener('change', saveTeamRequestDraft));
         id('saveProgramBtn').addEventListener('click', saveProgram);
         id('loadProgramBtn').addEventListener('click', loadProgramBySelectedWeek);
