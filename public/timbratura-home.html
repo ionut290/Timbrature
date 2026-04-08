@@ -1587,6 +1587,9 @@ window.__TIMBRATURE_FIREBASE_CONFIG__ = {
       let fuelMarkersLayer = null;
       let mealMap = null;
       let mealMarkersLayer = null;
+      let nearbySearchPositionCache = null;
+      const nearbyFuelResultsCache = new Map();
+      const nearbyMealResultsCache = new Map();
       let dataHubCantieriMap = null;
       let dataHubCantieriLayer = null;
       let lavoroCantieriMap = null;
@@ -2579,6 +2582,52 @@ window.__TIMBRATURE_FIREBASE_CONFIG__ = {
           navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy:true, timeout:12_000, maximumAge:30_000 });
         });
       }
+      function normalizeCoordsFromPosition(position = null) {
+        const lat = Number(position?.coords?.latitude ?? position?.latitude ?? position?.lat);
+        const lon = Number(position?.coords?.longitude ?? position?.longitude ?? position?.lng ?? position?.lon);
+        const accuracy = Number(position?.coords?.accuracy ?? position?.accuracy);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        return { lat, lon, accuracy: Number.isFinite(accuracy) ? accuracy : null };
+      }
+      function getNearbyResultCacheKey(prefix = '', lat = 0, lon = 0, radiusKm = 8, extra = '') {
+        const safePrefix = String(prefix || '').trim().toLowerCase();
+        const roundedLat = Number(lat).toFixed(3);
+        const roundedLon = Number(lon).toFixed(3);
+        const roundedRadius = Number(radiusKm || 8).toFixed(1);
+        return `${safePrefix}|${roundedLat}|${roundedLon}|${roundedRadius}|${String(extra || '').trim().toLowerCase()}`;
+      }
+      function readNearbyCache(cacheMap, key = '', ttlMs = 120000) {
+        if (!cacheMap?.get || !key) return null;
+        const entry = cacheMap.get(key);
+        if (!entry) return null;
+        if ((Date.now() - Number(entry.ts || 0)) > ttlMs) {
+          cacheMap.delete(key);
+          return null;
+        }
+        return entry.value;
+      }
+      function writeNearbyCache(cacheMap, key = '', value = null) {
+        if (!cacheMap?.set || !key) return;
+        cacheMap.set(key, { ts: Date.now(), value });
+      }
+      async function getNearbySearchPositionFast(timeoutMs = 7000) {
+        const cached = nearbySearchPositionCache;
+        if (cached && (Date.now() - Number(cached.ts || 0) <= 180000)) {
+          return { lat: cached.lat, lon: cached.lon, accuracy: cached.accuracy || null, source: 'cache' };
+        }
+        if (!navigator.geolocation) throw new Error('Geolocalizzazione non supportata dal dispositivo.');
+        const rawPos = await new Promise((resolve, reject)=>{
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 180000 }
+          );
+        });
+        const coords = normalizeCoordsFromPosition(rawPos);
+        if (!coords) throw new Error('Posizione GPS non valida. Attiva la localizzazione e riprova.');
+        nearbySearchPositionCache = { ...coords, ts: Date.now() };
+        return { ...coords, source: 'gps' };
+      }
       function extractLatLon(position) {
         const lat = Number(position?.coords?.latitude ?? position?.latitude ?? position?.lat);
         const lon = Number(position?.coords?.longitude ?? position?.longitude ?? position?.lng ?? position?.lon);
@@ -3267,10 +3316,18 @@ out center tags;`;
           ? `Ricerca ${serviceType} con buoni Day in corso...`
           : `Ricerca ${serviceType} (tutti i locali) in corso...`, 'ok');
         try {
-          const position = await getCurrentPositionSafe();
+          const position = await getNearbySearchPositionFast(7000);
           const { lat, lon } = extractLatLon(position);
-          await ensureLeafletLoaded();
+          ensureLeafletLoaded().catch(()=>{});
+          const cacheKey = getNearbyResultCacheKey('meal', lat, lon, radiusKm, `${serviceType}|${voucherFilter}`);
+          const cachedPlaces = readNearbyCache(nearbyMealResultsCache, cacheKey, 180000);
+          if (cachedPlaces?.length) {
+            renderMealPlacesMap(lat, lon, cachedPlaces);
+            renderMealPlacesList(cachedPlaces, voucherFilter);
+            showMealMsg(`Risultati rapidi da cache: ${cachedPlaces.length} locali. Aggiornamento in corso...`, 'ok');
+          }
           const places = await fetchNearbyMealPlaces(lat, lon, radiusKm, serviceType, voucherFilter);
+          writeNearbyCache(nearbyMealResultsCache, cacheKey, places);
           renderMealPlacesMap(lat, lon, places);
           renderMealPlacesList(places, voucherFilter);
           showMealMsg(
@@ -3293,10 +3350,18 @@ out center tags;`;
         const vehicle = id('fuelVehicle')?.value?.trim() || 'Mezzo';
         showFuelMsg(`Ricerca distributori per ${vehicle} (${fuelType}) in corso...`, 'ok');
         try {
-          const position = await getCurrentPositionSafe();
+          const position = await getNearbySearchPositionFast(7000);
           const { lat, lon } = extractLatLon(position);
-          await ensureLeafletLoaded();
+          ensureLeafletLoaded().catch(()=>{});
+          const cacheKey = getNearbyResultCacheKey('fuel', lat, lon, radiusKm, fuelType);
+          const cachedStations = readNearbyCache(nearbyFuelResultsCache, cacheKey, 180000);
+          if (cachedStations?.length) {
+            renderFuelStationsMap(lat, lon, cachedStations);
+            renderFuelStationsList(cachedStations);
+            showFuelMsg(`Risultati rapidi da cache: ${cachedStations.length} distributori. Aggiornamento in corso...`, 'ok');
+          }
           const stations = await fetchNearbyFuelStations(lat, lon, radiusKm, fuelType);
+          writeNearbyCache(nearbyFuelResultsCache, cacheKey, stations);
           renderFuelStationsMap(lat, lon, stations);
           renderFuelStationsList(stations);
           showFuelMsg(`Trovati ${stations.length} distributori compatibili. Tocca un punto per avviare Google Maps.`, stations.length ? 'ok' : 'err');
