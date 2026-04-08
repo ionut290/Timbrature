@@ -3702,11 +3702,21 @@ out center tags;`;
           <p>Codici prezzo: ${escapeHtml(c.price_codes || c.price_code || '-')}</p>
           <p>${escapeHtml(c.notes || '-')}</p>
           <div class="inline-actions" style="margin-top:6px;">
-            <button type="button" class="secondary btn-small" onclick="editCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Modifica</button>
-            <button type="button" class="secondary btn-small" onclick="deleteCantiereFromDataHub('${escapeHtml(commessa.id)}','${escapeHtml(c.id)}')">Elimina</button>
+            <button type="button" class="secondary btn-small" data-action="edit-cantiere" data-commessa-id="${encodeURIComponent(String(commessa.id || ''))}" data-cantiere-id="${encodeURIComponent(String(c.id || ''))}">Modifica</button>
+            <button type="button" class="secondary btn-small" data-action="delete-cantiere" data-commessa-id="${encodeURIComponent(String(commessa.id || ''))}" data-cantiere-id="${encodeURIComponent(String(c.id || ''))}">Elimina</button>
           </div>
         </li>`;
         }).join('');
+        list.querySelectorAll('[data-action="edit-cantiere"]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const commessaId = decodeURIComponent(btn.dataset.commessaId || '');
+          const cantiereId = decodeURIComponent(btn.dataset.cantiereId || '');
+          editCantiereFromDataHub(commessaId, cantiereId);
+        }));
+        list.querySelectorAll('[data-action="delete-cantiere"]').forEach((btn)=>btn.addEventListener('click', ()=>{
+          const commessaId = decodeURIComponent(btn.dataset.commessaId || '');
+          const cantiereId = decodeURIComponent(btn.dataset.cantiereId || '');
+          deleteCantiereFromDataHub(commessaId, cantiereId);
+        }));
         renderDataHubCantieriMap(cantieri);
       }
       async function renderDataHubCantieriMap(cantieri=[]) {
@@ -3774,10 +3784,10 @@ out center tags;`;
       function deleteCantiereFromDataHub(commessaId='', cantiereId='') {
         const commesse = getCommesse();
         const idx = commesse.findIndex((c)=>c.id === commessaId);
-        if (idx < 0) return;
+        if (idx < 0) { showCatalogMsg('Commessa non trovata.', 'err'); return; }
         const cantieri = Array.isArray(commesse[idx].cantieri) ? commesse[idx].cantieri : [];
         const target = cantieri.find((c)=>c.id === cantiereId);
-        if (!target) return;
+        if (!target) { showCatalogMsg('Cantiere non trovato.', 'err'); return; }
         if (!window.confirm(`Eliminare cantiere ${target.code || ''} ${target.name || ''}?`)) return;
         commesse[idx] = {
           ...commesse[idx],
