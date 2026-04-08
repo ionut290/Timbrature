@@ -3466,6 +3466,10 @@ out center tags;`;
         if (id('authFullNameInput')) id('authFullNameInput').value = p.nome || '';
       }
       function renderTeamUI() {
+        const activeEl = document.activeElement;
+        if (activeEl && activeEl.closest && activeEl.closest('#teamCard') && activeEl.matches('input, textarea')) {
+          return;
+        }
         const draft = getTeamRequestDraft() || {};
         const team = getTeamConfig();
         renderTeamMembersLive();
@@ -3641,6 +3645,7 @@ out center tags;`;
           removeTeamSquadraRow(commessaIdx, squadraIdx);
         }));
         wrap.querySelectorAll('[data-team-field]').forEach((input)=>input.addEventListener('change', saveTeamRequestDraft));
+        wrap.querySelectorAll('[data-team-field]').forEach((input)=>input.addEventListener('input', saveTeamRequestDraft));
         syncLegacyTeamFieldsFromPlan();
       }
       function addTeamCommessaRow(initialRow={ cantiere:'', personale:'', mezzi:'' }) {
