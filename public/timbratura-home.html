@@ -623,11 +623,11 @@
           <div class="setup-box">
             <h3 style="margin:0 0 8px;">Caposquadra e squadra</h3>
             <div class="inline-actions">
-              <input type="text" id="teamLeaderInput" list="memberSuggestionsList" placeholder="Nome caposquadra" />
+              <input type="text" id="teamLeaderInput" placeholder="Nome caposquadra" />
               <button type="button" class="secondary" id="saveTeamLeaderBtn">Salva caposquadra</button>
             </div>
             <div class="inline-actions">
-              <input type="text" id="teamMemberInput" list="memberSuggestionsList" placeholder="Nome utente squadra" />
+              <input type="text" id="teamMemberInput" placeholder="Nome utente squadra" />
               <button type="button" class="secondary" id="addTeamMemberBtn">Aggiungi utente</button>
             </div>
             <ul id="teamMembersLiveList" class="doc-list"></ul>
@@ -653,7 +653,6 @@
             <input type="hidden" id="teamProgramStatus" value="IN_ATTESA" />
             <div id="teamImportPreview" class="import-preview hidden">Nessun testo estratto da screenshot.</div>
             <div class="inline-actions">
-              <button type="button" class="secondary" id="teamInputModeToggleBtn">Modalità inserimento: tastiera</button>
               <button type="button" class="secondary" id="saveTeamProgramBtn">Salva programmazione</button>
               <button type="button" class="secondary" id="updateTeamProgramBtn">Correggi programmazione</button>
               <button type="button" class="secondary" id="deleteTeamProgramBtn">Elimina programmazione</button>
@@ -3479,7 +3478,6 @@ out center tags;`;
         id('teamProgramStatus').value = draft.status || 'IN_ATTESA';
         id('teamProgramStatusLabel').textContent = `Stato programmazione: ${id('teamProgramStatus').value}`;
         id('teamImportPreview').textContent = 'Nessun testo estratto da screenshot.';
-        renderTeamDirectorySelects();
         renderTeamProgramsSelect();
         applyTeamInputModeUI();
       }
@@ -3565,7 +3563,7 @@ out center tags;`;
             </div>
             <div class="grid">
               <label>Cantiere / commessa
-                <input type="text" data-team-field="cantiere" list="commessaSuggestionsList" value="${escapeHtml(row.cantiere || '')}" placeholder="Nome cantiere" />
+                <input type="text" data-team-field="cantiere" value="${escapeHtml(row.cantiere || '')}" placeholder="Nome cantiere" />
               </label>
             </div>
             <div class="inline-actions">
@@ -3584,16 +3582,6 @@ out center tags;`;
                     </label>
                     <label>Mezzi richiesti
                       <textarea data-team-field="mezzi" data-team-squadra-field="mezzi" rows="2" placeholder="Es. Furgone + piattaforma">${escapeHtml(squadra.mezzi || '')}</textarea>
-                    </label>
-                  </div>
-                  <div class="grid" data-team-directory-tools>
-                    <label>Aggiungi persona da elenco
-                      <input type="text" data-team-suggest="personale" list="memberSuggestionsList" placeholder="Scrivi o scegli un nome" />
-                      <button type="button" class="secondary btn-small" data-team-suggest-add="personale">Aggiungi persona</button>
-                    </label>
-                    <label>Aggiungi mezzo da elenco
-                      <input type="text" data-team-suggest="mezzi" list="vehicleSuggestionsList" placeholder="Scrivi o scegli un mezzo" />
-                      <button type="button" class="secondary btn-small" data-team-suggest-add="mezzi">Aggiungi mezzo</button>
                     </label>
                   </div>
                 </div>
@@ -3652,15 +3640,6 @@ out center tags;`;
           const [commessaIdx, squadraIdx] = String(btn.dataset.teamRemoveSquadra || '').split(':').map((value)=>Number(value));
           removeTeamSquadraRow(commessaIdx, squadraIdx);
         }));
-        wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('change', ()=>appendSuggestionToTeamCommessa(input)));
-        wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('blur', ()=>appendSuggestionToTeamCommessa(input)));
-        wrap.querySelectorAll('[data-team-suggest]').forEach((input)=>input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); appendSuggestionToTeamCommessa(input); } }));
-        wrap.querySelectorAll('[data-team-suggest-add]').forEach((btn)=>btn.addEventListener('click', ()=>{
-          const field = btn.dataset.teamSuggestAdd || '';
-          const box = btn.closest('[data-team-squadra-index]');
-          const input = box?.querySelector(`[data-team-suggest="${field}"]`);
-          appendSuggestionToTeamCommessa(input);
-        }));
         wrap.querySelectorAll('[data-team-field]').forEach((input)=>input.addEventListener('change', saveTeamRequestDraft));
         syncLegacyTeamFieldsFromPlan();
       }
@@ -3688,18 +3667,6 @@ out center tags;`;
         if (!current[commessaIndex]) return;
         current[commessaIndex].squadre = normalizeTeamSquadre((current[commessaIndex].squadre || []).filter((_, idx)=>idx !== squadraIndex));
         renderTeamCommessePlanUI(current);
-        saveTeamRequestDraft();
-      }
-      function appendSuggestionToTeamCommessa(inputEl) {
-        if (!inputEl) return;
-        const value = (inputEl.value || '').trim();
-        if (!value) return;
-        const box = inputEl.closest('[data-team-squadra-index]');
-        const field = inputEl.dataset.teamSuggest || '';
-        const target = box?.querySelector(`[data-team-squadra-field="${field}"]`);
-        if (!target) return;
-        target.value = normalizeListText([target.value, value].filter(Boolean).join(', '));
-        inputEl.value = '';
         saveTeamRequestDraft();
       }
       function renderTeamDirectorySelects() {
@@ -8661,7 +8628,6 @@ out center tags;`;
         const activeBtn = document.querySelector(`[data-menu-target="${panelId}"]`);
         const parentGroup = activeBtn ? activeBtn.closest('details.menu-group') : null;
         if (parentGroup) parentGroup.open = true;
-        if (panelId === 'teamCard') loadTeamDirectoryFromSheet(true);
         if (panelId === 'lavoroCard') renderLavoroCommesseUI();
         if (panelId === 'chatCard') markChatAsRead(getChatMessagesLocal());
         if (panelId === 'giornaleCard') {
@@ -9652,7 +9618,6 @@ out center tags;`;
           console.error('Errore renderCatalogDataUI:', error);
           showMsg('Alcune funzioni Dati app non sono disponibili. Ricarica la pagina.', 'err');
         }
-        loadTeamDirectoryFromSheet(true);
         updateWelcomeMessage();
         loadTodayPunch();
         loadMyMonth();
@@ -9873,7 +9838,6 @@ out center tags;`;
         if (id('teamMemberInput')) id('teamMemberInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); addTeamMember(); } });
         if (id('saveTeamLeaderBtn')) id('saveTeamLeaderBtn').addEventListener('click', saveTeamLeader);
         if (id('teamLeaderInput')) id('teamLeaderInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveTeamLeader(); } });
-        if (id('teamInputModeToggleBtn')) id('teamInputModeToggleBtn').addEventListener('click', toggleTeamInputMode);
         if (id('saveTeamProgramBtn')) id('saveTeamProgramBtn').addEventListener('click', saveTeamProgram);
         if (id('updateTeamProgramBtn')) id('updateTeamProgramBtn').addEventListener('click', updateTeamProgram);
         if (id('deleteTeamProgramBtn')) id('deleteTeamProgramBtn').addEventListener('click', deleteTeamProgram);
