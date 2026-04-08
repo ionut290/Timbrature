@@ -7653,9 +7653,14 @@ out center tags;`;
         const message = String(error?.message || '').toLowerCase();
         return code === 'no_shared_sync_channel' || message.includes('nessun canale di sincronizzazione condivisa disponibile');
       }
+      function isTimeoutSyncError(error) {
+        const code = String(error?.code || '').toLowerCase();
+        const message = String(error?.message || '').toLowerCase();
+        return code.includes('timeout') || message.includes('timeout') || message.includes('operazione scaduta');
+      }
       async function runSharedSyncCycle(reason = 'manual-sync', options = {}) {
-        const pullTimeoutMs = Number(options?.pullTimeoutMs || 15000);
-        const pushTimeoutMs = Number(options?.pushTimeoutMs || 15000);
+        const pullTimeoutMs = Number(options?.pullTimeoutMs || 25000);
+        const pushTimeoutMs = Number(options?.pushTimeoutMs || 25000);
         await promiseWithTimeout(
           pushSharedAppPayload(reason, { throwOnFailure:true }),
           pushTimeoutMs,
@@ -9193,7 +9198,7 @@ out center tags;`;
         showBackupMsg('Sincronizzazione automatica in corso…', 'ok');
         try {
           const syncedAt = new Date().toISOString();
-          const result = await runSharedSyncCycle(`auto:${reason}`, { pushTimeoutMs: 12000, pullTimeoutMs: 12000 });
+          const result = await runSharedSyncCycle(`auto:${reason}`, { pushTimeoutMs: 25000, pullTimeoutMs: 25000 });
           setFirebaseSyncState({ connected:true, lastPushAt: syncedAt, lastPullAt: syncedAt });
           writeJSON(SHARED_APP_SYNC_META_KEY, { last_push_at: syncedAt, last_pull_at: syncedAt });
           showBackupMsg(
@@ -9205,6 +9210,8 @@ out center tags;`;
         } catch (error) {
           if (isNoSharedSyncChannelError(error)) {
             showBackupMsg('Auto-sync non riuscita: nessun canale cloud condiviso disponibile (Firestore/RTDB).', 'err');
+          } else if (isTimeoutSyncError(error)) {
+            showBackupMsg('Connessione lenta: auto-sync in ritardo, verrà riprovata automaticamente.', 'ok');
           } else {
             showBackupMsg(`Auto-sync non riuscita: ${error?.message || 'errore sconosciuto.'}`, 'err');
           }
