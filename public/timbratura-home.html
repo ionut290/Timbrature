@@ -643,7 +643,7 @@
               </label>
             </div>
             <div class="inline-actions">
-              <button type="button" class="secondary" id="addTeamCommessaRowBtn">+ Aggiungi commessa per il giorno</button>
+              <button type="button" class="secondary" id="addTeamCommessaRowBtn" onclick="addTeamCommessaRow()">+ Aggiungi commessa per il giorno</button>
             </div>
             <div id="teamCommesseContainer"></div>
             <input type="hidden" id="teamRequestCantiere" />
@@ -3563,7 +3563,7 @@ out center tags;`;
           <div class="team-commessa-box" data-team-commessa-index="${idx}">
             <div class="team-commessa-head">
               <h4>Commessa ${idx + 1}</h4>
-              <button type="button" class="secondary btn-small" data-team-remove-commessa="${idx}">Rimuovi</button>
+              <button type="button" class="secondary btn-small" data-team-remove-commessa="${idx}" onclick="removeTeamCommessaRow(${idx})">Rimuovi</button>
             </div>
             <div class="grid">
               <label>Cantiere / commessa
@@ -3571,14 +3571,14 @@ out center tags;`;
               </label>
             </div>
             <div class="inline-actions">
-              <button type="button" class="secondary btn-small" data-team-add-squadra="${idx}">+ Aggiungi squadra</button>
+              <button type="button" class="secondary btn-small" data-team-add-squadra="${idx}" onclick="addTeamSquadraRow(${idx})">+ Aggiungi squadra</button>
             </div>
             <div data-team-squadre-wrap="${idx}">
               ${squadre.map((squadra, sIdx)=>`
                 <div class="setup-box" style="margin-top:8px;" data-team-squadra-index="${sIdx}">
                   <div class="team-commessa-head">
                     <h4>Squadra ${sIdx + 1}</h4>
-                    <button type="button" class="secondary btn-small" data-team-remove-squadra="${idx}:${sIdx}">Rimuovi squadra</button>
+                    <button type="button" class="secondary btn-small" data-team-remove-squadra="${idx}:${sIdx}" onclick="removeTeamSquadraRow(${idx}, ${sIdx})">Rimuovi squadra</button>
                   </div>
                   <div class="grid">
                     <label>Personale richiesto
@@ -3638,12 +3638,6 @@ out center tags;`;
         const wrap = id('teamCommesseContainer');
         if (!wrap) return;
         wrap.innerHTML = plan.map((row, idx)=>teamCommessaRowHtml(row, idx)).join('');
-        wrap.querySelectorAll('[data-team-remove-commessa]').forEach((btn)=>btn.addEventListener('click', ()=>removeTeamCommessaRow(Number(btn.dataset.teamRemoveCommessa))));
-        wrap.querySelectorAll('[data-team-add-squadra]').forEach((btn)=>btn.addEventListener('click', ()=>addTeamSquadraRow(Number(btn.dataset.teamAddSquadra))));
-        wrap.querySelectorAll('[data-team-remove-squadra]').forEach((btn)=>btn.addEventListener('click', ()=>{
-          const [commessaIdx, squadraIdx] = String(btn.dataset.teamRemoveSquadra || '').split(':').map((value)=>Number(value));
-          removeTeamSquadraRow(commessaIdx, squadraIdx);
-        }));
         wrap.querySelectorAll('[data-team-field]').forEach((input)=>input.addEventListener('change', saveTeamRequestDraft));
         wrap.querySelectorAll('[data-team-field]').forEach((input)=>input.addEventListener('input', saveTeamRequestDraft));
         syncLegacyTeamFieldsFromPlan();
@@ -9838,7 +9832,6 @@ out center tags;`;
         if (id('toggleFirebaseLiveSyncBtn')) id('toggleFirebaseLiveSyncBtn').addEventListener('click', toggleFirebaseLiveSync);
         if (id('forceSharedSyncBtn')) id('forceSharedSyncBtn').addEventListener('click', forceSharedSyncNow);
         if (id('installAppBtn')) id('installAppBtn').addEventListener('click', installPwaApp);
-        if (id('addTeamCommessaRowBtn')) id('addTeamCommessaRowBtn').addEventListener('click', ()=>addTeamCommessaRow());
         if (id('addTeamMemberBtn')) id('addTeamMemberBtn').addEventListener('click', ()=>addTeamMember());
         if (id('teamMemberInput')) id('teamMemberInput').addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); addTeamMember(); } });
         if (id('saveTeamLeaderBtn')) id('saveTeamLeaderBtn').addEventListener('click', saveTeamLeader);
